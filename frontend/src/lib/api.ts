@@ -139,7 +139,7 @@ export interface AlertEntry {
 }
 
 /** Backend origin for split deployments (e.g. web on Vercel, API elsewhere). Empty = same origin. */
-const BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/\/+$/, '');
+const BASE = (process.env.NEXT_PUBLIC_API_BASE ?? '').replace(/\/+$/, '');
 
 export class ApiError extends Error {
   constructor(

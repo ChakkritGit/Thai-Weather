@@ -1,3 +1,5 @@
+'use client';
+
 import type { LayerId, LayerMeta } from '../lib/api';
 import { useT } from '../i18n';
 import { Icon, type IconName } from './Icon';

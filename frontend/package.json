@@ -1,27 +1,26 @@
 {
   "name": "thai-weather-hd-web",
   "private": true,
-  "version": "1.0.0",
-  "type": "module",
+  "version": "2.0.0",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "tokens": "node ../design-system/scripts/build-tokens.mjs"
   },
   "dependencies": {
     "maplibre-gl": "4.7.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "next": "15.5.26",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
-    "@vitejs/plugin-react": "4.3.3",
+    "@types/node": "22.10.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.3",
     "typescript": "5.6.3",
-    "vite": "5.4.10",
     "vitest": "2.1.4"
   }
 }

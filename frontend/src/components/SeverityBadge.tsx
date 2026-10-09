@@ -1,3 +1,5 @@
+'use client';
+
 import type { Alert } from '../lib/api';
 import { useT } from '../i18n';
 import { Icon, hazardIcon } from './Icon';

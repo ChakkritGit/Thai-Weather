@@ -29,7 +29,9 @@
                                        ▼
                             FastAPI  api/routes.py  (gzip, ETag)
                                        ▼
-                       React + MapLibre web app (frontend/)
+   Next.js server (frontend/)  — SSR pages, /api/v1 rewrite proxy
+                                       ▼
+          browser: React + MapLibre (map is client-only, lazy-loaded)
 ```
 
 ## Key decisions
@@ -43,6 +45,7 @@
 | **Mercator-correct rasterising** (`frontend/src/lib/render.ts`) | A lat/lon image stretched linearly in Web Mercator would be misplaced by up to ~15 km. |
 | **Self-hosted basemap** | Ocean/land/borders from Natural Earth + hillshade from our DEM: no third-party tile or glyph server, works offline and on slow links. |
 | **Tokens as the single source of truth** | `design-system/tokens/weather.json` holds both colour scales *and* alert thresholds; the build copies them into the backend so alerts and legends never disagree. |
+| **Next.js App Router** | Server components fetch from the API (cached with `revalidate`) so province/alert pages are indexable and shareable; the map is a client-only island (`next/dynamic`, `ssr:false`) because MapLibre needs `window`. `/api/v1/*` is rewritten to the backend, so the browser never needs CORS. Language/theme live in cookies so the server renders the right one. |
 | **Demo source** | The whole stack (and CI) runs without network access; demo output is always flagged in API (`demo: true`) and UI. |
 
 ## Performance (1 CPU core, 48 h, 8 members)

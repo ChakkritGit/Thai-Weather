@@ -1,4 +1,4 @@
-import type { Lang } from '../i18n';
+import type { Lang } from '../i18n/dict';
 
 const TZ = 'Asia/Bangkok';
 const locale = (lang: Lang) => (lang === 'th' ? 'th-TH' : 'en-GB');

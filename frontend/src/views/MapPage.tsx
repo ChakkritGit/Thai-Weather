@@ -1,9 +1,12 @@
+'use client';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { LayerId, Meta, RunMeta } from '../lib/api';
 import { buildLut } from '../lib/color';
 import { nearestStep, thaiDate } from '../lib/format';
 import { useT } from '../i18n';
+import { useTheme } from '../lib/theme';
 import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
 import { Legend } from '../components/Legend';
@@ -22,8 +25,9 @@ function initialLayer(): LayerId {
   }
 }
 
-export function MapPage({ meta, run, theme }: { meta: Meta; run: RunMeta; theme: 'light' | 'dark' }) {
+export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: RunMeta; initialPoint?: MapPoint | null }) {
   const { t, lang } = useT();
+  const { theme } = useTheme();
   const [layerId, setLayerId] = useState<LayerId>(initialLayer);
   const nowIdx = useMemo(() => nearestStep(run.times), [run.times]);
   const [step, setStep] = useState(nowIdx);
@@ -31,7 +35,13 @@ export function MapPage({ meta, run, theme }: { meta: Meta; run: RunMeta; theme:
   const [playing, setPlaying] = useState(false);
   const [compare, setCompare] = useState(false);
   const [split, setSplit] = useState(0.5);
-  const [selected, setSelected] = useState<MapPoint | null>(null);
+  const [selected, setSelectedState] = useState<MapPoint | null>(initialPoint ?? null);
+  // keep the selected point in the URL so a forecast location can be shared
+  const setSelected = useCallback((p: MapPoint | null) => {
+    setSelectedState(p);
+    const url = p ? `?lat=${p.lat.toFixed(3)}&lon=${p.lon.toFixed(3)}` : window.location.pathname;
+    window.history.replaceState(null, '', url);
+  }, []);
   const [loading, setLoading] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
@@ -83,21 +93,9 @@ export function MapPage({ meta, run, theme }: { meta: Meta; run: RunMeta; theme:
     (m: MLMap | null) => {
       maps.current.fine = m;
       syncMaps();
-      // "view on map" from the province page
-      let focus: [number, number] | null = null;
-      try {
-        focus = JSON.parse(sessionStorage.getItem('thwx.focus') ?? 'null');
-        sessionStorage.removeItem('thwx.focus');
-      } catch {
-        /* storage unavailable */
-      }
-      if (m && focus) {
-        const [lon, lat] = focus;
-        setSelected({ lat, lon });
-        m.once('load', () => m.flyTo({ center: [lon, lat], zoom: 7.5 }));
-      }
+      if (m && initialPoint) m.once('load', () => m.flyTo({ center: [initialPoint.lon, initialPoint.lat], zoom: 7.5 }));
     },
-    [syncMaps],
+    [syncMaps, initialPoint],
   );
   const onCoarseMap = useCallback(
     (m: MLMap | null) => {
@@ -192,7 +190,7 @@ export function MapPage({ meta, run, theme }: { meta: Meta; run: RunMeta; theme:
             <Icon name="split" />
             {t('compare')}
           </button>
-          {'geolocation' in navigator && (
+          {typeof navigator !== 'undefined' && 'geolocation' in navigator && (
             <button type="button" className="btn" onClick={locate} aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}>
               <Icon name="locate" />
             </button>

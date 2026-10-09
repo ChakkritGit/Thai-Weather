@@ -1,7 +1,10 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { tokens, type TokenPath } from '../design/generated/tokens';
 import { categories, cssGradient, scales } from '../lib/color';
 import { useT } from '../i18n';
+import { useTheme } from '../lib/theme';
 import { Icon } from '../components/Icon';
 import { AlertBadge, LevelBadge } from '../components/SeverityBadge';
 import { ChartLegend, TimeSeriesChart } from '../components/TimeSeriesChart';
@@ -27,8 +30,9 @@ const PRINCIPLES = [
   { th: ['เข้าถึงได้', 'คอนทราสต์ WCAG AA, สเกลสีแยกได้สำหรับตาบอดสี, มีตารางแทนกราฟ, รองรับคีย์บอร์ด'], en: ['Accessible', 'WCAG AA contrast, CVD-checked series colours, table views, keyboard support'] },
 ];
 
-export function DesignSystemPage({ theme }: { theme: 'light' | 'dark' }) {
+export function DesignSystemPage() {
   const { lang, pick } = useT();
+  const { theme } = useTheme();
   const th = lang === 'th';
   const vals = useResolved(theme);
   const group = (prefix: string) => paths.filter((p) => p.startsWith(prefix));

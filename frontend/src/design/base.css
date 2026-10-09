@@ -1073,3 +1073,8 @@ button {
   font-weight: var(--font-weight-bold);
 }
 .pipeline b { font-size: var(--font-size-sm); }
+
+.app-main {
+  min-height: 0;
+  display: grid;
+}

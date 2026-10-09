@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect } from 'react';
 import type { RunMeta } from '../lib/api';
 import { fmtDay, fmtStep, nearestStep, thaiDate, thaiHour } from '../lib/format';

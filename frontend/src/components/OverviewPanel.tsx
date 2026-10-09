@@ -1,6 +1,9 @@
+'use client';
+
 import { api, type ProvinceWithDays, type RunMeta } from '../lib/api';
 import { fmtDateTime, fmtDay, fmtNum } from '../lib/format';
-import { href } from '../lib/router';
+import Link from 'next/link';
+import { paths } from '../lib/paths';
 import { useAsync } from '../lib/useAsync';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
@@ -63,9 +66,9 @@ export function OverviewPanel({ run, dayIndex }: { run: RunMeta; dayIndex: numbe
       <section className="panel-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <h3>{t('topAlerts')}</h3>
-          <a href={href('alerts')} style={{ fontSize: 'var(--font-size-sm)' }}>
+          <Link href={paths.alerts} style={{ fontSize: 'var(--font-size-sm)' }}>
             {t('seeAll')}
-          </a>
+          </Link>
         </div>
         {top.length === 0 ? (
           <p className="muted" style={{ fontSize: 'var(--font-size-sm)' }}>
@@ -74,7 +77,7 @@ export function OverviewPanel({ run, dayIndex }: { run: RunMeta; dayIndex: numbe
         ) : (
           <div>
             {top.map(({ p, d }) => (
-              <a key={p.id} className="alert-row" href={href('provinces', p.id)}>
+              <Link key={p.id} className="alert-row" href={paths.province(p)}>
                 <span className="sev-bar" data-sev={Math.max(...d.alerts.map((a) => a.severity))} />
                 <span>
                   <span className="name">{pick(p)}</span>
@@ -87,7 +90,7 @@ export function OverviewPanel({ run, dayIndex }: { run: RunMeta; dayIndex: numbe
                   </span>
                 </span>
                 <Icon name="chevron" width={16} className="subtle" />
-              </a>
+              </Link>
             ))}
           </div>
         )}

@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { api, type PointForecast } from '../lib/api';
 import { categorise } from '../lib/color';

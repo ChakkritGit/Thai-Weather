@@ -33,6 +33,7 @@
 | **แก้ไขด้วยสถานี** | `POST /api/v1/observations` → residual analysis ตามระยะทาง/ความสูง |
 | **เปรียบเทียบได้ทุกจุด** | โหมดเลื่อนเทียบ 22 กม. ↔ 2 กม. และกราฟ “ทำไมต่างจากโมเดล” |
 | **Design system** | DTCG tokens → CSS / TypeScript / เกณฑ์ที่ backend ใช้ร่วม |
+| **SEO & แชร์ได้** | หน้าจังหวัดแยก URL (`/provinces/chiang-mai`) render ฝั่ง server พร้อม title/description เป็นข้อความพยากรณ์, sitemap.xml, ลิงก์จุดบนแผนที่ `/?lat=..&lon=..` |
 
 ## เริ่มใช้งาน
 
@@ -43,7 +44,7 @@ docker compose up --build          # โหมดสาธิต ทำงาน
 THWX_SOURCE=open-meteo docker compose up --build   # ข้อมูลโมเดลจริง
 ```
 
-เปิด <http://localhost:8000> · API docs ที่ <http://localhost:8000/docs>
+เปิดเว็บ <http://localhost:3000> · API docs ที่ <http://localhost:8000/docs>
 
 ### พัฒนาในเครื่อง
 
@@ -54,10 +55,10 @@ python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 uvicorn app.main:app --reload          # http://localhost:8000
 
-# frontend (Node ≥ 20)
+# frontend – Next.js (Node ≥ 20)
 cd frontend
 npm install
-npm run dev                            # http://localhost:5173 (proxy /api → :8000)
+npm run dev                            # http://localhost:3000 (rewrite /api → THWX_API_URL, ค่าเริ่มต้น :8000)
 ```
 
 รอบพยากรณ์แรกใช้เวลา ~30 วินาที (คำนวณ 48 ชม. × 316k จุด × 8 สมาชิก)
@@ -75,7 +76,14 @@ npm run dev                            # http://localhost:5173 (proxy /api → :
 | `THWX_REFRESH_MINUTES` | `180` | รอบการอัปเดต |
 | `THWX_DATA_DIR` | `var` | ที่เก็บผลพยากรณ์ |
 | `THWX_ADMIN_TOKEN` | – | Bearer token สำหรับ `POST` endpoints |
-| `THWX_FALLBACK_TO_DEMO` | `true` | ใช้ข้อมูลสาธิตเมื่อแหล่งข้อมูลจริงล่ม (แสดงป้ายชัดเจน) |
+| `THWX_FALLBACK_TO_DEMO` | `true` | ใช้ข้อมูลสาธิตเมื่อแหล่งข้อมูลจริงล่ม (แสดงป้ายชัดเจน) — production แนะนำ `false` |
+
+ฝั่งเว็บ (Next.js, `frontend/.env.local`):
+
+| ตัวแปร | ค่าเริ่มต้น | ความหมาย |
+|---|---|---|
+| `THWX_API_URL` | `http://127.0.0.1:8000` | ที่อยู่ backend (ใช้ทั้งตอน build และ run) |
+| `SITE_URL` | `http://localhost:3000` | URL จริงของเว็บ สำหรับ canonical / sitemap / Open Graph |
 
 > **หมายเหตุ Open-Meteo free tier:** กริด 0.25° มี ~2,100 จุด ต่อการดึง 1 ครั้ง
 > รอบละ 3 ชม. ≈ 17,000 calls/วัน ซึ่งเกินโควต้าฟรี (10,000/วัน) — ใช้
@@ -90,7 +98,7 @@ backend/         FastAPI + NumPy/SciPy — แหล่งข้อมูล, do
   app/products/    สถิติรายจังหวัด, การเตือนภัย
   app/data/        DEM 2 กม., ขอบเขตจังหวัด, weather_scales.json (generated)
   scripts/         build_static.py — สร้างข้อมูลภูมิประเทศ/ขอบเขตใหม่
-frontend/        React + TypeScript + MapLibre (ไม่พึ่ง tile server ภายนอก)
+frontend/        Next.js 15 (App Router) + TypeScript + MapLibre — หน้าแผนที่ทำงานฝั่ง client, หน้าจังหวัด/เตือนภัย render ฝั่ง server เพื่อ SEO
 design-system/   tokens/*.json (DTCG) → dist/ (CSS, TS, JSON)
 infra/wrf/       namelist WRF 3 กม. (ทางเลือก physics เต็มรูปแบบ)
 docs/            เอกสารเทคนิค
@@ -120,12 +128,12 @@ Thailand in about 30 seconds on one CPU, using tropical-specific physics:
 terrain lapse rates, basin cold-air pools, land–sea contrast, urban heat
 islands, terrain-modified wind, upslope orographic rain, sea/land-breeze
 convergence and a stochastic convective-rain ensemble that yields chance of
-rain and **% of area with rain** per province. A React/MapLibre web app shows
+rain and **% of area with rain** per province. A Next.js + MapLibre web app (server-rendered, SEO-friendly province pages such as `/provinces/chiang-mai`) shows
 it with a swipe comparison against the raw model, point forecasts that explain
 *why* each value differs, province summaries with auto-generated TMD-style
 text, and alerts based on Thai Department of Health and TMD thresholds.
 
-Quick start: `docker compose up --build`, then open http://localhost:8000.
+Quick start: `docker compose up --build`, then open http://localhost:3000 (web) – the API is on :8000.
 See the docs above (mostly bilingual) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License & data attribution

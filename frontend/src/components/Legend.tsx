@@ -1,3 +1,5 @@
+'use client';
+
 import type { LayerMeta } from '../lib/api';
 import { categories, hexToRgb, scales } from '../lib/color';
 import { useT } from '../i18n';

@@ -1,6 +1,6 @@
 import type { DaySummary } from './api';
 import { categorise } from './color';
-import type { Lang } from '../i18n';
+import type { Lang } from '../i18n/dict';
 
 /**
  * Generate a short forecast sentence in the style of TMD public forecasts,

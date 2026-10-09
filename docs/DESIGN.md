@@ -1,6 +1,6 @@
 # Design & design system / การออกแบบและระบบดีไซน์
 
-Live showcase: open the app → **Design system** tab (`#/design`).
+Live showcase: open the app → **Design system** (`/design`).
 
 ## Users and context
 
@@ -69,12 +69,12 @@ validation rules instead.
 
 | Screen | Content |
 |---|---|
-| Map (`#/map`) | layer chips, swipe compare 22 km ↔ 2 km, legend, 48 h timeline with play, hover read-out, national overview sidebar or point panel (bottom sheet on mobile) |
+| Map (`/`, shareable `/?lat=&lon=`) | layer chips, swipe compare 22 km ↔ 2 km, legend, 48 h timeline with play, hover read-out, national overview sidebar or point panel (bottom sheet on mobile) |
 | Point panel | hero temperature vs model, heat-index level, chance of rain, "why it differs" waterfall, 48 h charts / table, daily rain |
-| Provinces (`#/provinces`) | searchable table by region and day; drawer with auto-generated TMD-style forecast text and hourly charts |
-| Alerts (`#/alerts`) | grouped by day and severity, thresholds explained |
-| Method (`#/method`) | the 22 km problem illustrated, pipeline, limitations, data sources |
-| Design system (`#/design`) | principles, every token, scales, thresholds, components |
+| Provinces (`/provinces`, `/provinces/<slug>`) | searchable table by region and day; a server-rendered page per province with auto-generated TMD-style forecast text (also used as the SEO description) and hourly charts |
+| Alerts (`/alerts`) | grouped by day and severity, thresholds explained |
+| Method (`/method`) | the 22 km problem illustrated, pipeline, limitations, data sources |
+| Design system (`/design`) | principles, every token, scales, thresholds, components |
 
 ## Screenshots
 

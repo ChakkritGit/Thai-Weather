@@ -1,3 +1,5 @@
+'use client';
+
 import type { RunMeta } from '../lib/api';
 import { scaleColor, scales } from '../lib/color';
 import { useT } from '../i18n';
@@ -33,10 +35,13 @@ const STEPS = [
   },
 ];
 
-export function MethodPage({ run }: { run: RunMeta }) {
+const FALLBACK = { coarse_grid: { resolution_km: 22.3 }, fine_grid: { resolution_km: 2.2 } };
+
+export function MethodPage({ run }: { run: Pick<RunMeta, 'coarse_grid' | 'fine_grid'> | null }) {
   const { lang } = useT();
+  const grids = run ?? (FALLBACK as Pick<RunMeta, 'coarse_grid' | 'fine_grid'>);
   const th = lang === 'th';
-  const ratio = Math.round((run.coarse_grid.resolution_km / run.fine_grid.resolution_km) ** 2);
+  const ratio = Math.round((grids.coarse_grid.resolution_km / grids.fine_grid.resolution_km) ** 2);
 
   return (
     <div className="page">
@@ -45,8 +50,8 @@ export function MethodPage({ run }: { run: RunMeta }) {
           <h1>{th ? 'ทำไมต้องความละเอียด 2 กม. สำหรับประเทศเขตร้อน' : 'Why 2 km resolution for the tropics'}</h1>
           <p>
             {th
-              ? `โมเดลพยากรณ์ระดับโลกที่ประเทศไทยใช้อยู่มีระยะกริดราว ${run.coarse_grid.resolution_km} กม. หนึ่งช่องกริดจึงครอบคลุมพื้นที่ ~${Math.round(run.coarse_grid.resolution_km ** 2)} ตร.กม. — ใหญ่กว่าเมืองทั้งเมือง และใหญ่กว่าพายุฝนฟ้าคะนองเขตร้อนส่วนใหญ่ ระบบนี้ลดย่อส่วน (downscale) ลงเป็น ${run.fine_grid.resolution_km} กม. ได้รายละเอียดมากขึ้น ${ratio} เท่าต่อพื้นที่`
-              : `The global models Thailand relies on have ~${run.coarse_grid.resolution_km} km grid spacing – one cell covers ~${Math.round(run.coarse_grid.resolution_km ** 2)} km², bigger than a whole city and bigger than most tropical thunderstorms. This system downscales to ${run.fine_grid.resolution_km} km: ${ratio}× more detail per area.`}
+              ? `โมเดลพยากรณ์ระดับโลกที่ประเทศไทยใช้อยู่มีระยะกริดราว ${grids.coarse_grid.resolution_km} กม. หนึ่งช่องกริดจึงครอบคลุมพื้นที่ ~${Math.round(grids.coarse_grid.resolution_km ** 2)} ตร.กม. — ใหญ่กว่าเมืองทั้งเมือง และใหญ่กว่าพายุฝนฟ้าคะนองเขตร้อนส่วนใหญ่ ระบบนี้ลดย่อส่วน (downscale) ลงเป็น ${grids.fine_grid.resolution_km} กม. ได้รายละเอียดมากขึ้น ${ratio} เท่าต่อพื้นที่`
+              : `The global models Thailand relies on have ~${grids.coarse_grid.resolution_km} km grid spacing – one cell covers ~${Math.round(grids.coarse_grid.resolution_km ** 2)} km², bigger than a whole city and bigger than most tropical thunderstorms. This system downscales to ${grids.fine_grid.resolution_km} km: ${ratio}× more detail per area.`}
           </p>
         </header>
 

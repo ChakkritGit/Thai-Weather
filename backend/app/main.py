@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from .api.routes import router
 from .config import get_settings
@@ -21,8 +19,6 @@ from .scheduler import ObservationBuffer, Refresher
 from .store import RunStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-
-FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 @asynccontextmanager
@@ -58,6 +54,3 @@ app.add_middleware(
     expose_headers=["X-Grid-NY", "X-Grid-NX", "X-Run-Id"],
 )
 app.include_router(router)
-
-if FRONTEND_DIST.exists():  # single-container deployment serves the built web app
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="web")

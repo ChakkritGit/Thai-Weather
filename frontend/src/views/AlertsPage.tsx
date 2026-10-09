@@ -1,22 +1,23 @@
+'use client';
+
 import { useState } from 'react';
-import { api, type RunMeta } from '../lib/api';
+import Link from 'next/link';
+import type { AlertEntry, RunMeta } from '../lib/api';
 import { fmtDay } from '../lib/format';
-import { href } from '../lib/router';
-import { useAsync } from '../lib/useAsync';
+import { paths } from '../lib/paths';
 import { categories } from '../lib/color';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icon';
 import { AlertBadge } from '../components/SeverityBadge';
 
-export function AlertsPage({ run }: { run: RunMeta }) {
+export function AlertsPage({ run, alerts }: { run: RunMeta; alerts: AlertEntry[] }) {
   const { t, lang, pick } = useT();
   const [minSev, setMinSev] = useState(2);
-  const { data, error } = useAsync(`alerts:${run.run_id}`, () => api.alerts(1));
   const sevLabels = { 1: lang === 'th' ? 'เฝ้าระวัง' : 'Advisory', 2: lang === 'th' ? 'เตือนภัย' : 'Warning', 3: lang === 'th' ? 'อันตราย' : 'Danger' };
 
   const byDay = run.days.map((d) => ({
     day: d,
-    entries: (data?.alerts ?? [])
+    entries: alerts
       .filter((a) => a.date === d.date)
       .map((a) => ({ ...a, alerts: a.alerts.filter((x) => x.severity >= minSev) }))
       .filter((a) => a.alerts.length > 0)
@@ -44,10 +45,7 @@ export function AlertsPage({ run }: { run: RunMeta }) {
             ))}
           </div>
         </div>
-        {error && <div className="empty">{error.message}</div>}
-        {!data && !error && <div className="skeleton" style={{ height: 300 }} />}
-        {data &&
-          byDay.map(({ day, entries }) => (
+        {byDay.map(({ day, entries }) => (
             <section key={day.date} className="card card-pad" style={{ display: 'grid', gap: 8 }}>
               <h2 style={{ fontSize: 'var(--font-size-lg)' }}>
                 {fmtDay(day.date, lang, true)}{' '}
@@ -63,7 +61,7 @@ export function AlertsPage({ run }: { run: RunMeta }) {
               ) : (
                 <div>
                   {entries.map((e) => (
-                    <a key={e.province.id} className="alert-row" href={href('provinces', e.province.id)}>
+                    <Link key={e.province.id} className="alert-row" href={paths.province(e.province)}>
                       <span className="sev-bar" data-sev={Math.max(...e.alerts.map((a) => a.severity))} />
                       <span>
                         <span className="name">{pick(e.province)}</span>
@@ -74,7 +72,7 @@ export function AlertsPage({ run }: { run: RunMeta }) {
                         </span>
                       </span>
                       <Icon name="chevron" width={16} className="subtle" />
-                    </a>
+                    </Link>
                   ))}
                 </div>
               )}

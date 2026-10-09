@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fmtHour, fmtNum, fmtStep, thaiHour } from '../lib/format';
 import { useT } from '../i18n';

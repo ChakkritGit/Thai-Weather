@@ -9,16 +9,16 @@ _Last updated: 2026-10-09_
 | Downscaling engine | ✅ working | 48 h × 316k cells × 8 members in ~30 s on one core |
 | Sources | ✅ demo · ✅ Open-Meteo (unit-tested with mocked HTTP) | Open-Meteo could not be reached from the build sandbox — **run one live test before production** |
 | API | ✅ 12 endpoints, gzip + ETag | OpenAPI at `/docs` |
-| Web app | ✅ map, compare, point, provinces, alerts, method, design system | TH/EN, light/dark, mobile |
+| Web app | ✅ Next.js 15 App Router: map, compare, point, provinces (+ SSR page per province), alerts, method, design system | TH/EN + light/dark via cookies (server-rendered), mobile, sitemap/robots |
 | Design tokens | ✅ DTCG source → CSS/TS/JSON | shared thresholds with backend |
 | Tests | ✅ backend 25 (pytest) · frontend 8 (vitest) | `ruff`, `tsc` clean |
-| Deploy | ⚠️ Dockerfile, compose, CI workflow, Vercel config written | Docker image **not yet built** (no Docker daemon in the build sandbox) – build once and fix if needed; see `docs/DEPLOYMENT.md` |
+| Deploy | ⚠️ `backend/Dockerfile`, `frontend/Dockerfile` (Next standalone), compose, CI, Vercel config | Docker images **not yet built** (no Docker daemon in the build sandbox) – build once and fix if needed; `next build` + `next start` verified; see `docs/DEPLOYMENT.md` |
 | Calibration / verification | ❌ not done | constants are physically motivated first guesses |
 
 ## Run it
 
 ```bash
-docker compose up --build                     # http://localhost:8000
+docker compose up --build                     # web http://localhost:3000 · API http://localhost:8000
 # or: backend `uvicorn app.main:app --reload`, frontend `npm run dev`
 ```
 
@@ -32,7 +32,7 @@ docker compose up --build                     # http://localhost:8000
 | alert thresholds, map colours | `design-system/tokens/weather.json` → run `node design-system/scripts/build-tokens.mjs` |
 | a new data source (WRF, ECMWF open data, TMD NWP) | implement `Source.fetch()` returning `CoarseForecast` (`backend/app/sources/base.py`) |
 | static terrain / boundaries | `backend/scripts/build_static.py` (needs `pip install -e ".[build]"`) |
-| UI | `frontend/src/pages/*`, `components/WeatherMap.tsx`, styles in `src/design/base.css` |
+| UI routes | `frontend/src/app/*` (server: data fetching + metadata) → `src/views/*` (client UI), `components/WeatherMap.tsx`, styles in `src/design/base.css` |
 
 ## Known issues / caveats
 
@@ -40,8 +40,8 @@ docker compose up --build                     # http://localhost:8000
 2. **Scheduler in-process** – one backend replica must run continuously. With several replicas, either share `THWX_DATA_DIR` and run the refresher in only one (add a flag), or split it into a worker.
 3. **Province names** come from our ISO-code table (`core/provinces_meta.py`) because Natural Earth's Thai names contain errors.
 4. **Rain-coverage terms** (`rainCoverage` in `weather.json`) should be confirmed against TMD's current glossary.
-5. **Frontend bundle** is ~1 MB (MapLibre ≈ 800 KB). Could be code-split per page.
-6. Province drawer charts show province means; a per-province 22 km comparison is not yet shown.
+5. **Map bundle** – MapLibre (~800 KB) is lazy-loaded only on `/`; other pages ship ~115 KB of JS.
+6. Province pages show province means; a per-province 22 km comparison is not yet shown. Open Graph uses one static image (`public/og.png`); per-province OG images need a Thai font for `next/og`.
 
 ## Roadmap (suggested order)
 
