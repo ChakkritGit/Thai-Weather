@@ -98,7 +98,8 @@ def _hillshade() -> np.ndarray:
     slope = np.arctan(2.5 * np.hypot(dzdx, dzdy))
     aspect = np.arctan2(-dzdx, -dzdy)
     shade = np.sin(alt) * np.cos(slope) + np.cos(alt) * np.sin(slope) * np.cos(az - aspect)
-    shade = np.clip((1.0 - shade) * 255 * 1.6, 0, 255)  # 0 = fully lit
+    # 0 on flat ground, increasing on slopes facing away from the light
+    shade = np.clip((np.sin(alt) - shade) / np.sin(alt), 0, 1) * 255
     return np.where(static.land, shade, 0).astype(np.uint8)
 
 
@@ -113,7 +114,7 @@ def static_layer(name: str, request: Request) -> Response:
         data = np.clip(static.elev_land / 10.0, 0, 255).astype(np.uint8)
     else:
         raise HTTPException(404, detail="unknown static layer")
-    return _binary(data, f"static-{name}-v1", request)
+    return _binary(data, f"static-{name}-v2", request)
 
 
 @router.get("/geo/{name}")

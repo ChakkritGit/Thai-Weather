@@ -459,22 +459,22 @@
     },
     "chart": {
       "fine": {
-        "$value": "{color.monsoon.700}",
+        "$value": "#006ea6",
         "$extensions": {
           "th.weather.modes": {
-            "dark": "{color.monsoon.300}"
+            "dark": "#2b95c9"
           }
         },
-        "$description": "2 km downscaled series"
+        "$description": "2 km downscaled series. Validated pair with 'coarse' (CVD ΔE ≥ 20, both modes)."
       },
       "coarse": {
-        "$value": "{color.cloud.400}",
+        "$value": "#c2610c",
         "$extensions": {
           "th.weather.modes": {
-            "dark": "{color.cloud.500}"
+            "dark": "#c8762a"
           }
         },
-        "$description": "22 km model series"
+        "$description": "22 km global-model series (also dashed – secondary encoding)."
       },
       "grid": {
         "$value": "{color.cloud.100}",
@@ -489,22 +489,6 @@
         "$extensions": {
           "th.weather.modes": {
             "dark": "{color.cloud.400}"
-          }
-        }
-      },
-      "rain": {
-        "$value": "#4f9fe6",
-        "$extensions": {
-          "th.weather.modes": {
-            "dark": "#5aa9f0"
-          }
-        }
-      },
-      "heat": {
-        "$value": "{color.papaya.600}",
-        "$extensions": {
-          "th.weather.modes": {
-            "dark": "{color.papaya.300}"
           }
         }
       },
