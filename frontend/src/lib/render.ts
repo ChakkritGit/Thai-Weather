@@ -20,14 +20,56 @@ export interface Bounds {
   north: number;
 }
 
-/** Outer cell edges of a grid. */
+/**
+ * Outer cell edges of a grid. Derived from nx/ny rather than lon1/lat1: the
+ * nominal domain end need not be a cell centre (0.25° over 97.3–105.7°E ends
+ * at 105.8°E), and runs already on disk carry the nominal value.
+ */
 export function gridBounds(g: GridDesc): Bounds {
   return {
     west: g.lon0 - g.dlon / 2,
-    east: g.lon1 + g.dlon / 2,
+    east: g.lon0 + (g.nx - 1) * g.dlon + g.dlon / 2,
     south: g.lat0 - g.dlat / 2,
-    north: g.lat1 + g.dlat / 2,
+    north: g.lat0 + (g.ny - 1) * g.dlat + g.dlat / 2,
   };
+}
+
+/**
+ * Cell-edge lines of a grid, clipped to `clip`. Every line spans exactly the
+ * clipped extent, so horizontal and vertical lines meet at the corners and
+ * stop where the coloured image stops.
+ */
+export function gridLines(g: GridDesc, clip: Bounds): [number, number][][] {
+  const eps = 1e-9;
+  const b = gridBounds(g);
+  const west = Math.max(b.west, clip.west);
+  const east = Math.min(b.east, clip.east);
+  const south = Math.max(b.south, clip.south);
+  const north = Math.min(b.north, clip.north);
+  const lines: [number, number][][] = [];
+  for (let i = 0; i <= g.nx; i++) {
+    const lon = b.west + i * g.dlon;
+    if (lon < clip.west - eps || lon > clip.east + eps) continue;
+    lines.push([
+      [lon, south],
+      [lon, north],
+    ]);
+  }
+  for (let j = 0; j <= g.ny; j++) {
+    const lat = b.south + j * g.dlat;
+    if (lat < clip.south - eps || lat > clip.north + eps) continue;
+    lines.push([
+      [west, lat],
+      [east, lat],
+    ]);
+  }
+  // close the grid at the clip edge where no cell edge lies on it, so the corners meet
+  const onEdge = (v: number, edges: number[]) => edges.some((e) => Math.abs(e - v) <= eps);
+  const lons = lines.filter((l) => l[0][0] === l[1][0]).map((l) => l[0][0]);
+  const lats = lines.filter((l) => l[0][1] === l[1][1]).map((l) => l[0][1]);
+  for (const lon of [west, east]) if (!onEdge(lon, lons)) lines.push([[lon, south], [lon, north]]);
+  for (const lat of [south, north]) if (!onEdge(lat, lats)) lines.push([[west, lat], [east, lat]]);
+  return lines;
 }
 
 export function imageCoordinates(b: Bounds): [[number, number], [number, number], [number, number], [number, number]] {

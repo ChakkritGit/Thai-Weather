@@ -678,10 +678,20 @@ button {
   touch-action: none;
 }
 .compare-knob svg { width: 20px; height: 20px; }
-.compare-tag {
+/* Tags sit in slots either side of the split handle so they never leave the stage. */
+.compare-slot {
   position: absolute;
   top: 60px;
   z-index: 3;
+  display: flex;
+  pointer-events: none;
+}
+.compare-slot--left { justify-content: safe flex-end; }
+.compare-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -878,7 +888,7 @@ button {
   .map-bottom { bottom: calc(64px + env(safe-area-inset-bottom)); }
   .legend { min-width: 0; width: 100%; }
   .map-tools { top: 56px; }
-  .compare-tag { top: 56px; }
+  .compare-slot { top: 56px; }
 }
 
 /* --------------------------------------------------------------- charts */

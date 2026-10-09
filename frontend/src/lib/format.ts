@@ -70,3 +70,10 @@ export function compass(deg: number, lang: Lang): string {
 
 /** Thai local calendar date (YYYY-MM-DD) of a UTC timestamp. */
 export const thaiDate = (iso: string) => new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+
+/** Grid resolution in km: one decimal only when needed (27.8 -> "27.8", 22 -> "22"). */
+export function fmtKm(km: number, lang: Lang): string {
+  if (!Number.isFinite(km)) return '–';
+  const r = Math.round(km * 10) / 10;
+  return r.toLocaleString(locale(lang) === 'th-TH' ? 'en-US' : 'en-GB', { maximumFractionDigits: 1, minimumFractionDigits: Number.isInteger(r) ? 0 : 1 });
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fmtHour, fmtNum, fmtStep, thaiHour } from '../lib/format';
+import { fmtHour, fmtKm, fmtNum, fmtStep, thaiHour } from '../lib/format';
 import { useT } from '../i18n';
 
 export interface ChartSeries {
@@ -22,6 +22,9 @@ interface Props {
   nowIndex?: number;
   zeroBased?: boolean;
   yMax?: number;
+  /** grid resolutions in km, used for the direct line labels (falls back to the series label) */
+  fineKm?: number;
+  coarseKm?: number;
 }
 
 const M = { top: 10, right: 12, bottom: 22, left: 34 };
@@ -38,10 +41,10 @@ function niceTicks(lo: number, hi: number, count = 4): number[] {
 
 /**
  * Single-axis time-series chart (lines and/or bars sharing one unit) with a
- * crosshair tooltip. The 2 km series is solid blue, the 22 km series dashed
+ * crosshair tooltip. The fine series is solid blue, the coarse series dashed
  * orange – colour + dash so identity never relies on colour alone.
  */
-export function TimeSeriesChart({ title, times, series, unit, digits = 1, height = 150, nowIndex, zeroBased, yMax }: Props) {
+export function TimeSeriesChart({ title, times, series, unit, digits = 1, height = 150, nowIndex, zeroBased, yMax, fineKm, coarseKm }: Props) {
   const { lang } = useT();
   const ref = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -54,6 +57,11 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const km = (s: ChartSeries) => (s.tone === 'fine' ? fineKm : coarseKm);
+  const directLabel = (s: ChartSeries) => {
+    const k = km(s);
+    return k === undefined ? s.label : `${fmtKm(k, lang)} ${lang === 'th' ? 'กม.' : 'km'}`;
+  };
   const n = times.length;
   const iw = width - M.left - M.right;
   const ih = height - M.top - M.bottom;
@@ -152,7 +160,7 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
             const v = s.values[n - 1];
             return (
               <text key={s.key} className="direct-label" x={x(n - 1) - 2} y={y(v) - 6} textAnchor="end">
-                {s.tone === 'fine' ? (lang === 'th' ? '2 กม.' : '2 km') : lang === 'th' ? '22 กม.' : '22 km'}
+                {directLabel(s)}
               </text>
             );
           })}

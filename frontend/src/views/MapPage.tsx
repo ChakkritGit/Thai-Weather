@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { LayerId, Meta, RunMeta } from '../lib/api';
 import { buildLut, cssGradient, radarScale } from '../lib/color';
-import { fmtHour, nearestStep, thaiDate } from '../lib/format';
+import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
@@ -47,6 +47,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const [radarOn, setRadarOn] = useState(false);
   const radar = useRadar(radarOn);
   const stageRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
 
   const layer = meta.layers.find((l) => l.id === layerId) ?? meta.layers[0];
@@ -61,6 +62,15 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
       /* storage unavailable */
     }
   }, [layerId]);
+
+  // hide the secondary tag lines when the stage is too narrow for them
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setNarrow(e.contentRect.width < 560));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // keep the daily selector in step with the hourly timeline
   useEffect(() => {
@@ -136,7 +146,8 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     });
   };
 
-  const common = { run, layer, windLayer, index, lut, theme, selected, radar: radar.frame, onSelect: setSelected };
+  const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
+  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare, radar: radar.frame, onSelect: setSelected };
 
   return (
     <div className="map-page">
@@ -147,26 +158,29 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           className="map-canvas"
           onMap={onFineMap}
           onLoading={setLoading}
-          ariaLabel={`${t('fine2')} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
+          ariaLabel={`${t('fineModel', { km: fmtKm(run.fine_grid.resolution_km, lang) })} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
         />
         {compare && (
           <>
             <WeatherMap
               {...common}
               res="coarse"
-              showGrid
               className="map-canvas map-canvas--top"
               onMap={onCoarseMap}
-              ariaLabel={`${t('model22')} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
+              ariaLabel={`${t('modelCoarse', { km: fmtKm(run.coarse_grid.resolution_km, lang) })} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
             />
             <style>{`.map-canvas--top{clip-path:inset(0 ${(1 - split) * 100}% 0 0)}`}</style>
-            <div className="compare-tag glass" style={{ left: `calc(${split * 100}% - 12px)`, transform: 'translateX(-100%)' }}>
-              {t('compareLeft')} · {run.coarse_grid.resolution_km} {lang === 'th' ? 'กม.' : 'km'}
-              <small>{run.model}</small>
+            <div className="compare-slot compare-slot--left" style={{ left: 8, width: `max(96px, calc(${split * 100}% - 20px))` }}>
+              <div className="compare-tag glass">
+                {t('compareLeft')} · {fmtKm(run.coarse_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
+                {!narrow && <small>{run.model}</small>}
+              </div>
             </div>
-            <div className="compare-tag glass" style={{ left: `calc(${split * 100}% + 12px)` }}>
-              {t('compareRight')} · {run.fine_grid.resolution_km} {lang === 'th' ? 'กม.' : 'km'}
-              <small>{lang === 'th' ? 'ภูมิประเทศ + ฟิสิกส์เขตร้อน' : 'terrain + tropical physics'}</small>
+            <div className="compare-slot" style={{ left: `min(calc(${split * 100}% + 12px), calc(100% - 104px))`, right: 8 }}>
+              <div className="compare-tag glass">
+                {t('compareRight')} · {fmtKm(run.fine_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
+                {!narrow && <small>{lang === 'th' ? 'ภูมิประเทศ + ฟิสิกส์เขตร้อน' : 'terrain + tropical physics'}</small>}
+              </div>
             </div>
             <div className="compare-handle" style={{ left: `${split * 100}%` }}>
               <button
@@ -175,7 +189,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
                 onPointerDown={dragSplit}
                 onKeyDown={onSplitKey}
                 role="slider"
-                aria-label={t('compare')}
+                aria-label={compareLabel}
                 aria-valuemin={5}
                 aria-valuemax={95}
                 aria-valuenow={Math.round(split * 100)}
@@ -195,7 +209,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           </button>
           <button type="button" className="btn" aria-pressed={compare} onClick={() => setCompare((c) => !c)}>
             <Icon name="split" />
-            {t('compare')}
+            {compareLabel}
           </button>
           {typeof navigator !== 'undefined' && 'geolocation' in navigator && (
             <button type="button" className="btn" onClick={locate} aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}>
@@ -250,7 +264,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
       <aside className="map-sidebar" data-open={selected ? 'true' : 'false'} aria-label={selected ? t('next48') : t('overview')}>
         {selected ? (
-          <PointPanel point={selected} step={step} nowIndex={nowIdx} onClose={() => setSelected(null)} />
+          <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
         ) : (
           <OverviewPanel run={run} dayIndex={day} />
         )}

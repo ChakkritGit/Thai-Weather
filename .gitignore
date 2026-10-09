@@ -20,3 +20,4 @@ frontend/dist/
 .next/
 next-env.d.ts
 frontend/out/
+.claude/worktrees/

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, type PointForecast } from '../lib/api';
 import { categorise } from '../lib/color';
-import { compass, fmtDay, fmtNum, fmtStep } from '../lib/format';
+import { compass, fmtDay, fmtKm, fmtNum, fmtStep } from '../lib/format';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { NowcastCard } from './NowcastCard';
@@ -15,10 +15,13 @@ interface Props {
   point: MapPoint;
   step: number;
   nowIndex: number;
+  /** resolutions of the two grids in km (from the run) */
+  fineKm: number;
+  coarseKm: number;
   onClose: () => void;
 }
 
-export function PointPanel({ point, step, nowIndex, onClose }: Props) {
+export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }: Props) {
   const { t, lang, pick } = useT();
   const [data, setData] = useState<PointForecast | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +69,8 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
   const heatCat = categorise('heatIndex', f.heat[i]);
   const loc = data.location;
   const title = loc.province ? pick(loc.province) : lang === 'th' ? (loc.land ? 'นอกประเทศไทย' : 'ทะเล') : loc.land ? 'Outside Thailand' : 'Sea';
-  const labels = { fine: t('fine2'), coarse: t('model22') };
+  const coarseKmText = fmtKm(coarseKm, lang);
+  const labels = { fine: t('fineModel', { km: fmtKm(fineKm, lang) }), coarse: t('modelCoarse', { km: coarseKmText }) };
 
   const parts = [
     { key: 'lapse', label: t('lapse'), v: comps.lapse[i] },
@@ -90,7 +94,7 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
         <div className="hero-meta">
           <span>{fmtStep(data.times[i], lang)}</span>
           <span>
-            {t('model22')}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
+            {labels.coarse}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
           </span>
           {heatCat && (
             <span>
@@ -104,17 +108,17 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
       <NowcastCard lat={point.lat} lon={point.lon} />
 
       <div className="now-grid">
-        <Stat label={t('chanceOfRain')} value={fmtNum(f.pop[i], 0)} unit="%" sub={`${t('model22')} ${c.pop[i] >= 50 ? (lang === 'th' ? 'ฝนตก' : 'rain') : lang === 'th' ? 'ไม่มีฝน' : 'dry'}`} />
-        <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${t('model22')} ${fmtNum(c.rain[i], 1)}`} />
+        <Stat label={t('chanceOfRain')} value={fmtNum(f.pop[i], 0)} unit="%" sub={`${labels.coarse} ${c.pop[i] >= 50 ? (lang === 'th' ? 'ฝนตก' : 'rain') : lang === 'th' ? 'ไม่มีฝน' : 'dry'}`} />
+        <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${labels.coarse} ${fmtNum(c.rain[i], 1)}`} />
         <Stat label={t('wind')} value={fmtNum(f.wind[i], 1)} unit="m/s" sub={`${lang === 'th' ? 'จากทิศ' : 'from'} ${compass(f.wind_dir[i], lang)}`} />
         <Stat label={t('thunder')} value={fmtNum(f.storm[i], 0)} unit="%" sub={`${t('humidity')} ${fmtNum(f.rh[i], 0)}%`} />
       </div>
 
       <section className="panel-section" aria-labelledby="why-h">
-        <h3 id="why-h">{t('why')}</h3>
+        <h3 id="why-h">{t('why', { km: coarseKmText })}</h3>
         <div className="waterfall">
           <div className="wf-row">
-            <span>{t('model22')} <span className="subtle">({loc.model_elevation} {lang === 'th' ? 'ม.' : 'm'})</span></span>
+            <span>{labels.coarse} <span className="subtle">({loc.model_elevation} {lang === 'th' ? 'ม.' : 'm'})</span></span>
             <span />
             <span className="wf-val">{fmtNum(comps.model[i], 1)}°</span>
           </div>
@@ -138,7 +142,7 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
             </div>
           ))}
           <div className="wf-row wf-total">
-            <span>{t('fine2')}</span>
+            <span>{labels.fine}</span>
             <span />
             <span className="wf-val">{fmtNum(comps.model[i] + parts.reduce((a, p) => a + p.v, 0), 1)}°</span>
           </div>
@@ -166,6 +170,8 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
               times={data.times}
               unit="°C"
               nowIndex={nowIndex}
+              fineKm={fineKm}
+              coarseKm={coarseKm}
               series={[
                 { key: 'f', label: labels.fine, values: f.temp, kind: 'line', tone: 'fine' },
                 { key: 'c', label: labels.coarse, values: c.temp, kind: 'line', tone: 'coarse' },
@@ -180,6 +186,8 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
               zeroBased
               yMax={100}
               nowIndex={nowIndex}
+              fineKm={fineKm}
+              coarseKm={coarseKm}
               series={[
                 { key: 'f', label: labels.fine, values: f.pop, kind: 'line', tone: 'fine' },
                 { key: 'c', label: labels.coarse, values: c.pop, kind: 'line', tone: 'coarse' },
@@ -192,6 +200,8 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
               unit={lang === 'th' ? 'มม.' : 'mm'}
               zeroBased
               nowIndex={nowIndex}
+              fineKm={fineKm}
+              coarseKm={coarseKm}
               series={[
                 { key: 'f', label: labels.fine, values: f.rain, kind: 'bar', tone: 'fine' },
                 { key: 'c', label: labels.coarse, values: c.rain, kind: 'bar', tone: 'coarse' },
@@ -205,7 +215,7 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
                 <tr>
                   <th>{t('time')}</th>
                   <th className="num">°C</th>
-                  <th className="num">22 km</th>
+                  <th className="num">{coarseKmText} km</th>
                   <th className="num">HI</th>
                   <th className="num">{lang === 'th' ? 'โอกาสฝน' : 'Rain %'}</th>
                   <th className="num">mm/h</th>
@@ -240,7 +250,7 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
                   {fmtNum(data.daily.fine_rain[k], 1)} <small className="muted">{lang === 'th' ? 'มม.' : 'mm'}</small>
                 </span>
                 <span className="subtle">
-                  {t('model22')} {fmtNum(data.daily.coarse_rain[k], 1)}
+                  {labels.coarse} {fmtNum(data.daily.coarse_rain[k], 1)}
                 </span>
                 {cat && <LevelBadge severity={cat.severity} label={pick(cat)} />}
               </div>

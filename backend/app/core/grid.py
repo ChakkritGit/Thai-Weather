@@ -67,9 +67,9 @@ class Grid:
     def describe(self) -> dict:
         return {
             "lat0": self.lat0,
-            "lat1": self.lat1,
+            "lat1": round(self.lat0 + (self.ny - 1) * self.dlat, 6),
             "lon0": self.lon0,
-            "lon1": self.lon1,
+            "lon1": round(self.lon0 + (self.nx - 1) * self.dlon, 6),
             "dlat": self.dlat,
             "dlon": self.dlon,
             "ny": self.ny,

@@ -12,7 +12,7 @@ export const dict = {
     th: 'โหมดสาธิต: ข้อมูลโมเดลจำลองจากภูมิอากาศ ไม่ใช่การพยากรณ์จริง',
     en: 'Demo mode: synthetic climatology-driven model data – not a real forecast',
   },
-  compare: { th: 'เทียบ 22 กม. ↔ 2 กม.', en: 'Compare 22 km ↔ 2 km' },
+  compare: { th: 'เทียบ {coarse} กม. ↔ {fine} กม.', en: 'Compare {coarse} km ↔ {fine} km' },
   compareLeft: { th: 'โมเดลโลก', en: 'Global model' },
   compareRight: { th: 'ฟ้าละเอียด', en: 'Downscaled' },
   play: { th: 'เล่น', en: 'Play' },
@@ -26,10 +26,10 @@ export const dict = {
   retry: { th: 'ลองใหม่', en: 'Retry' },
   clickHint: { th: 'แตะบนแผนที่เพื่อดูพยากรณ์รายจุด', en: 'Tap the map for a point forecast' },
   elevation: { th: 'ความสูง', en: 'Elevation' },
-  modelElevation: { th: 'ความสูงในโมเดล 22 กม.', en: 'Height in 22 km model' },
-  why: { th: 'ทำไมต่างจากโมเดล 22 กม.?', en: 'Why does this differ from the 22 km model?' },
-  model22: { th: 'โมเดล 22 กม.', en: '22 km model' },
-  fine2: { th: 'ฟ้าละเอียด 2 กม.', en: 'Downscaled 2 km' },
+  modelElevation: { th: 'ความสูงในโมเดล {km} กม.', en: 'Height in {km} km model' },
+  why: { th: 'ทำไมต่างจากโมเดล {km} กม.?', en: 'Why does this differ from the {km} km model?' },
+  modelCoarse: { th: 'โมเดล {km} กม.', en: '{km} km model' },
+  fineModel: { th: 'ฟ้าละเอียด {km} กม.', en: 'Downscaled {km} km' },
   lapse: { th: 'ความสูงภูมิประเทศ', en: 'Terrain height' },
   valley: { th: 'อากาศเย็นสะสมในหุบเขา', en: 'Valley cold pool' },
   coast: { th: 'ผลจากชายฝั่ง/ทะเล', en: 'Land–sea contrast' },
@@ -84,7 +84,10 @@ type Named = { name_th?: string; name_en?: string; label_th?: string; label_en?:
 
 /** Translation helpers usable from server and client components alike. */
 export function translate(lang: Lang) {
-  const t = (k: DictKey) => dict[k][lang];
+  const t = (k: DictKey, params?: Record<string, string | number>) => {
+    const s: string = dict[k][lang];
+    return params ? s.replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m)) : s;
+  };
   const pick = (o: Named) => (lang === 'th' ? (o.name_th ?? o.label_th ?? '') : (o.name_en ?? o.label_en ?? ''));
   return { t, lang, pick };
 }

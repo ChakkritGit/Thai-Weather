@@ -5,7 +5,7 @@ import maplibregl, { type GeoJSONSource, type ImageSource, type Map as MLMap } f
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { api, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
 import { buildRadarLut, decode, hexToRgb } from '../lib/color';
-import { gridBounds, imageCoordinates, rasterFor, renderGrid, sampleGrid, type Raster } from '../lib/render';
+import { gridBounds, gridLines, imageCoordinates, rasterFor, renderGrid, sampleGrid, type Bounds, type Raster } from '../lib/render';
 import { fmtNum } from '../lib/format';
 import { useT } from '../i18n';
 
@@ -73,24 +73,11 @@ const loadStatic = () =>
     thai,
   })));
 
-function coarseGridLines(g: GridDesc): GeoJSON.FeatureCollection {
-  const b = gridBounds(g);
-  const lines: [number, number][][] = [];
-  for (let i = 0; i <= g.nx; i++) {
-    const lon = b.west + i * g.dlon;
-    lines.push([
-      [lon, b.south],
-      [lon, b.north],
-    ]);
-  }
-  for (let j = 0; j <= g.ny; j++) {
-    const lat = b.south + j * g.dlat;
-    lines.push([
-      [b.west, lat],
-      [b.east, lat],
-    ]);
-  }
-  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: lines } }] };
+function gridLineCollection(g: GridDesc, clip: Bounds): GeoJSON.FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: gridLines(g, clip) } }],
+  };
 }
 
 function arrowImage(): ImageData {
@@ -172,7 +159,8 @@ export function WeatherMap(props: Props) {
       map.addSource('hillshade', { type: 'image', url: blank, coordinates: coords });
       map.addSource('weather', { type: 'image', url: blank, coordinates: coords });
       map.addSource('radar', { type: 'image', url: blank, coordinates: coords });
-      map.addSource('grid', { type: 'geojson', data: coarseGridLines(run.coarse_grid) });
+      map.addSource('grid', { type: 'geojson', data: gridLineCollection(run.coarse_grid, fineBounds) });
+      if (res === 'fine') map.addSource('fine-grid', { type: 'geojson', data: gridLineCollection(run.fine_grid, fineBounds) });
       map.addSource('wind', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addImage('arrow', arrowImage(), { sdf: true });
 
@@ -193,6 +181,21 @@ export function WeatherMap(props: Props) {
         paint: { 'raster-opacity': 0.9, 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
       });
       map.addLayer({ id: 'grid', type: 'line', source: 'grid', layout: { visibility: 'none' }, paint: { 'line-color': token('--color-map-coarseGrid'), 'line-width': 0.8 } });
+      if (res === 'fine') {
+        // 2.2 km cell edges; only readable once zoomed in
+        map.addLayer({
+          id: 'fine-grid',
+          type: 'line',
+          source: 'fine-grid',
+          minzoom: 8,
+          layout: { visibility: 'none' },
+          paint: {
+            'line-color': token('--color-map-coarseGrid'),
+            'line-width': 0.5,
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 9, 0.35, 11, 0.55],
+          },
+        });
+      }
       map.addLayer({ id: 'provinces-line', type: 'line', source: 'provinces', paint: { 'line-color': token('--color-map-provinceBorder'), 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 9, 1.2] } });
       map.addLayer({
         id: 'provinces-hover',
@@ -272,6 +275,7 @@ export function WeatherMap(props: Props) {
     map.setPaintProperty('provinces-hover', 'line-color', token('--color-map-provinceHover'));
     map.setPaintProperty('countries-line', 'line-color', token('--color-map-border'));
     map.setPaintProperty('grid', 'line-color', token('--color-map-coarseGrid'));
+    if (map.getLayer('fine-grid')) map.setPaintProperty('fine-grid', 'line-color', token('--color-map-coarseGrid'));
     map.setPaintProperty('wind', 'icon-color', token('--color-fg-default'));
     map.setPaintProperty('wind', 'icon-halo-color', token('--color-bg-surface'));
 
@@ -298,8 +302,13 @@ export function WeatherMap(props: Props) {
   }, [lang]);
 
   useEffect(() => {
-    if (ready) mapRef.current?.setLayoutProperty('grid', 'visibility', showGrid ? 'visible' : 'none');
-  }, [showGrid, ready]);
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const vis = showGrid ? 'visible' : 'none';
+    // the coarse map shows the driving-model cell edges, the fine map the fine-grid ones
+    map.setLayoutProperty('grid', 'visibility', showGrid && res === 'coarse' ? 'visible' : 'none');
+    if (map.getLayer('fine-grid')) map.setLayoutProperty('fine-grid', 'visibility', vis);
+  }, [showGrid, ready, res]);
 
   // --------------------------------------------------------- weather layer
   useEffect(() => {
