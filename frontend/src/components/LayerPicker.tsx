@@ -1,8 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LayerId, LayerMeta } from '../lib/api';
 import { useT } from '../i18n';
-import { Icon, type IconName } from './Icon';
+import type { IconName } from './Icon';
 
 export const PICKER: { id: LayerId; icon: IconName; th: string; en: string }[] = [
   { id: 'temp', icon: 'thermo', th: 'อุณหภูมิ', en: 'Temperature' },
@@ -16,6 +17,10 @@ export const PICKER: { id: LayerId; icon: IconName; th: string; en: string }[] =
   { id: 'cloud', icon: 'cloud', th: 'เมฆ', en: 'Cloud' },
 ];
 
+/**
+ * Layer chips in one horizontally scrollable row. Edge fades appear on the side
+ * that has more chips, and the active chip is scrolled into view.
+ */
 export function LayerPicker({
   layers,
   value,
@@ -27,18 +32,43 @@ export function LayerPicker({
 }) {
   const { lang, t } = useT();
   const available = new Set(layers.map((l) => l.id));
+  const ref = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState({ start: false, end: false });
+
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.scrollLeft > 4;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setFade((f) => (f.start === start && f.end === end ? f : { start, end }));
+  }, []);
+
+  useEffect(() => {
+    measure();
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure]);
+
+  useEffect(() => {
+    const active = ref.current?.querySelector<HTMLElement>('[aria-checked="true"]');
+    active?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [value]);
+
   return (
-    <div className="map-layers" role="radiogroup" aria-label={t('layers')}>
+    <div
+      ref={ref}
+      className="map-layers"
+      role="radiogroup"
+      aria-label={t('layers')}
+      data-fade-start={fade.start}
+      data-fade-end={fade.end}
+      onScroll={measure}
+    >
       {PICKER.filter((p) => available.has(p.id)).map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          role="radio"
-          aria-checked={value === p.id}
-          className="chip"
-          onClick={() => onChange(p.id)}
-        >
-          <Icon name={p.icon} />
+        <button key={p.id} type="button" role="radio" aria-checked={value === p.id} className="chip" onClick={() => onChange(p.id)}>
           {lang === 'th' ? p.th : p.en}
         </button>
       ))}

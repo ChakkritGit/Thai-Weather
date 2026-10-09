@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import '@/design/generated/tokens.css';
 import '@/design/base.css';
-import { BottomNav, Header, Providers } from '@/components/Shell';
+import { BottomNav, Footer, Header, Providers, SkipLink } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
 import { translate } from '@/i18n/dict';
 import type { AlertEntry, Meta } from '@/lib/api';
@@ -23,7 +23,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#006ea6',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#181d25' },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -50,6 +53,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <Providers lang={lang} theme={theme}>
           <div className="app">
+            <SkipLink />
             <Header alertCount={alertCount} />
             <div>
               {run?.demo && (
@@ -59,7 +63,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 </div>
               )}
             </div>
-            <main className="app-main">{children}</main>
+            <main className="app-main" id="main">
+              {children}
+              <Footer updated={run?.created ?? null} />
+            </main>
             <BottomNav alertCount={alertCount} />
           </div>
         </Providers>

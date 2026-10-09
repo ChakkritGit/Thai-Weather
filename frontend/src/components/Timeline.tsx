@@ -57,11 +57,11 @@ export function Timeline({ run, daily, index, onChange, playing, onPlaying }: Pr
         <div className="timeline-label">
           <span aria-live="polite">{fmtStep(run.times[index], lang)}</span>
           {index !== nowIdx ? (
-            <button type="button" className="btn btn--ghost" style={{ minHeight: 22, padding: '0 8px' }} onClick={() => onChange(nowIdx)}>
+            <button type="button" className="btn btn--ghost timeline-now-btn" onClick={() => onChange(nowIdx)}>
               {t('now')}
             </button>
           ) : (
-            <span className="now-chip">● {t('now')}</span>
+            <span className="now-chip">{t('now')}</span>
           )}
         </div>
         <input
