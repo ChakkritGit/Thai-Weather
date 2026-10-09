@@ -1,0 +1,19 @@
+services:
+  thai-weather:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # "demo" runs fully offline; "open-meteo" uses live global-model data
+      THWX_SOURCE: ${THWX_SOURCE:-demo}
+      THWX_OPENMETEO_MODEL: ${THWX_OPENMETEO_MODEL:-gfs_seamless}
+      THWX_OPENMETEO_API_KEY: ${THWX_OPENMETEO_API_KEY:-}
+      THWX_REFRESH_MINUTES: ${THWX_REFRESH_MINUTES:-180}
+      THWX_ENSEMBLE_MEMBERS: ${THWX_ENSEMBLE_MEMBERS:-8}
+      THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:-change-me}
+    volumes:
+      - thwx-data:/var/lib/thwx
+    restart: unless-stopped
+
+volumes:
+  thwx-data:
