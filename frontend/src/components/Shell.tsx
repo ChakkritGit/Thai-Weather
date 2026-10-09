@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LangProvider, useT, type DictKey, type Lang } from '../i18n';
 import { ThemeProvider, useTheme, type Theme } from '../lib/theme';
+import { fmtDateTime } from '../lib/format';
 import { paths } from '../lib/paths';
 import { Icon, type IconName } from './Icon';
+import { LogoMark } from './Logo';
+import { ErrorState, StateMessage } from './States';
 
 export function Providers({ lang, theme, children }: { lang: Lang; theme: Theme | null; children: ReactNode }) {
   return (
@@ -16,17 +19,26 @@ export function Providers({ lang, theme, children }: { lang: Lang; theme: Theme 
   );
 }
 
+/** Main navigation. The design-system page stays routable but is linked from the footer. */
 const NAV: { href: string; icon: IconName; key: DictKey }[] = [
   { href: paths.map, icon: 'map', key: 'navMap' },
   { href: paths.provinces, icon: 'list', key: 'navProvinces' },
   { href: paths.alerts, icon: 'alert', key: 'navAlerts' },
   { href: paths.method, icon: 'book', key: 'navMethod' },
-  { href: paths.design, icon: 'palette', key: 'navDesign' },
 ];
 
 function useActive() {
   const pathname = usePathname() ?? '/';
   return (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+}
+
+export function SkipLink() {
+  const { t } = useT();
+  return (
+    <a className="skip-link" href="#main">
+      {t('skipToContent')}
+    </a>
+  );
 }
 
 export function Header({ alertCount }: { alertCount: number }) {
@@ -35,29 +47,20 @@ export function Header({ alertCount }: { alertCount: number }) {
   const active = useActive();
   return (
     <header className="header">
-      <Link className="brand" href={paths.map}>
-        <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="var(--color-accent-default)" />
-          <g fill="var(--color-fg-onAccent)">
-            {[0, 1, 2].flatMap((r) =>
-              [0, 1, 2].map((c) => (
-                <rect key={`${r}${c}`} x={7 + c * 6.5} y={7 + r * 6.5} width="5" height="5" rx="1" opacity={r === c ? 1 : Math.abs(r - c) === 1 ? 0.75 : 0.5} />
-              )),
-            )}
-          </g>
-        </svg>
-        <span>
-          <span className="brand-name">{t('brand')}</span>
-          <span className="brand-tag" style={{ display: 'block' }}>
-            {t('tagline')}
-          </span>
-        </span>
+      <Link className="brand" href={paths.map} aria-label={`${t('brand')} – ${t('navMap')}`}>
+        <LogoMark />
+        <span className="brand-name">{t('brand')}</span>
+        <span className="brand-tag">{t('tagline')}</span>
       </Link>
       <nav className="nav" aria-label="main">
         {NAV.map((n) => (
           <Link key={n.href} href={n.href} aria-current={active(n.href) ? 'page' : undefined}>
             {t(n.key)}
-            {n.href === paths.alerts && alertCount > 0 && <span className="count">{alertCount}</span>}
+            {n.href === paths.alerts && alertCount > 0 && (
+              <span className="count" aria-label={`${alertCount}`}>
+                {alertCount}
+              </span>
+            )}
           </Link>
         ))}
       </nav>
@@ -78,10 +81,10 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
   const active = useActive();
   return (
     <nav className="bottom-nav" aria-label="main">
-      {NAV.slice(0, 4).map((n) => (
+      {NAV.map((n) => (
         <Link key={n.href} href={n.href} aria-current={active(n.href) ? 'page' : undefined}>
           <Icon name={n.icon} />
-          {t(n.key)}
+          <span className="label">{t(n.key)}</span>
           {n.href === paths.alerts && alertCount > 0 && <span className="count">{alertCount}</span>}
         </Link>
       ))}
@@ -89,9 +92,45 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
   );
 }
 
+/**
+ * Slim site footer for the pages that scroll (not shown over the full-screen map).
+ * Carries the data sources, the "not an official announcement" notice and the
+ * run time of the forecast currently shown.
+ */
+export function Footer({ updated }: { updated: string | null }) {
+  const { t, lang } = useT();
+  const pathname = usePathname() ?? '/';
+  if (pathname === '/') return null;
+  return (
+    <footer className="site-footer">
+      <div className="site-footer-inner">
+        <p className="site-footer-note">{t('footerNote')}</p>
+        <p className="site-footer-meta">
+          {t('footerSources')}
+          {updated && (
+            <>
+              <span className="sep" aria-hidden="true">
+                ·
+              </span>
+              {t('footerUpdated')}{' '}
+              <time className="num" dateTime={updated}>
+                {fmtDateTime(updated, lang)}
+              </time>
+            </>
+          )}
+        </p>
+        <nav aria-label={t('footerMore')}>
+          <Link href={paths.method}>{t('navMethod')}</Link>
+          <Link href={paths.design}>{t('navDesign')}</Link>
+        </nav>
+      </div>
+    </footer>
+  );
+}
+
 /** Shown while the backend computes its first run (or is unreachable); re-checks automatically. */
 export function Warming({ reachable }: { reachable: boolean }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const router = useRouter();
   useEffect(() => {
     const id = window.setInterval(() => router.refresh(), 8000);
@@ -99,19 +138,26 @@ export function Warming({ reachable }: { reachable: boolean }) {
   }, [router]);
   return (
     <div className="page">
-      <div className="empty" style={{ minHeight: '60vh' }}>
-        {reachable ? <span className="spinner" /> : <Icon name="alert" width={32} />}
-        <p>
-          {reachable
-            ? t('warming')
-            : lang === 'th'
-              ? 'ติดต่อเซิร์ฟเวอร์พยากรณ์ไม่ได้ (ตรวจสอบ THWX_API_URL)'
-              : 'Cannot reach the forecast server (check THWX_API_URL)'}
-        </p>
-        <button className="btn" type="button" onClick={() => router.refresh()}>
-          {t('retry')}
-        </button>
-      </div>
+      {reachable ? (
+        <StateMessage
+          role="status"
+          title={t('warmingTitle')}
+          minHeight="60vh"
+          actions={
+            <button className="btn" type="button" onClick={() => router.refresh()}>
+              <Icon name="refresh" />
+              {t('retry')}
+            </button>
+          }
+        >
+          <span className="spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8 }} />
+          {t('warming')}
+        </StateMessage>
+      ) : (
+        <ErrorState title={t('unreachableTitle')} onRetry={() => router.refresh()} minHeight="60vh">
+          {t('unreachableBody')}
+        </ErrorState>
+      )}
     </div>
   );
 }

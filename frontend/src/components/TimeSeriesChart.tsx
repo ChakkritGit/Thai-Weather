@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { fmtHour, fmtKm, fmtNum, fmtStep, thaiHour } from '../lib/format';
 import { useT } from '../i18n';
 
@@ -45,10 +45,22 @@ function niceTicks(lo: number, hi: number, count = 4): number[] {
  * orange – colour + dash so identity never relies on colour alone.
  */
 export function TimeSeriesChart({ title, times, series, unit, digits = 1, height = 150, nowIndex, zeroBased, yMax, fineKm, coarseKm }: Props) {
-  const { lang } = useT();
+  const { lang, t } = useT();
+  const uid = useId();
   const ref = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const [byKeyboard, setByKeyboard] = useState(false);
   const figRef = useRef<HTMLElement>(null);
+
+  // touch: keep the readout after the finger lifts, dismiss on a tap elsewhere
+  useEffect(() => {
+    if (hover === null) return;
+    const away = (e: PointerEvent) => {
+      if (!figRef.current?.contains(e.target as Node)) setHover(null);
+    };
+    window.addEventListener('pointerdown', away);
+    return () => window.removeEventListener('pointerdown', away);
+  }, [hover]);
   const [width, setWidth] = useState(340);
   useEffect(() => {
     const el = figRef.current;
@@ -88,7 +100,27 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
   const onMove = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
     const px = ((e.clientX - r.left) / r.width) * width;
+    setByKeyboard(false);
     setHover(Math.max(0, Math.min(n - 1, Math.round(((px - M.left) / iw) * (n - 1)))));
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    const at = hover ?? nowIndex ?? 0;
+    let next: number | null = null;
+    if (e.key === 'ArrowRight') next = Math.min(n - 1, at + 1);
+    else if (e.key === 'ArrowLeft') next = Math.max(0, at - 1);
+    else if (e.key === 'PageDown') next = Math.min(n - 1, at + 6);
+    else if (e.key === 'PageUp') next = Math.max(0, at - 6);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = n - 1;
+    else if (e.key === 'Escape') {
+      setHover(null);
+      return;
+    }
+    if (next === null) return;
+    e.preventDefault();
+    setByKeyboard(true);
+    setHover(next);
   };
 
   const xTicks = times.map((t, i) => (thaiHour(t) % 6 === 0 ? i : -1)).filter((i) => i >= 0);
@@ -104,8 +136,15 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={title}
+        aria-describedby={`${uid}-hint`}
+        tabIndex={0}
         onPointerMove={onMove}
-        onPointerLeave={() => setHover(null)}
+        onPointerDown={onMove}
+        onPointerLeave={(e) => {
+          if (e.pointerType === 'mouse') setHover(null);
+        }}
+        onKeyDown={onKey}
+        onBlur={() => setHover(null)}
         style={{ touchAction: 'pan-y' }}
       >
         <g className="grid">
@@ -124,9 +163,6 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
               {fmtHour(times[i], lang).slice(0, 2)}
             </text>
           ))}
-          <text className="axis-label" x={M.left - 6} y={M.top - 2} textAnchor="end" style={{ fontSize: 9 }}>
-            {unit}
-          </text>
         </g>
         {daySeps.map((i) => (
           <line key={i} className="day-sep" x1={x(i)} x2={x(i)} y1={M.top} y2={M.top + ih} />
@@ -164,7 +200,15 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
               </text>
             );
           })}
-        {nowIndex !== undefined && <line className="now-line" x1={x(nowIndex)} x2={x(nowIndex)} y1={M.top} y2={M.top + ih} />}
+        {nowIndex !== undefined && (
+          <g aria-hidden="true">
+            <line className="now-line" x1={x(nowIndex)} x2={x(nowIndex)} y1={M.top + 2} y2={M.top + ih} />
+            <circle className="now-dot" cx={x(nowIndex)} cy={M.top + ih} r={2.5} />
+            <text className="now-label" x={x(nowIndex)} y={M.top - 1} textAnchor="middle">
+              {t('now')}
+            </text>
+          </g>
+        )}
         {hover !== null && (
           <g>
             <line className="cross" x1={x(hover)} x2={x(hover)} y1={M.top} y2={M.top + ih} />
@@ -180,15 +224,23 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
           className="chart-tip"
           style={{ left: `${(x(hover) / width) * 100}%`, transform: `translateX(${x(hover) > width * 0.6 ? '-105%' : '8px'})` }}
         >
-          <div className="muted">{fmtStep(times[hover], lang)}</div>
+          <div className="when">{fmtStep(times[hover], lang)}</div>
           {series.map((s) => (
             <div className="row" key={s.key}>
               <i style={{ background: `var(--color-chart-${s.tone})` }} />
-              {s.label}: <b className="num">{fmtNum(s.values[hover], digits)}</b> {unit}
+              {s.label}: <b>{fmtNum(s.values[hover], digits)}</b> {unit}
             </div>
           ))}
         </div>
       )}
+      <span id={`${uid}-hint`} className="sr-only">
+        {t('chartKeys')}
+      </span>
+      <span className="sr-only" aria-live="polite">
+        {byKeyboard && hover !== null
+          ? `${fmtStep(times[hover], lang)}: ${series.map((s) => `${s.label} ${fmtNum(s.values[hover], digits)} ${unit}`).join(', ')}`
+          : ''}
+      </span>
     </figure>
   );
 }

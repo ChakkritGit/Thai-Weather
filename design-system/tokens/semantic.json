@@ -91,7 +91,7 @@
         }
       },
       "subtle": {
-        "$value": "{color.cloud.500}",
+        "$value": "{color.cloud.550}",
         "$extensions": {
           "th.weather.modes": {
             "dark": "{color.cloud.400}"
@@ -133,10 +133,10 @@
         }
       },
       "strong": {
-        "$value": "{color.cloud.400}",
+        "$value": "{color.cloud.500}",
         "$extensions": {
           "th.weather.modes": {
-            "dark": "{color.cloud.600}"
+            "dark": "{color.cloud.500}"
           }
         }
       },
@@ -485,7 +485,7 @@
         }
       },
       "axis": {
-        "$value": "{color.cloud.500}",
+        "$value": "{color.cloud.550}",
         "$extensions": {
           "th.weather.modes": {
             "dark": "{color.cloud.400}"

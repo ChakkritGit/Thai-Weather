@@ -113,6 +113,37 @@ export const dict = {
   pushErrRate: { th: 'ส่งทดสอบได้นาทีละครั้ง', en: 'Tests are limited to one per minute' },
   pushErrGone: { th: 'การสมัครหมดอายุ กรุณาเปิดใหม่อีกครั้ง', en: 'The subscription expired – turn alerts on again' },
   pushErrFailed: { th: 'ไม่สำเร็จ ลองใหม่อีกครั้ง', en: 'Something went wrong – try again' },
+  skipToContent: { th: 'ข้ามไปยังเนื้อหา', en: 'Skip to content' },
+  footerNote: {
+    th: 'ข้อมูลประกอบการตัดสินใจ ไม่ใช่ประกาศทางการ — ติดตามประกาศกรมอุตุนิยมวิทยา',
+    en: 'Decision-support information, not an official announcement – follow the Thai Meteorological Department.',
+  },
+  footerSources: {
+    th: 'แหล่งข้อมูล: NOAA GFS (ผ่าน Open-Meteo) · RainViewer · GDACS · IEM',
+    en: 'Sources: NOAA GFS via Open-Meteo · RainViewer · GDACS · IEM',
+  },
+  footerUpdated: { th: 'อัปเดตล่าสุด', en: 'Last updated' },
+  footerMore: { th: 'เพิ่มเติม', en: 'More' },
+  locateCta: { th: 'ดูพยากรณ์ ณ ตำแหน่งของคุณ', en: 'Forecast for your location' },
+  locateHint: { th: 'ใช้ตำแหน่งปัจจุบันจากอุปกรณ์', en: 'Uses your device location' },
+  locating: { th: 'กำลังหาตำแหน่ง…', en: 'Finding your location…' },
+  locateDenied: {
+    th: 'เข้าถึงตำแหน่งไม่ได้ อนุญาตสิทธิ์ตำแหน่งในเบราว์เซอร์แล้วลองใหม่',
+    en: 'Location access is blocked. Allow it in your browser and try again.',
+  },
+  locateFailed: { th: 'ระบุตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง', en: 'Could not find your location. Please try again.' },
+  notFoundTitle: { th: 'ไม่พบหน้านี้', en: 'Page not found' },
+  notFoundBody: { th: 'ลิงก์อาจไม่ถูกต้อง หรือหน้านี้ถูกย้ายไปแล้ว', en: 'The link may be wrong, or the page has moved.' },
+  backToMap: { th: 'กลับไปที่แผนที่', en: 'Back to the map' },
+  errorTitle: { th: 'ขออภัย เกิดข้อผิดพลาดบางอย่าง', en: 'Sorry, something went wrong' },
+  errorBody: { th: 'ข้อมูลอาจโหลดไม่ครบ ลองใหม่อีกครั้งในอีกสักครู่', en: 'The data may not have loaded fully. Please try again in a moment.' },
+  unreachableTitle: { th: 'ยังเชื่อมต่อเซิร์ฟเวอร์พยากรณ์ไม่ได้', en: 'Cannot reach the forecast server' },
+  unreachableBody: {
+    th: 'ระบบจะลองเชื่อมต่อใหม่ให้อัตโนมัติ หรือกดลองใหม่ได้เลย',
+    en: 'We will keep retrying automatically, or you can retry now.',
+  },
+  warmingTitle: { th: 'กำลังเตรียมพยากรณ์รอบแรก', en: 'Preparing the first forecast' },
+  chartKeys: { th: 'ใช้ปุ่มลูกศรซ้าย–ขวาเพื่อดูค่ารายชั่วโมง', en: 'Use the left and right arrow keys to read hourly values' },
 } as const;
 
 export type DictKey = keyof typeof dict;

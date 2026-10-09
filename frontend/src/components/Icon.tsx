@@ -29,6 +29,9 @@ const paths: Record<string, string> = {
   grid: 'M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16',
   radar: 'M12 21a9 9 0 1 1 9-9M12 17a5 5 0 1 1 5-5M12 12 18 6M12 12h.01',
   cyclone: 'M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0-8a6 6 0 0 1 6 6M12 18a6 6 0 0 1-6-6M12 2a10 10 0 0 1 10 10M12 22A10 10 0 0 1 2 12',
+  refresh: 'M20 11a8 8 0 0 0-14.5-4.3L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.5 4.3l1.5-1.8M20 20v-4.5h-4.5',
+  compass: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm3.5-12.5-2 5-5 2 2-5 5-2Z',
+  cloudOff: 'M3 3l18 18M7 18h10a4 4 0 0 0 1.9-7.5M9.5 5.6A6 6 0 0 1 17.7 9.4M4.3 14.5A4.3 4.3 0 0 0 7 18',
 };
 
 export type IconName = keyof typeof paths;

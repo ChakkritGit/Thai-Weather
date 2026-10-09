@@ -10,6 +10,7 @@ import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
 import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
+import { LocateCta, type LocateStatus } from '../components/LocateCta';
 import { Legend } from '../components/Legend';
 import { OverviewPanel } from '../components/OverviewPanel';
 import { PointPanel } from '../components/PointPanel';
@@ -138,13 +139,25 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     if (e.key === 'ArrowRight') setSplit((s) => Math.min(0.95, s + 0.05));
   };
 
+  const [locateStatus, setLocateStatus] = useState<LocateStatus>('idle');
   const locate = () => {
-    navigator.geolocation?.getCurrentPosition((pos) => {
-      const p = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-      setSelected(p);
-      maps.current.fine?.flyTo({ center: [p.lon, p.lat], zoom: 8 });
-    });
+    if (!navigator.geolocation) {
+      setLocateStatus('failed');
+      return;
+    }
+    setLocateStatus('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const p = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        setLocateStatus('idle');
+        setSelected(p);
+        maps.current.fine?.flyTo({ center: [p.lon, p.lat], zoom: 8 });
+      },
+      (err) => setLocateStatus(err.code === err.PERMISSION_DENIED ? 'denied' : 'failed'),
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
+    );
   };
+  const canLocate = typeof navigator !== 'undefined' && 'geolocation' in navigator;
 
   const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
   const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare, radar: radar.frame, onSelect: setSelected };
@@ -202,17 +215,37 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
         <LayerPicker layers={meta.layers} value={layerId} onChange={setLayerId} />
 
-        <div className="map-tools">
-          <button type="button" className="btn" aria-pressed={radarOn} onClick={() => setRadarOn((r) => !r)}>
+        <div className="map-tools" data-cta={canLocate && !selected && !compare ? 'true' : undefined}>
+          <button
+            type="button"
+            className="btn btn--icon-narrow"
+            aria-pressed={radarOn}
+            aria-label={t('radar')}
+            title={t('radar')}
+            onClick={() => setRadarOn((r) => !r)}
+          >
             <Icon name="radar" />
-            {t('radar')}
+            <span className="btn-label">{t('radar')}</span>
           </button>
-          <button type="button" className="btn" aria-pressed={compare} onClick={() => setCompare((c) => !c)}>
+          <button
+            type="button"
+            className="btn btn--icon-narrow"
+            aria-pressed={compare}
+            aria-label={compareLabel}
+            title={compareLabel}
+            onClick={() => setCompare((c) => !c)}
+          >
             <Icon name="split" />
-            {compareLabel}
+            <span className="btn-label">{compareLabel}</span>
           </button>
-          {typeof navigator !== 'undefined' && 'geolocation' in navigator && (
-            <button type="button" className="btn" onClick={locate} aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}>
+          {canLocate && (
+            <button
+              type="button"
+              className="btn btn--icon btn--locate"
+              onClick={locate}
+              aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}
+              title={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}
+            >
               <Icon name="locate" />
             </button>
           )}
@@ -243,6 +276,8 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           )}
         </div>
 
+        {canLocate && !selected && !compare && <LocateCta variant="float" status={locateStatus} onLocate={locate} />}
+
         {loading && (
           <div className="map-loading glass" role="status">
             <span className="spinner" /> {t('loading')}
@@ -266,7 +301,10 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         {selected ? (
           <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
         ) : (
-          <OverviewPanel run={run} dayIndex={day} />
+          <>
+            {canLocate && <LocateCta variant="card" status={locateStatus} onLocate={locate} />}
+            <OverviewPanel run={run} dayIndex={day} />
+          </>
         )}
       </aside>
     </div>
