@@ -47,3 +47,33 @@ def test_assembles_coarse_grid_from_api():
     assert np.allclose(fc.fields["u10"], 5.0 * np.sin(np.radians(45)), atol=1e-4)  # SW wind → +u
     assert np.allclose(fc.fields["u850"], 10.0, atol=1e-4)  # westerly → +u
     assert fc.times[0] == datetime(2026, 10, 9, tzinfo=UTC)
+
+
+def test_paces_batches_for_free_tier(monkeypatch):
+    sleeps: list[float] = []
+    monkeypatch.setattr("app.sources.openmeteo.time.sleep", sleeps.append)
+    src = OpenMeteoSource(
+        spacing_deg=1.0, calls_per_minute=400, client=httpx.Client(transport=httpx.MockTransport(_handler))
+    )
+    src.fetch(datetime(2026, 10, 9, tzinfo=UTC), 3)
+    n = src.grid.ny * src.grid.nx
+    assert len(sleeps) == (n - 1) // 100  # one pause between consecutive batches
+    assert all(s == 15.0 for s in sleeps)  # 100 locations every 15 s = 400/min
+
+
+def test_backs_off_on_rate_limit(monkeypatch):
+    sleeps: list[float] = []
+    monkeypatch.setattr("app.sources.openmeteo.time.sleep", sleeps.append)
+    calls = {"n": 0}
+
+    def limited(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return (
+            httpx.Response(429, json={"reason": "Minutely API request limit exceeded"})
+            if calls["n"] == 1
+            else _handler(request)
+        )
+
+    src = OpenMeteoSource(spacing_deg=2.0, client=httpx.Client(transport=httpx.MockTransport(limited)))
+    src.fetch(datetime(2026, 10, 9, tzinfo=UTC), 3)
+    assert sleeps[0] == 65.0

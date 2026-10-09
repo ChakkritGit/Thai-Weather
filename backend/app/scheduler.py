@@ -24,6 +24,7 @@ def build_source(settings: Settings) -> Source:
             model=settings.openmeteo_model,
             spacing_deg=settings.openmeteo_spacing,
             api_key=settings.openmeteo_api_key,
+            calls_per_minute=None if settings.openmeteo_api_key else settings.openmeteo_calls_per_minute,
         )
     return SyntheticSource()
 

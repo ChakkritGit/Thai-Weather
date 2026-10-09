@@ -48,6 +48,7 @@ class OpenMeteoSource:
         api_key: str | None = None,
         base_url: str | None = None,
         client: httpx.Client | None = None,
+        calls_per_minute: int | None = None,
     ) -> None:
         self.model = model
         self.grid: Grid = grid_for(spacing_deg)
@@ -56,6 +57,10 @@ class OpenMeteoSource:
             "https://customer-api.open-meteo.com/v1/forecast" if api_key else "https://api.open-meteo.com/v1/forecast"
         )
         self.client = client or httpx.Client(timeout=60.0)
+        # Open-Meteo counts every location as one call (free tier: 600/min,
+        # 5,000/h, 10,000/day), so batches are spaced out to stay under the
+        # per-minute cap. None disables pacing (paid plans, tests).
+        self.batch_interval = 60.0 * BATCH / calls_per_minute if calls_per_minute else 0.0
 
     def _request(self, lats: list[float], lons: list[float], start: datetime, hours: int) -> list[dict]:
         end = start + timedelta(hours=hours - 1)
@@ -82,8 +87,10 @@ class OpenMeteoSource:
             except (httpx.HTTPError, ValueError) as exc:
                 if attempt == 3:
                     raise
-                log.warning("open-meteo request failed (%s), retrying", exc)
-                time.sleep(2**attempt)
+                limited = isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429
+                wait = 65.0 if limited else 2.0**attempt
+                log.warning("open-meteo request failed (%s), retrying in %.0fs", exc, wait)
+                time.sleep(wait)
         raise RuntimeError("unreachable")
 
     def fetch(self, start: datetime, hours: int) -> CoarseForecast:
@@ -96,6 +103,8 @@ class OpenMeteoSource:
         elev = np.full(n, np.nan, dtype=np.float32)
         times: list[datetime] | None = None
         for b0 in range(0, n, BATCH):
+            if b0 and self.batch_interval:
+                time.sleep(self.batch_interval)
             chunk = self._request(flat_lat[b0 : b0 + BATCH], flat_lon[b0 : b0 + BATCH], start, hours)
             for k, loc in enumerate(chunk):
                 idx = b0 + k

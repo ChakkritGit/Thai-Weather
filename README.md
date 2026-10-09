@@ -73,7 +73,8 @@ npm run dev                            # http://localhost:3000 (rewrite /api →
 | `THWX_OPENMETEO_API_KEY` | – | ใช้ customer API ของ Open-Meteo (สำหรับเชิงพาณิชย์) |
 | `THWX_HORIZON_HOURS` | `48` | ช่วงพยากรณ์ |
 | `THWX_ENSEMBLE_MEMBERS` | `8` | จำนวนสมาชิก ensemble ฝน |
-| `THWX_REFRESH_MINUTES` | `180` | รอบการอัปเดต |
+| `THWX_REFRESH_MINUTES` | `360` | รอบการอัปเดต (ทุก 6 ชม. ให้อยู่ในโควตาฟรีของ Open-Meteo) |
+| `THWX_OPENMETEO_CALLS_PER_MINUTE` | `400` | เว้นจังหวะการดึงให้ไม่เกิน 600 calls/นาทีของ free tier (ปิดอัตโนมัติเมื่อมี API key) |
 | `THWX_DATA_DIR` | `var` | ที่เก็บผลพยากรณ์ |
 | `THWX_ADMIN_TOKEN` | – | Bearer token สำหรับ `POST` endpoints |
 | `THWX_FALLBACK_TO_DEMO` | `true` | ใช้ข้อมูลสาธิตเมื่อแหล่งข้อมูลจริงล่ม (แสดงป้ายชัดเจน) — production แนะนำ `false` |
