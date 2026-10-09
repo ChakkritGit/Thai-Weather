@@ -265,7 +265,7 @@
       }
     },
     "severity": {
-      "$description": "Alert levels – 1 เฝ้าระวัง (advisory) · 2 เตือนภัย (warning) · 3 อันตราย (danger). Always pair colour with a text label and icon.",
+      "$description": "Alert tiers – 1 เหลือง · ควรติดตาม (yellow) · 2 ส้ม · เตรียมพร้อม (orange) · 3 แดง · อันตราย (red). Always pair colour with a text label and icon.",
       "0": {
         "fg": {
           "$value": "{color.cloud.700}",

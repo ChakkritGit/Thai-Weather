@@ -39,6 +39,15 @@ export interface LayerMeta {
   daily: boolean;
 }
 
+/** Hours of forecast covered by a (Thai-local) calendar day; fewer than 18 = partial day. */
+export interface DayCoverage {
+  date: string;
+  hours: number;
+  partial?: boolean;
+  since?: string | null;
+  until?: string | null;
+}
+
 export interface RunMeta {
   run_id: string;
   source: string;
@@ -47,7 +56,7 @@ export interface RunMeta {
   issued: string;
   created: string;
   times: string[];
-  days: { date: string; hours: number }[];
+  days: DayCoverage[];
   fine_grid: GridDesc;
   coarse_grid: GridDesc;
   ensemble_members: number;
@@ -76,6 +85,11 @@ export interface Alert {
 export interface DaySummary {
   date: string;
   hours: number;
+  /** Fewer than 18 hourly steps: tmax/tmin are extremes of the covered hours only. */
+  partial?: boolean;
+  /** Thai local HH:MM of the first / last covered step. */
+  since?: string | null;
+  until?: string | null;
   tmax: number;
   tmin: number;
   tmax_high: number;
@@ -134,6 +148,8 @@ export interface PointForecast {
 
 export interface AlertEntry {
   date: string;
+  partial?: boolean;
+  until?: string | null;
   province: Pick<ProvinceInfo, 'id' | 'name_th' | 'name_en' | 'region' | 'lat' | 'lon'>;
   alerts: Alert[];
 }

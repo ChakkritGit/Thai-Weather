@@ -2,8 +2,16 @@
 
 Thresholds and wording come from ``weather_scales.json`` (design tokens):
 heat-index levels of the Thai Department of Health, TMD rainfall-amount and
-temperature terms, Beaufort wind classes.  A level only raises an alert when
-its token entry has ``severity`` ≥ 1.
+temperature terms, Beaufort wind classes.
+
+Two vocabularies are kept apart on purpose:
+
+* **hazard levels** (``label_th`` of a level, e.g. the DoH heat-index level
+  "เตือนภัย") keep their official source names and are informational;
+* **alert tiers** (``severity`` 1-3 = yellow / orange / red) are the only thing
+  the UI shows as a coloured alert.  A level raises an alert only when its
+  token entry has ``severity`` >= 1, so an ordinary Thai afternoon
+  (heat index 32-41 °C) does not.  See ``docs/ALERTS.md`` for the full mapping.
 """
 
 from __future__ import annotations
@@ -19,6 +27,14 @@ RULES: list[tuple[str, str, str]] = [
     ("hot", "tmax", "tempMax"),
     ("cold", "tmin", "tempMin"),
 ]
+
+#: A forecast day with fewer hourly steps than this is "partial" – its max/min
+#: are the extremes of the covered hours only, not of the whole day.
+PARTIAL_HOURS = 18
+
+
+def is_partial(hours: int) -> bool:
+    return hours < PARTIAL_HOURS
 
 
 def province_alerts(day: dict) -> list[dict]:
@@ -41,3 +57,14 @@ def province_alerts(day: dict) -> list[dict]:
             )
     alerts.sort(key=lambda a: -a["severity"])
     return alerts
+
+
+def normalise_day(day: dict) -> dict:
+    """Return a day summary with alerts re-evaluated against the *current*
+    thresholds and the ``partial`` flag set.
+
+    Run files store the alerts computed when they were made; recomputing from
+    the stored summary values keeps every endpoint on one rule set (also for
+    runs created before a threshold change or before ``partial`` existed).
+    """
+    return {**day, "partial": is_partial(day.get("hours", 24)), "alerts": province_alerts(day)}

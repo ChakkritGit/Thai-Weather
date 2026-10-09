@@ -28,6 +28,7 @@ from ..core.grid import KM_PER_DEG, Grid
 from ..core.static import StaticLayers
 from ..core.thermo import heat_index, relative_humidity, wind_speed_dir
 from ..products.aggregate import DayAccumulator, ProvinceIndex, step_stats, thai_date
+from ..products.alerts import is_partial
 from ..sources.base import CoarseForecast
 from ..store import RunStore
 from . import observations as obsmod
@@ -201,7 +202,7 @@ class Downscaler:
                     if acc is not None:
                         day_summaries.append(self._close_day(acc, idx, writer, days, coarse, interp))
                     acc = DayAccumulator(date, fine.shape, self.members)
-                acc.add(temp, heat, storm, speed, members)
+                acc.add(temp, heat, storm, speed, members, t)
             assert acc is not None
             day_summaries.append(self._close_day(acc, idx, writer, days, coarse, interp))
         except BaseException:
@@ -210,7 +211,9 @@ class Downscaler:
 
         provinces = {
             "steps": {key: [s[key] for s in step_stats_all] for key in step_stats_all[0]},
-            "days": [{"date": d["date"], "hours": d["hours"], "provinces": d["provinces"]} for d in day_summaries],
+            "days": [
+                {k: d[k] for k in ("date", "hours", "partial", "since", "until", "provinces")} for d in day_summaries
+            ],
         }
         meta = {
             "run_id": run_id,
@@ -220,7 +223,7 @@ class Downscaler:
             "issued": coarse.issued.isoformat(),
             "created": datetime.now(UTC).isoformat(),
             "times": [t.isoformat() for t in times],
-            "days": [{"date": d["date"], "hours": d["hours"]} for d in day_summaries],
+            "days": [{k: d[k] for k in ("date", "hours", "partial", "since", "until")} for d in day_summaries],
             "fine_grid": fine.describe(),
             "coarse_grid": coarse.grid.describe(),
             "ensemble_members": self.members,
@@ -239,7 +242,14 @@ class Downscaler:
         # model-native daily total for the comparison view
         day_mask = [thai_date(t) == acc.date for t in coarse.times]
         writer.write("coarse", "rain24", d, coarse.fields["precip"][day_mask].sum(axis=0))
-        return {"date": acc.date, "hours": acc.hours, "provinces": acc.summarise(idx)}
+        return {
+            "date": acc.date,
+            "hours": acc.hours,
+            "partial": is_partial(acc.hours),
+            "since": acc.since or None,
+            "until": acc.until or None,
+            "provinces": acc.summarise(idx),
+        }
 
     @staticmethod
     def _write_coarse(writer, i: int, c: dict) -> None:

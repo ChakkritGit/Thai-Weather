@@ -1,6 +1,6 @@
 """Province-level statistics computed from the fine grid.
 
-This is where 2 km resolution pays off for users: a 22 km model has 3–4
+This is where 2 km resolution pays off for users: a ~25 km global model has 3–4
 grid boxes for an average Thai province (and just one for Bangkok or
 Phuket), so it cannot say *where* in the province it rains, or what
 fraction of the area will be affected.
@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from .alerts import province_alerts
+from .alerts import is_partial, province_alerts
 from .scales import categorise
 
 THAI_TZ = timedelta(hours=7)
@@ -57,6 +57,8 @@ class DayAccumulator:
     shape: tuple[int, int]
     members: int
     hours: int = 0
+    since: str = ""  # Thai local HH:MM of the first / last step covered
+    until: str = ""
     tmax: np.ndarray = field(init=False)
     tmin: np.ndarray = field(init=False)
     himax: np.ndarray = field(init=False)
@@ -72,8 +74,12 @@ class DayAccumulator:
         self.windmax = np.zeros(self.shape, dtype=np.float32)
         self.rain_members = np.zeros((self.members, *self.shape), dtype=np.float32)
 
-    def add(self, temp, heat, storm, wind, rain_members) -> None:
+    def add(self, temp, heat, storm, wind, rain_members, when: datetime | None = None) -> None:
         self.hours += 1
+        if when is not None:
+            hhmm = thai_hhmm(when)
+            self.since = self.since or hhmm
+            self.until = hhmm
         np.maximum(self.tmax, temp, out=self.tmax)
         np.minimum(self.tmin, temp, out=self.tmin)
         np.maximum(self.himax, heat, out=self.himax)
@@ -99,6 +105,9 @@ class DayAccumulator:
             day = {
                 "date": self.date,
                 "hours": self.hours,
+                "partial": is_partial(self.hours),
+                "since": self.since or None,
+                "until": self.until or None,
                 "tmax": _r(tmax[i]),
                 "tmin": _r(tmin[i]),
                 "tmax_high": _r(tmax_hi[i]),
@@ -132,3 +141,7 @@ def step_stats(idx: ProvinceIndex, temp, heat, pop, rain, storm) -> dict[str, li
 
 def thai_date(t: datetime) -> str:
     return (t + THAI_TZ).strftime("%Y-%m-%d")
+
+
+def thai_hhmm(t: datetime) -> str:
+    return (t + THAI_TZ).strftime("%H:%M")

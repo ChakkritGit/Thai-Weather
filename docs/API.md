@@ -13,7 +13,7 @@ Base path `/api/v1`. Interactive OpenAPI docs at `/docs`.
 | GET | `/point?lat=&lon=` | 48 h series at 2 km **and** from the 22 km model, daily totals, and per-process temperature corrections |
 | GET | `/provinces` | 77 provinces with daily summaries and alerts |
 | GET | `/provinces/{iso}` | e.g. `TH-10`: hourly province means + daily summaries |
-| GET | `/alerts?min_severity=1..3` | Province alerts grouped by day |
+| GET | `/alerts?min_severity=1..3` | Province alerts per day (default: every tier; tiers 1 yellow, 2 orange, 3 red – see [ALERTS.md](ALERTS.md)). Entries carry `partial` / `until` for days with incomplete coverage |
 | POST | `/observations` | *(admin)* Ingest station temperatures for the next run's bias correction |
 | POST | `/runs` | *(admin)* Trigger a forecast run now |
 

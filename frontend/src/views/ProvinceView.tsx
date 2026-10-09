@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ProvinceDetail } from '../lib/api';
+import { coverageNote } from '../lib/alertText';
 import { forecastSentence } from '../lib/forecastText';
 import { fmtDay, nearestStep } from '../lib/format';
 import { paths } from '../lib/paths';
@@ -14,6 +15,8 @@ import { TimeSeriesChart } from '../components/TimeSeriesChart';
 export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regionName: string }) {
   const { t, lang, pick } = useT();
   const now = nearestStep(data.times);
+  // one ~27.8 km global-model cell covers about (27.8 / 2.2)² ≈ 160 of the 2 km cells
+  const globalCells = Math.max(1, Math.round(data.cells / 160));
   return (
     <div className="page">
       <div className="page-inner" style={{ maxWidth: 820 }}>
@@ -27,8 +30,8 @@ export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regio
           </h1>
           <p>
             {lang === 'th'
-              ? `ความละเอียด 2 กม. จาก ${data.cells.toLocaleString()} จุดกริดในจังหวัด (โมเดลโลก 22 กม. มีราว ${Math.max(1, Math.round(data.cells / 100))} จุด)`
-              : `2 km resolution from ${data.cells.toLocaleString()} grid cells in the province (a 22 km global model has about ${Math.max(1, Math.round(data.cells / 100))})`}
+              ? `ความละเอียด 2 กม. จาก ${data.cells.toLocaleString()} จุดกริดในจังหวัด (โมเดลโลกความละเอียด ~25–28 กม. มีราว ${globalCells} จุด)`
+              : `2 km resolution from ${data.cells.toLocaleString()} grid cells in the province (a ~25–28 km global model has about ${globalCells})`}
           </p>
         </header>
 
@@ -36,18 +39,25 @@ export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regio
           <section key={d.date} className="card card-pad" style={{ display: 'grid', gap: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: 'var(--font-size-lg)' }}>{fmtDay(d.date, lang, true)}</h2>
-              {d.hours < 24 && (
-                <span className="subtle">
-                  {d.hours} {lang === 'th' ? 'ชั่วโมงที่มีข้อมูล' : 'h covered'}
-                </span>
+              {coverageNote(d, lang) ? (
+                <span className="partial-note">{coverageNote(d, lang)}</span>
+              ) : (
+                d.hours < 24 && (
+                  <span className="subtle">
+                    {d.hours} {lang === 'th' ? 'ชั่วโมงที่มีข้อมูล' : 'h covered'}
+                  </span>
+                )
               )}
             </div>
             <p>{forecastSentence(d, lang)}</p>
             {d.alerts.length > 0 && (
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                 {d.alerts.map((a) => (
                   <AlertBadge key={a.hazard} alert={a} showValue />
                 ))}
+                {coverageNote(d, lang) && (
+                  <span className="level-tag">{lang === 'th' ? 'อิงเฉพาะช่วงที่มีข้อมูล' : 'based on the available hours'}</span>
+                )}
               </div>
             )}
           </section>
