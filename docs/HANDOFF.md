@@ -13,6 +13,7 @@ _Last updated: 2026-10-09_
 | Design tokens | ✅ DTCG source → CSS/TS/JSON | shared thresholds with backend |
 | Tests | ✅ backend 25 (pytest) · frontend 8 (vitest) | `ruff`, `tsc` clean |
 | Deploy | ⚠️ `backend/Dockerfile`, `frontend/Dockerfile` (Next standalone), compose, CI, Vercel config | Docker images **not yet built** (no Docker daemon in the build sandbox) – build once and fix if needed; `next build` + `next start` verified; see `docs/DEPLOYMENT.md` |
+| VPS stack | ⚠️ `deploy/docker-compose.yml` (NPM + Portainer + web + api), `setup-vps.sh`, GHCR image workflow | YAML/script validated, not yet run on a real VPS; make GHCR packages public after the first Actions run |
 | Calibration / verification | ❌ not done | constants are physically motivated first guesses |
 
 ## Run it

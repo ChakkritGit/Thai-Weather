@@ -1,0 +1,95 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Thai Weather HD – complete VPS stack in ONE compose file
+#
+#   nginx-proxy-manager  :80 :443 public (SSL)   UI → nginx.chakkritton.com
+#   portainer            internal only            UI → portainer.chakkritton.com
+#   web  (Next.js)       internal only            →    thai-weather.chakkritton.com
+#   api  (FastAPI)       private network only     reachable only from `web`
+#
+# Networks
+#   proxy    : nginx-proxy-manager ↔ portainer, web   (what NPM can reach)
+#   internal : web ↔ api                              (API never exposed)
+#
+# Start / update (from this folder):
+#   cp .env.example .env && nano .env
+#   docker compose up -d                 # first start
+#   docker compose pull && docker compose up -d   # update to new images
+#
+# Build images on the VPS instead of pulling from GHCR:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+name: thai-weather
+
+services:
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # admin UI only on the VPS itself – used once via SSH tunnel,
+      # afterwards through https://nginx.chakkritton.com
+      - "127.0.0.1:81:81"
+    volumes:
+      - npm-data:/data
+      - npm-letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
+
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    networks:
+      - proxy
+
+  api:
+    image: ghcr.io/chakkritgit/thai-weather-api:${THWX_IMAGE_TAG:-latest}
+    container_name: thai-weather-api
+    restart: unless-stopped
+    environment:
+      THWX_SOURCE: ${THWX_SOURCE:-open-meteo}
+      THWX_OPENMETEO_MODEL: ${THWX_OPENMETEO_MODEL:-gfs_seamless}
+      THWX_OPENMETEO_API_KEY: ${THWX_OPENMETEO_API_KEY:-}
+      THWX_REFRESH_MINUTES: ${THWX_REFRESH_MINUTES:-360}
+      THWX_ENSEMBLE_MEMBERS: ${THWX_ENSEMBLE_MEMBERS:-8}
+      THWX_FALLBACK_TO_DEMO: ${THWX_FALLBACK_TO_DEMO:-false}
+      THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:?set THWX_ADMIN_TOKEN in deploy/.env}
+    volumes:
+      - thwx-data:/var/lib/thwx
+    networks:
+      - internal
+
+  web:
+    image: ghcr.io/chakkritgit/thai-weather-web:${THWX_IMAGE_TAG:-latest}
+    container_name: thai-weather-web
+    restart: unless-stopped
+    environment:
+      SITE_URL: ${SITE_URL:-https://thai-weather.chakkritton.com}
+      THWX_API_URL: http://api:8000
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/robots.txt"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+      - proxy
+
+networks:
+  proxy:
+    name: proxy
+  internal:
+    name: thai-weather-internal
+
+volumes:
+  npm-data:
+  npm-letsencrypt:
+  portainer-data:
+  thwx-data:

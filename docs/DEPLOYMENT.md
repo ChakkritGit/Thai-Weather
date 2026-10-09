@@ -1,5 +1,8 @@
 # Deployment / การ deploy
 
+> **แนะนำ: VPS เครื่องเดียว** — Nginx Proxy Manager (SSL) + Portainer + เว็บ + API อยู่ใน compose ไฟล์เดียว
+> ดูขั้นตอนเต็มที่ [`deploy/README.md`](../deploy/README.md) (`sudo bash deploy/setup-vps.sh`)
+
 ระบบมี 2 ส่วน:
 
 | ส่วน | ลักษณะ | ที่ deploy ที่เหมาะ |

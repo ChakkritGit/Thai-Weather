@@ -10,6 +10,8 @@ ENV THWX_API_URL=$THWX_API_URL NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 FROM node:22-alpine
+LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weather" \
+      org.opencontainers.image.description="Thai Weather HD – Next.js web app"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build /app/.next/standalone ./

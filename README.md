@@ -37,7 +37,11 @@
 
 ## เริ่มใช้งาน
 
-### Docker (ง่ายที่สุด)
+### VPS จริง (SSL + Portainer + Nginx Proxy Manager)
+
+ดู [deploy/README.md](deploy/README.md) — `sudo bash deploy/setup-vps.sh` แล้วตั้งค่าโดเมนในหน้าเว็บของ Nginx Proxy Manager
+
+### Docker ในเครื่อง (ง่ายที่สุด)
 
 ```bash
 docker compose up --build          # โหมดสาธิต ทำงานได้แบบออฟไลน์
@@ -111,6 +115,7 @@ docs/            เอกสารเทคนิค
 - [docs/DOWNSCALING.md](docs/DOWNSCALING.md) — วิธีการทางวิทยาศาสตร์และข้อจำกัด
 - [docs/API.md](docs/API.md) — REST API
 - [docs/DESIGN.md](docs/DESIGN.md) — design system และหลักการ UX
+- [deploy/README.md](deploy/README.md) — **deploy บน VPS**: Docker + Portainer + Nginx Proxy Manager (SSL) ใน compose เดียว
 - [docs/HANDOFF.md](docs/HANDOFF.md) — สถานะงาน สิ่งที่ต้องทำต่อ
 - [CONTRIBUTING.md](CONTRIBUTING.md) — วิธีร่วมพัฒนา
 

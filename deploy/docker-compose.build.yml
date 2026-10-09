@@ -1,0 +1,14 @@
+# Optional override: build the app images on the VPS from this checkout
+# instead of pulling them from GHCR (needs ~2 GB free RAM for the Next.js build).
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  api:
+    image: thai-weather-api:local
+    build:
+      context: ../backend
+  web:
+    image: thai-weather-web:local
+    build:
+      context: ../frontend
+      args:
+        THWX_API_URL: http://api:8000

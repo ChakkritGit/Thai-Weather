@@ -1,3 +1,5 @@
+# Local development / single-machine build from source.
+# For a public VPS with SSL, Portainer and Nginx Proxy Manager use deploy/docker-compose.yml.
 services:
   api:
     build: ./backend
@@ -13,7 +15,7 @@ services:
     volumes:
       - thwx-data:/var/lib/thwx
     ports:
-      - "8000:8000"   # optional: direct API access (/docs)
+      - "127.0.0.1:8000:8000"   # optional: direct API access (/docs), local only
     restart: unless-stopped
 
   web:
@@ -25,7 +27,7 @@ services:
       THWX_API_URL: http://api:8000
       SITE_URL: ${SITE_URL:-http://localhost:3000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api
     restart: unless-stopped

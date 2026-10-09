@@ -1,5 +1,7 @@
 # FastAPI backend: downscaling engine + REST API
 FROM python:3.12-slim
+LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weather" \
+      org.opencontainers.image.description="Thai Weather HD – 2 km downscaling API"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 THWX_DATA_DIR=/var/lib/thwx
 WORKDIR /srv/backend
 COPY pyproject.toml ./
