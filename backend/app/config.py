@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     nowcast_poll_minutes: int = 5
     cyclones_enabled: bool = True
 
+    # Web Push alerts (docs/PUSH.md). Without VAPID keys, a pair is generated once under data_dir/push.
+    push_enabled: bool = True
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str = "mailto:admin@example.com"  # CHANGE to a real contact (mailto: or https:) in production
+
     data_dir: Path = Path("var")
     admin_token: str | None = None
     cors_origins: list[str] = ["*"]

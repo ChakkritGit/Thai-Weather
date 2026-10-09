@@ -16,6 +16,7 @@ from .api.routes import router
 from .config import get_settings
 from .core.static import load_static
 from .nowcast.service import NowcastService
+from .push.service import PushService
 from .scheduler import ObservationBuffer, Refresher
 from .store import RunStore
 
@@ -34,10 +35,13 @@ async def lifespan(app: FastAPI):
     app.state.refresher = refresher
     nowcast = NowcastService(settings)
     app.state.nowcast = nowcast
+    app.state.push = PushService(settings, nowcast) if settings.push_enabled else None
     refresher.start()
     nowcast.start()  # no-op when both radar and cyclones are disabled
     yield
     nowcast.stop()
+    if app.state.push is not None:
+        app.state.push.close()
     refresher.stop()
 
 
