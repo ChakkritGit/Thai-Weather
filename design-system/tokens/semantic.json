@@ -1,0 +1,618 @@
+{
+  "$description": "Semantic tokens – what components use. Each has a light value and a dark-mode override in $extensions.",
+  "color": {
+    "$type": "color",
+    "bg": {
+      "canvas": {
+        "$value": "{color.cloud.50}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.1000}"
+          }
+        },
+        "$description": "App background"
+      },
+      "surface": {
+        "$value": "{color.cloud.0}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.950}"
+          }
+        },
+        "$description": "Cards, panels"
+      },
+      "raised": {
+        "$value": "{color.cloud.0}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.900}"
+          }
+        },
+        "$description": "Popovers, menus"
+      },
+      "subtle": {
+        "$value": "{color.cloud.100}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.900}"
+          }
+        },
+        "$description": "Hover rows, chips"
+      },
+      "muted": {
+        "$value": "{color.cloud.200}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.800}"
+          }
+        }
+      },
+      "inverse": {
+        "$value": "{color.cloud.900}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.50}"
+          }
+        }
+      },
+      "glass": {
+        "$value": "rgba(255,255,255,0.82)",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "rgba(15,19,24,0.78)"
+          }
+        },
+        "$description": "Floating map controls (with backdrop blur)"
+      },
+      "scrim": {
+        "$value": "rgba(15,19,24,0.45)",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "rgba(0,0,0,0.6)"
+          }
+        }
+      }
+    },
+    "fg": {
+      "default": {
+        "$value": "{color.cloud.950}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.50}"
+          }
+        }
+      },
+      "muted": {
+        "$value": "{color.cloud.600}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.300}"
+          }
+        }
+      },
+      "subtle": {
+        "$value": "{color.cloud.500}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.400}"
+          }
+        }
+      },
+      "inverse": {
+        "$value": "{color.cloud.0}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.950}"
+          }
+        }
+      },
+      "onAccent": {
+        "$value": "{color.cloud.0}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.1000}"
+          }
+        }
+      }
+    },
+    "border": {
+      "subtle": {
+        "$value": "{color.cloud.100}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.900}"
+          }
+        }
+      },
+      "default": {
+        "$value": "{color.cloud.200}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.800}"
+          }
+        }
+      },
+      "strong": {
+        "$value": "{color.cloud.400}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.600}"
+          }
+        }
+      },
+      "focus": {
+        "$value": "{color.monsoon.600}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.300}"
+          }
+        }
+      }
+    },
+    "accent": {
+      "default": {
+        "$value": "{color.monsoon.700}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.400}"
+          }
+        },
+        "$description": "Primary actions, links, selected state"
+      },
+      "hover": {
+        "$value": "{color.monsoon.800}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.300}"
+          }
+        }
+      },
+      "subtle": {
+        "$value": "{color.monsoon.50}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.950}"
+          }
+        }
+      },
+      "fg": {
+        "$value": "{color.monsoon.800}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.200}"
+          }
+        }
+      }
+    },
+    "status": {
+      "info": {
+        "fg": {
+          "$value": "{color.monsoon.800}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.monsoon.200}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.monsoon.50}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.monsoon.950}"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.monsoon.600}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.monsoon.400}"
+            }
+          }
+        }
+      },
+      "success": {
+        "fg": {
+          "$value": "{color.rice.700}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.rice.300}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.rice.50}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.rice.900}"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.rice.600}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.rice.500}"
+            }
+          }
+        }
+      },
+      "demo": {
+        "fg": {
+          "$value": "{color.orchid.700}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.orchid.300}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.orchid.50}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.orchid.900}"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.orchid.600}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.orchid.500}"
+            }
+          }
+        }
+      }
+    },
+    "severity": {
+      "$description": "Alert levels – 1 เฝ้าระวัง (advisory) · 2 เตือนภัย (warning) · 3 อันตราย (danger). Always pair colour with a text label and icon.",
+      "0": {
+        "fg": {
+          "$value": "{color.cloud.700}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.cloud.200}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.cloud.100}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.cloud.900}"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.cloud.500}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.cloud.500}"
+            }
+          }
+        }
+      },
+      "1": {
+        "fg": {
+          "$value": "{color.mango.900}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.mango.200}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.mango.100}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "#3a2a06"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.mango.400}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.mango.400}"
+            }
+          }
+        }
+      },
+      "2": {
+        "fg": {
+          "$value": "{color.papaya.900}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.papaya.300}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.papaya.100}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "#3d1d08"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.papaya.500}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.papaya.500}"
+            }
+          }
+        }
+      },
+      "3": {
+        "fg": {
+          "$value": "{color.chili.900}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.chili.300}"
+            }
+          }
+        },
+        "bg": {
+          "$value": "{color.chili.100}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "#3f1010"
+            }
+          }
+        },
+        "solid": {
+          "$value": "{color.chili.600}",
+          "$extensions": {
+            "th.weather.modes": {
+              "dark": "{color.chili.500}"
+            }
+          }
+        }
+      }
+    },
+    "map": {
+      "ocean": {
+        "$value": "#dfeaf2",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "#0b1420"
+          }
+        }
+      },
+      "land": {
+        "$value": "#f7f8f6",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "#1b222b"
+          }
+        },
+        "$description": "Thai land under the data layer"
+      },
+      "landOutside": {
+        "$value": "#eceeea",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "#151b22"
+          }
+        },
+        "$description": "Neighbouring countries"
+      },
+      "border": {
+        "$value": "{color.cloud.600}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.300}"
+          }
+        },
+        "$description": "Country border"
+      },
+      "provinceBorder": {
+        "$value": "rgba(35,42,52,0.35)",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "rgba(233,238,243,0.28)"
+          }
+        }
+      },
+      "provinceHover": {
+        "$value": "{color.monsoon.700}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.300}"
+          }
+        }
+      },
+      "label": {
+        "$value": "{color.cloud.900}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.100}"
+          }
+        }
+      },
+      "labelHalo": {
+        "$value": "rgba(255,255,255,0.85)",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "rgba(15,19,24,0.85)"
+          }
+        }
+      },
+      "coarseGrid": {
+        "$value": "rgba(35,42,52,0.28)",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "rgba(233,238,243,0.22)"
+          }
+        },
+        "$description": "22 km model cell outlines"
+      },
+      "hillshade": {
+        "$value": "rgba(20,30,40,0.55)",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "rgba(0,0,0,0.75)"
+          }
+        }
+      }
+    },
+    "chart": {
+      "fine": {
+        "$value": "{color.monsoon.700}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.monsoon.300}"
+          }
+        },
+        "$description": "2 km downscaled series"
+      },
+      "coarse": {
+        "$value": "{color.cloud.400}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.500}"
+          }
+        },
+        "$description": "22 km model series"
+      },
+      "grid": {
+        "$value": "{color.cloud.100}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.900}"
+          }
+        }
+      },
+      "axis": {
+        "$value": "{color.cloud.500}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.cloud.400}"
+          }
+        }
+      },
+      "rain": {
+        "$value": "#4f9fe6",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "#5aa9f0"
+          }
+        }
+      },
+      "heat": {
+        "$value": "{color.papaya.600}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.papaya.300}"
+          }
+        }
+      },
+      "now": {
+        "$value": "{color.chili.600}",
+        "$extensions": {
+          "th.weather.modes": {
+            "dark": "{color.chili.300}"
+          }
+        }
+      }
+    }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "sm": {
+      "$value": "0 1px 2px rgba(15,19,24,0.08)",
+      "$extensions": {
+        "th.weather.modes": {
+          "dark": "0 1px 2px rgba(0,0,0,0.5)"
+        }
+      }
+    },
+    "md": {
+      "$value": "0 4px 12px rgba(15,19,24,0.10), 0 1px 3px rgba(15,19,24,0.08)",
+      "$extensions": {
+        "th.weather.modes": {
+          "dark": "0 4px 16px rgba(0,0,0,0.55)"
+        }
+      }
+    },
+    "lg": {
+      "$value": "0 12px 32px rgba(15,19,24,0.16), 0 2px 6px rgba(15,19,24,0.08)",
+      "$extensions": {
+        "th.weather.modes": {
+          "dark": "0 16px 40px rgba(0,0,0,0.65)"
+        }
+      }
+    }
+  },
+  "typography": {
+    "$type": "typography",
+    "display": {
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": "{font.size.6xl}",
+        "fontWeight": "{font.weight.semibold}",
+        "lineHeight": "{font.lineHeight.tight}",
+        "letterSpacing": "-0.02em"
+      },
+      "$description": "Hero temperature"
+    },
+    "h1": {
+      "$value": {
+        "fontFamily": "{font.family.sans}",
+        "fontSize": "{font.size.2xl}",
+        "fontWeight": "{font.weight.semibold}",
+        "lineHeight": "{font.lineHeight.heading}"
+      }
+    },
+    "h2": {
+      "$value": {
+        "fontFamily": "{font.family.sans}",
+        "fontSize": "{font.size.xl}",
+        "fontWeight": "{font.weight.semibold}",
+        "lineHeight": "{font.lineHeight.heading}"
+      }
+    },
+    "h3": {
+      "$value": {
+        "fontFamily": "{font.family.sans}",
+        "fontSize": "{font.size.md}",
+        "fontWeight": "{font.weight.semibold}",
+        "lineHeight": "{font.lineHeight.heading}"
+      }
+    },
+    "body": {
+      "$value": {
+        "fontFamily": "{font.family.sans}",
+        "fontSize": "{font.size.md}",
+        "fontWeight": "{font.weight.regular}",
+        "lineHeight": "{font.lineHeight.body}"
+      }
+    },
+    "bodySm": {
+      "$value": {
+        "fontFamily": "{font.family.sans}",
+        "fontSize": "{font.size.sm}",
+        "fontWeight": "{font.weight.regular}",
+        "lineHeight": "{font.lineHeight.body}"
+      }
+    },
+    "caption": {
+      "$value": {
+        "fontFamily": "{font.family.sans}",
+        "fontSize": "{font.size.xs}",
+        "fontWeight": "{font.weight.medium}",
+        "lineHeight": "{font.lineHeight.body}"
+      }
+    },
+    "data": {
+      "$value": {
+        "fontFamily": "{font.family.mono}",
+        "fontSize": "{font.size.sm}",
+        "fontWeight": "{font.weight.medium}",
+        "lineHeight": "{font.lineHeight.tight}"
+      },
+      "$description": "Numbers in tables & readouts (tabular)"
+    }
+  }
+}

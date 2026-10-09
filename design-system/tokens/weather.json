@@ -1,0 +1,615 @@
+{
+  "$description": "Weather-domain tokens: colour scales for map layers and categorical thresholds used by alerts. Consumed by the web app AND the backend (via dist/weather-scales.json) – one source of truth.",
+  "scales": {
+    "temperature": {
+      "unit": "°C",
+      "mode": "continuous",
+      "$description": "Diverging-from-comfort ramp tuned for the Thai range 8–42 °C; perceptually ordered, distinguishable for deuteranopia at the hot end via lightness.",
+      "stops": [
+        {
+          "value": 8,
+          "color": "#2b2f8f"
+        },
+        {
+          "value": 12,
+          "color": "#2f5fb3"
+        },
+        {
+          "value": 16,
+          "color": "#3a8fcc"
+        },
+        {
+          "value": 20,
+          "color": "#4fb8c9"
+        },
+        {
+          "value": 23,
+          "color": "#7fd1a8"
+        },
+        {
+          "value": 26,
+          "color": "#c7e78a"
+        },
+        {
+          "value": 29,
+          "color": "#fde68a"
+        },
+        {
+          "value": 32,
+          "color": "#fdb863"
+        },
+        {
+          "value": 35,
+          "color": "#f57f45"
+        },
+        {
+          "value": 38,
+          "color": "#d7372b"
+        },
+        {
+          "value": 41,
+          "color": "#a50f2d"
+        },
+        {
+          "value": 44,
+          "color": "#5e0a3b"
+        }
+      ]
+    },
+    "heatIndex": {
+      "unit": "°C",
+      "mode": "stepped",
+      "$description": "Thai Department of Health / TMD heat-index levels",
+      "stops": [
+        {
+          "value": 0,
+          "color": "#a7c7b4"
+        },
+        {
+          "value": 27,
+          "color": "{color.mango.200}"
+        },
+        {
+          "value": 32,
+          "color": "{color.papaya.300}"
+        },
+        {
+          "value": 41,
+          "color": "{color.chili.600}"
+        },
+        {
+          "value": 54,
+          "color": "{color.orchid.700}"
+        }
+      ]
+    },
+    "humidity": {
+      "unit": "%",
+      "mode": "continuous",
+      "stops": [
+        {
+          "value": 10,
+          "color": "#b8743c"
+        },
+        {
+          "value": 35,
+          "color": "#e2b984"
+        },
+        {
+          "value": 55,
+          "color": "#eef1f4"
+        },
+        {
+          "value": 75,
+          "color": "#8cc4ee"
+        },
+        {
+          "value": 90,
+          "color": "#3d8fd6"
+        },
+        {
+          "value": 100,
+          "color": "#1d4f9a"
+        }
+      ]
+    },
+    "rainRate": {
+      "unit": "mm/h",
+      "mode": "continuous",
+      "$description": "Radar-style ramp. Below 0.1 mm/h is transparent.",
+      "stops": [
+        {
+          "value": 0.1,
+          "color": "#9fd3ff",
+          "alpha": 0.0
+        },
+        {
+          "value": 0.3,
+          "color": "#9fd3ff",
+          "alpha": 0.55
+        },
+        {
+          "value": 1,
+          "color": "#5aa9f0",
+          "alpha": 0.8
+        },
+        {
+          "value": 2,
+          "color": "#2c7bd8",
+          "alpha": 0.9
+        },
+        {
+          "value": 5,
+          "color": "#1f9e5a"
+        },
+        {
+          "value": 10,
+          "color": "#8bd04a"
+        },
+        {
+          "value": 20,
+          "color": "#ffd43b"
+        },
+        {
+          "value": 35,
+          "color": "#ff922b"
+        },
+        {
+          "value": 50,
+          "color": "#f03e3e"
+        },
+        {
+          "value": 75,
+          "color": "#c2255c"
+        },
+        {
+          "value": 110,
+          "color": "#7b2ea8"
+        }
+      ]
+    },
+    "rainDaily": {
+      "unit": "mm",
+      "mode": "continuous",
+      "$description": "Daily totals; breakpoints match TMD rainfall-amount terms (10 / 35 / 90 mm).",
+      "stops": [
+        {
+          "value": 0.1,
+          "color": "#cfe8ff",
+          "alpha": 0.0
+        },
+        {
+          "value": 1,
+          "color": "#b5dcff",
+          "alpha": 0.7
+        },
+        {
+          "value": 10,
+          "color": "#5aa9f0",
+          "alpha": 0.9
+        },
+        {
+          "value": 20,
+          "color": "#22b8a0"
+        },
+        {
+          "value": 35,
+          "color": "#94d82d"
+        },
+        {
+          "value": 60,
+          "color": "#ffd43b"
+        },
+        {
+          "value": 90,
+          "color": "#ff922b"
+        },
+        {
+          "value": 150,
+          "color": "#f03e3e"
+        },
+        {
+          "value": 250,
+          "color": "#9c2a7e"
+        }
+      ]
+    },
+    "probability": {
+      "unit": "%",
+      "mode": "continuous",
+      "stops": [
+        {
+          "value": 5,
+          "color": "#d6ecff",
+          "alpha": 0.0
+        },
+        {
+          "value": 10,
+          "color": "#d6ecff",
+          "alpha": 0.5
+        },
+        {
+          "value": 30,
+          "color": "#90c5f5",
+          "alpha": 0.75
+        },
+        {
+          "value": 50,
+          "color": "#4f97e0",
+          "alpha": 0.85
+        },
+        {
+          "value": 70,
+          "color": "#2b62c2"
+        },
+        {
+          "value": 90,
+          "color": "#283a8f"
+        },
+        {
+          "value": 100,
+          "color": "#1e1f5c"
+        }
+      ]
+    },
+    "thunder": {
+      "unit": "%",
+      "mode": "continuous",
+      "stops": [
+        {
+          "value": 5,
+          "color": "#fff3bf",
+          "alpha": 0.0
+        },
+        {
+          "value": 15,
+          "color": "#fff3bf",
+          "alpha": 0.6
+        },
+        {
+          "value": 30,
+          "color": "#ffd8a8",
+          "alpha": 0.85
+        },
+        {
+          "value": 50,
+          "color": "#ff8787"
+        },
+        {
+          "value": 70,
+          "color": "#e64980"
+        },
+        {
+          "value": 90,
+          "color": "#9c36b5"
+        }
+      ]
+    },
+    "wind": {
+      "unit": "m/s",
+      "mode": "continuous",
+      "$description": "Breakpoints at Beaufort 3 / 5 / 6 / 8 / 10",
+      "stops": [
+        {
+          "value": 0,
+          "color": "#eef2f5",
+          "alpha": 0.0
+        },
+        {
+          "value": 2,
+          "color": "#d8eef3",
+          "alpha": 0.5
+        },
+        {
+          "value": 3.4,
+          "color": "#b2e6ee",
+          "alpha": 0.8
+        },
+        {
+          "value": 8,
+          "color": "#56c7d9"
+        },
+        {
+          "value": 10.8,
+          "color": "#f2c94c"
+        },
+        {
+          "value": 17.2,
+          "color": "#f2711c"
+        },
+        {
+          "value": 24.5,
+          "color": "#c92a2a"
+        },
+        {
+          "value": 30,
+          "color": "#7b2ea8"
+        }
+      ]
+    },
+    "cloud": {
+      "unit": "%",
+      "mode": "continuous",
+      "stops": [
+        {
+          "value": 0,
+          "color": "#ffffff",
+          "alpha": 0.0
+        },
+        {
+          "value": 30,
+          "color": "#e9eef3",
+          "alpha": 0.25
+        },
+        {
+          "value": 60,
+          "color": "#c9d3dd",
+          "alpha": 0.55
+        },
+        {
+          "value": 85,
+          "color": "#9aa7b5",
+          "alpha": 0.75
+        },
+        {
+          "value": 100,
+          "color": "#6a7a8e",
+          "alpha": 0.85
+        }
+      ]
+    }
+  },
+  "categories": {
+    "heatIndex": {
+      "unit": "°C",
+      "source": "กรมอนามัย / กรมอุตุนิยมวิทยา (Heat-index levels)",
+      "levels": [
+        {
+          "id": "normal",
+          "max": 26.9,
+          "severity": 0,
+          "label_th": "ปกติ",
+          "label_en": "Normal",
+          "color": "#a7c7b4"
+        },
+        {
+          "id": "caution",
+          "min": 27,
+          "severity": 0,
+          "label_th": "เฝ้าระวัง",
+          "label_en": "Caution",
+          "color": "{color.mango.200}"
+        },
+        {
+          "id": "extremeCaution",
+          "min": 32,
+          "severity": 1,
+          "label_th": "เตือนภัย",
+          "label_en": "Extreme caution",
+          "color": "{color.papaya.300}"
+        },
+        {
+          "id": "danger",
+          "min": 41,
+          "severity": 2,
+          "label_th": "อันตราย",
+          "label_en": "Danger",
+          "color": "{color.chili.600}"
+        },
+        {
+          "id": "extremeDanger",
+          "min": 54,
+          "severity": 3,
+          "label_th": "อันตรายมาก",
+          "label_en": "Extreme danger",
+          "color": "{color.orchid.700}"
+        }
+      ]
+    },
+    "rainDaily": {
+      "unit": "mm/day",
+      "source": "กรมอุตุนิยมวิทยา – เกณฑ์ปริมาณฝน 24 ชม.",
+      "levels": [
+        {
+          "id": "none",
+          "max": 0.09,
+          "severity": 0,
+          "label_th": "ไม่มีฝน",
+          "label_en": "No rain"
+        },
+        {
+          "id": "light",
+          "min": 0.1,
+          "severity": 0,
+          "label_th": "ฝนเล็กน้อย",
+          "label_en": "Light rain"
+        },
+        {
+          "id": "moderate",
+          "min": 10.1,
+          "severity": 0,
+          "label_th": "ฝนปานกลาง",
+          "label_en": "Moderate rain"
+        },
+        {
+          "id": "heavy",
+          "min": 35.1,
+          "severity": 1,
+          "label_th": "ฝนหนัก",
+          "label_en": "Heavy rain"
+        },
+        {
+          "id": "veryHeavy",
+          "min": 90.1,
+          "severity": 2,
+          "label_th": "ฝนหนักมาก",
+          "label_en": "Very heavy rain"
+        },
+        {
+          "id": "extreme",
+          "min": 150,
+          "severity": 3,
+          "label_th": "ฝนหนักมาก เสี่ยงน้ำท่วมฉับพลัน",
+          "label_en": "Extreme rain – flash-flood risk",
+          "$description": "System-defined level above TMD's highest class"
+        }
+      ]
+    },
+    "rainCoverage": {
+      "unit": "% of area",
+      "source": "ศัพท์การกระจายของฝนแบบกรมอุตุนิยมวิทยา",
+      "levels": [
+        {
+          "id": "isolated",
+          "min": 10,
+          "severity": 0,
+          "label_th": "ฝนบางแห่ง",
+          "label_en": "Isolated"
+        },
+        {
+          "id": "scattered",
+          "min": 20,
+          "severity": 0,
+          "label_th": "ฝนเป็นแห่งๆ",
+          "label_en": "Scattered"
+        },
+        {
+          "id": "fairlyWidespread",
+          "min": 40,
+          "severity": 0,
+          "label_th": "ฝนค่อนข้างกระจาย",
+          "label_en": "Fairly widespread"
+        },
+        {
+          "id": "widespread",
+          "min": 60,
+          "severity": 0,
+          "label_th": "ฝนกระจาย",
+          "label_en": "Widespread"
+        },
+        {
+          "id": "throughout",
+          "min": 80,
+          "severity": 0,
+          "label_th": "ฝนเกือบทั่วไป",
+          "label_en": "Almost everywhere"
+        }
+      ]
+    },
+    "tempMax": {
+      "unit": "°C",
+      "source": "กรมอุตุนิยมวิทยา",
+      "levels": [
+        {
+          "id": "hot",
+          "min": 35,
+          "severity": 0,
+          "label_th": "อากาศร้อน",
+          "label_en": "Hot"
+        },
+        {
+          "id": "veryHot",
+          "min": 40,
+          "severity": 2,
+          "label_th": "อากาศร้อนจัด",
+          "label_en": "Very hot"
+        }
+      ]
+    },
+    "tempMin": {
+      "unit": "°C",
+      "source": "กรมอุตุนิยมวิทยา",
+      "levels": [
+        {
+          "id": "cool",
+          "max": 22.9,
+          "severity": 0,
+          "label_th": "อากาศเย็น",
+          "label_en": "Cool"
+        },
+        {
+          "id": "cold",
+          "max": 15.9,
+          "severity": 1,
+          "label_th": "อากาศหนาว",
+          "label_en": "Cold"
+        },
+        {
+          "id": "veryCold",
+          "max": 7.9,
+          "severity": 2,
+          "label_th": "อากาศหนาวจัด",
+          "label_en": "Very cold"
+        }
+      ]
+    },
+    "thunder": {
+      "unit": "%",
+      "source": "system",
+      "levels": [
+        {
+          "id": "possible",
+          "min": 30,
+          "severity": 0,
+          "label_th": "อาจมีพายุฝนฟ้าคะนอง",
+          "label_en": "Thunderstorms possible"
+        },
+        {
+          "id": "likely",
+          "min": 50,
+          "severity": 1,
+          "label_th": "มีพายุฝนฟ้าคะนอง",
+          "label_en": "Thunderstorms likely"
+        },
+        {
+          "id": "severe",
+          "min": 75,
+          "severity": 2,
+          "label_th": "พายุฝนฟ้าคะนองรุนแรง",
+          "label_en": "Severe thunderstorms"
+        }
+      ]
+    },
+    "wind": {
+      "unit": "m/s",
+      "source": "Beaufort scale",
+      "levels": [
+        {
+          "id": "strong",
+          "min": 10.8,
+          "severity": 1,
+          "label_th": "ลมแรง",
+          "label_en": "Strong wind"
+        },
+        {
+          "id": "gale",
+          "min": 17.2,
+          "severity": 2,
+          "label_th": "ลมแรงจัด",
+          "label_en": "Gale"
+        },
+        {
+          "id": "storm",
+          "min": 24.5,
+          "severity": 3,
+          "label_th": "ลมพายุ",
+          "label_en": "Storm-force wind"
+        }
+      ]
+    }
+  },
+  "severity": {
+    "1": {
+      "label_th": "เฝ้าระวัง",
+      "label_en": "Advisory"
+    },
+    "2": {
+      "label_th": "เตือนภัย",
+      "label_en": "Warning"
+    },
+    "3": {
+      "label_th": "อันตราย",
+      "label_en": "Danger"
+    }
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "$description": "Primitive (raw) tokens. Never use directly in components – go through semantic.json.",
+  "color": {
+    "$type": "color",
+    "monsoon": {
+      "$description": "Primary brand hue – monsoon sky / Andaman sea",
+      "50": { "$value": "#effaff" },
+      "100": { "$value": "#def3ff" },
+      "200": { "$value": "#b6e9ff" },
+      "300": { "$value": "#75daff" },
+      "400": { "$value": "#2cc7ff" },
+      "500": { "$value": "#00aef0" },
+      "600": { "$value": "#008bcd" },
+      "700": { "$value": "#006ea6" },
+      "800": { "$value": "#025d89" },
+      "900": { "$value": "#084d71" },
+      "950": { "$value": "#06314b" }
+    },
+    "cloud": {
+      "$description": "Blue-grey neutrals",
+      "0": { "$value": "#ffffff" },
+      "25": { "$value": "#fbfcfd" },
+      "50": { "$value": "#f4f7fa" },
+      "100": { "$value": "#e9eef3" },
+      "200": { "$value": "#d4dce5" },
+      "300": { "$value": "#b2bfcc" },
+      "400": { "$value": "#8a99ab" },
+      "500": { "$value": "#6a7a8e" },
+      "600": { "$value": "#536175" },
+      "700": { "$value": "#434e5e" },
+      "800": { "$value": "#323b48" },
+      "900": { "$value": "#232a34" },
+      "950": { "$value": "#181d25" },
+      "1000": { "$value": "#0f1318" }
+    },
+    "rice": {
+      "$description": "Green – paddy fields; success / safe",
+      "50": { "$value": "#effef4" },
+      "100": { "$value": "#d8fbe5" },
+      "300": { "$value": "#7fe6a9" },
+      "500": { "$value": "#1fb862" },
+      "600": { "$value": "#15964f" },
+      "700": { "$value": "#147541" },
+      "900": { "$value": "#0f4a2b" }
+    },
+    "mango": {
+      "$description": "Amber – advisory (เฝ้าระวัง)",
+      "50": { "$value": "#fffbeb" },
+      "100": { "$value": "#fef3c7" },
+      "200": { "$value": "#fde68a" },
+      "300": { "$value": "#fcd34d" },
+      "400": { "$value": "#fbbf24" },
+      "500": { "$value": "#f59e0b" },
+      "600": { "$value": "#d97706" },
+      "700": { "$value": "#b45309" },
+      "900": { "$value": "#713f12" }
+    },
+    "papaya": {
+      "$description": "Orange – warning (เตือนภัย)",
+      "50": { "$value": "#fff5ed" },
+      "100": { "$value": "#ffe8d4" },
+      "300": { "$value": "#ffb27a" },
+      "500": { "$value": "#f97316" },
+      "600": { "$value": "#e0590a" },
+      "700": { "$value": "#b9430b" },
+      "900": { "$value": "#7a2e0e" }
+    },
+    "chili": {
+      "$description": "Red – danger (อันตราย)",
+      "50": { "$value": "#fef2f2" },
+      "100": { "$value": "#fee2e2" },
+      "300": { "$value": "#fca5a5" },
+      "500": { "$value": "#ef4444" },
+      "600": { "$value": "#dc2626" },
+      "700": { "$value": "#b91c1c" },
+      "900": { "$value": "#7f1d1d" }
+    },
+    "orchid": {
+      "$description": "Purple – extreme / beyond-scale values",
+      "50": { "$value": "#faf5ff" },
+      "100": { "$value": "#f3e8ff" },
+      "300": { "$value": "#d8b4fe" },
+      "500": { "$value": "#a855f7" },
+      "600": { "$value": "#9333ea" },
+      "700": { "$value": "#7e22ce" },
+      "900": { "$value": "#581c87" }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "sans": { "$value": ["IBM Plex Sans Thai", "Noto Sans Thai", "Sarabun", "system-ui", "sans-serif"] },
+      "display": { "$value": ["IBM Plex Sans Thai Looped", "IBM Plex Sans Thai", "Noto Sans Thai", "system-ui", "sans-serif"] },
+      "mono": { "$value": ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"] }
+    },
+    "size": {
+      "$type": "dimension",
+      "2xs": { "$value": "11px" },
+      "xs": { "$value": "12px" },
+      "sm": { "$value": "14px" },
+      "md": { "$value": "16px" },
+      "lg": { "$value": "18px" },
+      "xl": { "$value": "20px" },
+      "2xl": { "$value": "24px" },
+      "3xl": { "$value": "30px" },
+      "4xl": { "$value": "36px" },
+      "5xl": { "$value": "48px" },
+      "6xl": { "$value": "64px" }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": { "$value": 400 },
+      "medium": { "$value": 500 },
+      "semibold": { "$value": 600 },
+      "bold": { "$value": 700 }
+    },
+    "lineHeight": {
+      "$type": "number",
+      "$description": "Thai script stacks vowels and tone marks above and below the base line – keep body text ≥ 1.6.",
+      "tight": { "$value": 1.2 },
+      "heading": { "$value": 1.4 },
+      "body": { "$value": 1.65 },
+      "relaxed": { "$value": 1.8 }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "0": { "$value": "0px" },
+    "0_5": { "$value": "2px" },
+    "1": { "$value": "4px" },
+    "2": { "$value": "8px" },
+    "3": { "$value": "12px" },
+    "4": { "$value": "16px" },
+    "5": { "$value": "20px" },
+    "6": { "$value": "24px" },
+    "8": { "$value": "32px" },
+    "10": { "$value": "40px" },
+    "12": { "$value": "48px" },
+    "16": { "$value": "64px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "none": { "$value": "0px" },
+    "xs": { "$value": "4px" },
+    "sm": { "$value": "6px" },
+    "md": { "$value": "10px" },
+    "lg": { "$value": "14px" },
+    "xl": { "$value": "20px" },
+    "full": { "$value": "9999px" }
+  },
+  "duration": {
+    "$type": "duration",
+    "instant": { "$value": "80ms" },
+    "fast": { "$value": "140ms" },
+    "base": { "$value": "220ms" },
+    "slow": { "$value": "360ms" }
+  },
+  "easing": {
+    "$type": "cubicBezier",
+    "standard": { "$value": [0.2, 0, 0, 1] },
+    "enter": { "$value": [0, 0, 0.2, 1] },
+    "exit": { "$value": [0.4, 0, 1, 1] }
+  },
+  "zIndex": {
+    "$type": "number",
+    "map": { "$value": 0 },
+    "overlay": { "$value": 10 },
+    "panel": { "$value": 20 },
+    "header": { "$value": 30 },
+    "popover": { "$value": 40 },
+    "toast": { "$value": 50 },
+    "modal": { "$value": 60 }
+  },
+  "breakpoint": {
+    "$type": "dimension",
+    "sm": { "$value": "640px" },
+    "md": { "$value": "768px" },
+    "lg": { "$value": "1024px" },
+    "xl": { "$value": "1280px" }
+  },
+  "size": {
+    "$type": "dimension",
+    "touchTarget": { "$value": "44px", "$description": "Minimum touch target (WCAG 2.5.5)" },
+    "headerHeight": { "$value": "56px" },
+    "sidebarWidth": { "$value": "380px" },
+    "iconSm": { "$value": "16px" },
+    "iconMd": { "$value": "20px" },
+    "iconLg": { "$value": "24px" }
+  }
+}

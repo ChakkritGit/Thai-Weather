@@ -1,0 +1,772 @@
+[
+ {
+  "id": "TH-10",
+  "index": 1,
+  "name_th": "กรุงเทพมหานคร",
+  "name_en": "Bangkok",
+  "region": "bangkok",
+  "lat": 13.7243,
+  "lon": 100.5969,
+  "cells": 328
+ },
+ {
+  "id": "TH-11",
+  "index": 2,
+  "name_th": "สมุทรปราการ",
+  "name_en": "Samut Prakan",
+  "region": "bangkok",
+  "lat": 13.5963,
+  "lon": 100.7592,
+  "cells": 188
+ },
+ {
+  "id": "TH-12",
+  "index": 3,
+  "name_th": "นนทบุรี",
+  "name_en": "Nonthaburi",
+  "region": "bangkok",
+  "lat": 13.9652,
+  "lon": 100.3789,
+  "cells": 126
+ },
+ {
+  "id": "TH-13",
+  "index": 4,
+  "name_th": "ปทุมธานี",
+  "name_en": "Pathum Thani",
+  "region": "bangkok",
+  "lat": 14.0888,
+  "lon": 100.6279,
+  "cells": 304
+ },
+ {
+  "id": "TH-14",
+  "index": 5,
+  "name_th": "พระนครศรีอยุธยา",
+  "name_en": "Phra Nakhon Si Ayutthaya",
+  "region": "central",
+  "lat": 14.3965,
+  "lon": 100.5298,
+  "cells": 527
+ },
+ {
+  "id": "TH-15",
+  "index": 6,
+  "name_th": "อ่างทอง",
+  "name_en": "Ang Thong",
+  "region": "central",
+  "lat": 14.622,
+  "lon": 100.3607,
+  "cells": 202
+ },
+ {
+  "id": "TH-16",
+  "index": 7,
+  "name_th": "ลพบุรี",
+  "name_en": "Lop Buri",
+  "region": "central",
+  "lat": 15.0755,
+  "lon": 100.8896,
+  "cells": 1361
+ },
+ {
+  "id": "TH-17",
+  "index": 8,
+  "name_th": "สิงห์บุรี",
+  "name_en": "Sing Buri",
+  "region": "central",
+  "lat": 14.9463,
+  "lon": 100.3285,
+  "cells": 179
+ },
+ {
+  "id": "TH-18",
+  "index": 9,
+  "name_th": "ชัยนาท",
+  "name_en": "Chai Nat",
+  "region": "central",
+  "lat": 15.1659,
+  "lon": 100.0288,
+  "cells": 528
+ },
+ {
+  "id": "TH-19",
+  "index": 10,
+  "name_th": "สระบุรี",
+  "name_en": "Saraburi",
+  "region": "central",
+  "lat": 14.5488,
+  "lon": 100.98,
+  "cells": 629
+ },
+ {
+  "id": "TH-20",
+  "index": 11,
+  "name_th": "ชลบุรี",
+  "name_en": "Chon Buri",
+  "region": "east",
+  "lat": 13.0927,
+  "lon": 101.2281,
+  "cells": 904
+ },
+ {
+  "id": "TH-21",
+  "index": 12,
+  "name_th": "ระยอง",
+  "name_en": "Rayong",
+  "region": "east",
+  "lat": 12.8733,
+  "lon": 101.4439,
+  "cells": 762
+ },
+ {
+  "id": "TH-22",
+  "index": 13,
+  "name_th": "จันทบุรี",
+  "name_en": "Chanthaburi",
+  "region": "east",
+  "lat": 12.82,
+  "lon": 102.1598,
+  "cells": 1214
+ },
+ {
+  "id": "TH-23",
+  "index": 14,
+  "name_th": "ตราด",
+  "name_en": "Trat",
+  "region": "east",
+  "lat": 12.1966,
+  "lon": 102.4519,
+  "cells": 540
+ },
+ {
+  "id": "TH-24",
+  "index": 15,
+  "name_th": "ฉะเชิงเทรา",
+  "name_en": "Chachoengsao",
+  "region": "east",
+  "lat": 13.5745,
+  "lon": 101.5894,
+  "cells": 1160
+ },
+ {
+  "id": "TH-25",
+  "index": 16,
+  "name_th": "ปราจีนบุรี",
+  "name_en": "Prachin Buri",
+  "region": "east",
+  "lat": 14.0869,
+  "lon": 101.6606,
+  "cells": 968
+ },
+ {
+  "id": "TH-26",
+  "index": 17,
+  "name_th": "นครนายก",
+  "name_en": "Nakhon Nayok",
+  "region": "east",
+  "lat": 14.2289,
+  "lon": 101.1593,
+  "cells": 463
+ },
+ {
+  "id": "TH-27",
+  "index": 18,
+  "name_th": "สระแก้ว",
+  "name_en": "Sa Kaeo",
+  "region": "east",
+  "lat": 13.6714,
+  "lon": 102.2157,
+  "cells": 1478
+ },
+ {
+  "id": "TH-30",
+  "index": 19,
+  "name_th": "นครราชสีมา",
+  "name_en": "Nakhon Ratchasima",
+  "region": "northeast",
+  "lat": 14.9465,
+  "lon": 101.9907,
+  "cells": 4354
+ },
+ {
+  "id": "TH-31",
+  "index": 20,
+  "name_th": "บุรีรัมย์",
+  "name_en": "Buri Ram",
+  "region": "northeast",
+  "lat": 14.9597,
+  "lon": 103.0798,
+  "cells": 2133
+ },
+ {
+  "id": "TH-32",
+  "index": 21,
+  "name_th": "สุรินทร์",
+  "name_en": "Surin",
+  "region": "northeast",
+  "lat": 14.9117,
+  "lon": 103.6801,
+  "cells": 1798
+ },
+ {
+  "id": "TH-33",
+  "index": 22,
+  "name_th": "ศรีสะเกษ",
+  "name_en": "Si Sa Ket",
+  "region": "northeast",
+  "lat": 14.9644,
+  "lon": 104.3364,
+  "cells": 1859
+ },
+ {
+  "id": "TH-34",
+  "index": 23,
+  "name_th": "อุบลราชธานี",
+  "name_en": "Ubon Ratchathani",
+  "region": "northeast",
+  "lat": 15.1515,
+  "lon": 105.0894,
+  "cells": 3074
+ },
+ {
+  "id": "TH-35",
+  "index": 24,
+  "name_th": "ยโสธร",
+  "name_en": "Yasothon",
+  "region": "northeast",
+  "lat": 15.8133,
+  "lon": 104.2784,
+  "cells": 865
+ },
+ {
+  "id": "TH-36",
+  "index": 25,
+  "name_th": "ชัยภูมิ",
+  "name_en": "Chaiyaphum",
+  "region": "northeast",
+  "lat": 15.9606,
+  "lon": 101.8816,
+  "cells": 2781
+ },
+ {
+  "id": "TH-37",
+  "index": 26,
+  "name_th": "อำนาจเจริญ",
+  "name_en": "Amnat Charoen",
+  "region": "northeast",
+  "lat": 15.8822,
+  "lon": 104.7456,
+  "cells": 824
+ },
+ {
+  "id": "TH-38",
+  "index": 27,
+  "name_th": "บึงกาฬ",
+  "name_en": "Bueng Kan",
+  "region": "northeast",
+  "lat": 18.1049,
+  "lon": 103.717,
+  "cells": 851
+ },
+ {
+  "id": "TH-39",
+  "index": 28,
+  "name_th": "หนองบัวลำภู",
+  "name_en": "Nong Bua Lam Phu",
+  "region": "northeast",
+  "lat": 17.2008,
+  "lon": 102.2665,
+  "cells": 896
+ },
+ {
+  "id": "TH-40",
+  "index": 29,
+  "name_th": "ขอนแก่น",
+  "name_en": "Khon Kaen",
+  "region": "northeast",
+  "lat": 16.3522,
+  "lon": 102.6807,
+  "cells": 2267
+ },
+ {
+  "id": "TH-41",
+  "index": 30,
+  "name_th": "อุดรธานี",
+  "name_en": "Udon Thani",
+  "region": "northeast",
+  "lat": 17.4565,
+  "lon": 102.8455,
+  "cells": 2311
+ },
+ {
+  "id": "TH-42",
+  "index": 31,
+  "name_th": "เลย",
+  "name_en": "Loei",
+  "region": "northeast",
+  "lat": 17.4849,
+  "lon": 101.6412,
+  "cells": 2219
+ },
+ {
+  "id": "TH-43",
+  "index": 32,
+  "name_th": "หนองคาย",
+  "name_en": "Nong Khai",
+  "region": "northeast",
+  "lat": 17.9457,
+  "lon": 103.1076,
+  "cells": 733
+ },
+ {
+  "id": "TH-44",
+  "index": 33,
+  "name_th": "มหาสารคาม",
+  "name_en": "Maha Sarakham",
+  "region": "northeast",
+  "lat": 16.027,
+  "lon": 103.1895,
+  "cells": 1209
+ },
+ {
+  "id": "TH-45",
+  "index": 34,
+  "name_th": "ร้อยเอ็ด",
+  "name_en": "Roi Et",
+  "region": "northeast",
+  "lat": 15.9399,
+  "lon": 103.7564,
+  "cells": 1625
+ },
+ {
+  "id": "TH-46",
+  "index": 35,
+  "name_th": "กาฬสินธุ์",
+  "name_en": "Kalasin",
+  "region": "northeast",
+  "lat": 16.6463,
+  "lon": 103.671,
+  "cells": 1440
+ },
+ {
+  "id": "TH-47",
+  "index": 36,
+  "name_th": "สกลนคร",
+  "name_en": "Sakon Nakhon",
+  "region": "northeast",
+  "lat": 17.4216,
+  "lon": 103.6551,
+  "cells": 2038
+ },
+ {
+  "id": "TH-48",
+  "index": 37,
+  "name_th": "นครพนม",
+  "name_en": "Nakhon Phanom",
+  "region": "northeast",
+  "lat": 17.3839,
+  "lon": 104.613,
+  "cells": 1216
+ },
+ {
+  "id": "TH-49",
+  "index": 38,
+  "name_th": "มุกดาหาร",
+  "name_en": "Mukdahan",
+  "region": "northeast",
+  "lat": 16.5391,
+  "lon": 104.492,
+  "cells": 861
+ },
+ {
+  "id": "TH-50",
+  "index": 39,
+  "name_th": "เชียงใหม่",
+  "name_en": "Chiang Mai",
+  "region": "north",
+  "lat": 18.701,
+  "lon": 98.6212,
+  "cells": 4881
+ },
+ {
+  "id": "TH-51",
+  "index": 40,
+  "name_th": "ลำพูน",
+  "name_en": "Lamphun",
+  "region": "north",
+  "lat": 18.0947,
+  "lon": 98.9395,
+  "cells": 869
+ },
+ {
+  "id": "TH-52",
+  "index": 41,
+  "name_th": "ลำปาง",
+  "name_en": "Lampang",
+  "region": "north",
+  "lat": 18.3575,
+  "lon": 99.5587,
+  "cells": 2674
+ },
+ {
+  "id": "TH-53",
+  "index": 42,
+  "name_th": "อุตรดิตถ์",
+  "name_en": "Uttaradit",
+  "region": "north",
+  "lat": 17.7673,
+  "lon": 100.443,
+  "cells": 1617
+ },
+ {
+  "id": "TH-54",
+  "index": 43,
+  "name_th": "แพร่",
+  "name_en": "Phrae",
+  "region": "north",
+  "lat": 18.2571,
+  "lon": 100.172,
+  "cells": 1408
+ },
+ {
+  "id": "TH-55",
+  "index": 44,
+  "name_th": "น่าน",
+  "name_en": "Nan",
+  "region": "north",
+  "lat": 18.8096,
+  "lon": 100.789,
+  "cells": 2513
+ },
+ {
+  "id": "TH-56",
+  "index": 45,
+  "name_th": "พะเยา",
+  "name_en": "Phayao",
+  "region": "north",
+  "lat": 19.2738,
+  "lon": 100.1524,
+  "cells": 1286
+ },
+ {
+  "id": "TH-57",
+  "index": 46,
+  "name_th": "เชียงราย",
+  "name_en": "Chiang Rai",
+  "region": "north",
+  "lat": 19.7214,
+  "lon": 99.8701,
+  "cells": 2435
+ },
+ {
+  "id": "TH-58",
+  "index": 47,
+  "name_th": "แม่ฮ่องสอน",
+  "name_en": "Mae Hong Son",
+  "region": "north",
+  "lat": 18.6778,
+  "lon": 97.9289,
+  "cells": 2909
+ },
+ {
+  "id": "TH-60",
+  "index": 48,
+  "name_th": "นครสวรรค์",
+  "name_en": "Nakhon Sawan",
+  "region": "north",
+  "lat": 15.6983,
+  "lon": 100.0492,
+  "cells": 2057
+ },
+ {
+  "id": "TH-61",
+  "index": 49,
+  "name_th": "อุทัยธานี",
+  "name_en": "Uthai Thani",
+  "region": "north",
+  "lat": 15.3584,
+  "lon": 99.5502,
+  "cells": 1372
+ },
+ {
+  "id": "TH-62",
+  "index": 50,
+  "name_th": "กำแพงเพชร",
+  "name_en": "Kamphaeng Phet",
+  "region": "north",
+  "lat": 16.3305,
+  "lon": 99.4978,
+  "cells": 1846
+ },
+ {
+  "id": "TH-63",
+  "index": 51,
+  "name_th": "ตาก",
+  "name_en": "Tak",
+  "region": "north",
+  "lat": 16.4846,
+  "lon": 98.8723,
+  "cells": 3465
+ },
+ {
+  "id": "TH-64",
+  "index": 52,
+  "name_th": "สุโขทัย",
+  "name_en": "Sukhothai",
+  "region": "north",
+  "lat": 17.2526,
+  "lon": 99.7133,
+  "cells": 1503
+ },
+ {
+  "id": "TH-65",
+  "index": 53,
+  "name_th": "พิษณุโลก",
+  "name_en": "Phitsanulok",
+  "region": "north",
+  "lat": 17.028,
+  "lon": 100.5373,
+  "cells": 2231
+ },
+ {
+  "id": "TH-66",
+  "index": 54,
+  "name_th": "พิจิตร",
+  "name_en": "Phichit",
+  "region": "north",
+  "lat": 16.2506,
+  "lon": 100.3637,
+  "cells": 891
+ },
+ {
+  "id": "TH-67",
+  "index": 55,
+  "name_th": "เพชรบูรณ์",
+  "name_en": "Phetchabun",
+  "region": "north",
+  "lat": 16.2075,
+  "lon": 101.0112,
+  "cells": 2629
+ },
+ {
+  "id": "TH-70",
+  "index": 56,
+  "name_th": "ราชบุรี",
+  "name_en": "Ratchaburi",
+  "region": "central",
+  "lat": 13.5388,
+  "lon": 99.6017,
+  "cells": 1128
+ },
+ {
+  "id": "TH-71",
+  "index": 57,
+  "name_th": "กาญจนบุรี",
+  "name_en": "Kanchanaburi",
+  "region": "central",
+  "lat": 14.6997,
+  "lon": 98.8861,
+  "cells": 4190
+ },
+ {
+  "id": "TH-72",
+  "index": 58,
+  "name_th": "สุพรรณบุรี",
+  "name_en": "Suphan Buri",
+  "region": "central",
+  "lat": 14.566,
+  "lon": 100.0429,
+  "cells": 1122
+ },
+ {
+  "id": "TH-73",
+  "index": 59,
+  "name_th": "นครปฐม",
+  "name_en": "Nakhon Pathom",
+  "region": "bangkok",
+  "lat": 13.9189,
+  "lon": 100.1167,
+  "cells": 447
+ },
+ {
+  "id": "TH-74",
+  "index": 60,
+  "name_th": "สมุทรสาคร",
+  "name_en": "Samut Sakhon",
+  "region": "bangkok",
+  "lat": 13.5862,
+  "lon": 100.2221,
+  "cells": 175
+ },
+ {
+  "id": "TH-75",
+  "index": 61,
+  "name_th": "สมุทรสงคราม",
+  "name_en": "Samut Songkhram",
+  "region": "central",
+  "lat": 13.3759,
+  "lon": 99.9496,
+  "cells": 85
+ },
+ {
+  "id": "TH-76",
+  "index": 62,
+  "name_th": "เพชรบุรี",
+  "name_en": "Phetchaburi",
+  "region": "central",
+  "lat": 12.9403,
+  "lon": 99.6027,
+  "cells": 1353
+ },
+ {
+  "id": "TH-77",
+  "index": 63,
+  "name_th": "ประจวบคีรีขันธ์",
+  "name_en": "Prachuap Khiri Khan",
+  "region": "central",
+  "lat": 11.7945,
+  "lon": 99.7193,
+  "cells": 1441
+ },
+ {
+  "id": "TH-80",
+  "index": 64,
+  "name_th": "นครศรีธรรมราช",
+  "name_en": "Nakhon Si Thammarat",
+  "region": "south_east",
+  "lat": 8.5615,
+  "lon": 99.7097,
+  "cells": 2112
+ },
+ {
+  "id": "TH-81",
+  "index": 65,
+  "name_th": "กระบี่",
+  "name_en": "Krabi",
+  "region": "south_west",
+  "lat": 8.1636,
+  "lon": 99.021,
+  "cells": 891
+ },
+ {
+  "id": "TH-82",
+  "index": 66,
+  "name_th": "พังงา",
+  "name_en": "Phang Nga",
+  "region": "south_west",
+  "lat": 8.747,
+  "lon": 98.4217,
+  "cells": 834
+ },
+ {
+  "id": "TH-83",
+  "index": 67,
+  "name_th": "ภูเก็ต",
+  "name_en": "Phuket",
+  "region": "south_west",
+  "lat": 7.9774,
+  "lon": 98.3339,
+  "cells": 109
+ },
+ {
+  "id": "TH-84",
+  "index": 68,
+  "name_th": "สุราษฎร์ธานี",
+  "name_en": "Surat Thani",
+  "region": "south_east",
+  "lat": 9.0526,
+  "lon": 99.1155,
+  "cells": 2768
+ },
+ {
+  "id": "TH-85",
+  "index": 69,
+  "name_th": "ระนอง",
+  "name_en": "Ranong",
+  "region": "south_west",
+  "lat": 10.0456,
+  "lon": 98.774,
+  "cells": 709
+ },
+ {
+  "id": "TH-86",
+  "index": 70,
+  "name_th": "ชุมพร",
+  "name_en": "Chumphon",
+  "region": "south_east",
+  "lat": 10.3223,
+  "lon": 99.0472,
+  "cells": 1183
+ },
+ {
+  "id": "TH-90",
+  "index": 71,
+  "name_th": "สงขลา",
+  "name_en": "Songkhla",
+  "region": "south_east",
+  "lat": 6.8048,
+  "lon": 100.6196,
+  "cells": 1521
+ },
+ {
+  "id": "TH-91",
+  "index": 72,
+  "name_th": "สตูล",
+  "name_en": "Satun",
+  "region": "south_west",
+  "lat": 6.7957,
+  "lon": 100.004,
+  "cells": 513
+ },
+ {
+  "id": "TH-92",
+  "index": 73,
+  "name_th": "ตรัง",
+  "name_en": "Trang",
+  "region": "south_west",
+  "lat": 7.5242,
+  "lon": 99.5668,
+  "cells": 962
+ },
+ {
+  "id": "TH-93",
+  "index": 74,
+  "name_th": "พัทลุง",
+  "name_en": "Phatthalung",
+  "region": "south_east",
+  "lat": 7.4959,
+  "lon": 100.0269,
+  "cells": 653
+ },
+ {
+  "id": "TH-94",
+  "index": 75,
+  "name_th": "ปัตตานี",
+  "name_en": "Pattani",
+  "region": "south_east",
+  "lat": 6.7733,
+  "lon": 101.3202,
+  "cells": 410
+ },
+ {
+  "id": "TH-95",
+  "index": 76,
+  "name_th": "ยะลา",
+  "name_en": "Yala",
+  "region": "south_east",
+  "lat": 6.1455,
+  "lon": 101.2348,
+  "cells": 959
+ },
+ {
+  "id": "TH-96",
+  "index": 77,
+  "name_th": "นราธิวาส",
+  "name_en": "Narathiwat",
+  "region": "south_east",
+  "lat": 6.1745,
+  "lon": 101.7302,
+  "cells": 897
+ }
+]
