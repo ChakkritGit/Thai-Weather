@@ -5,7 +5,7 @@ LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weath
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 THWX_DATA_DIR=/var/lib/thwx
 WORKDIR /srv/backend
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir "fastapi>=0.115" "uvicorn[standard]>=0.30" "numpy>=2.0" "scipy>=1.13" "httpx>=0.27" "pydantic-settings>=2.4" "pillow>=10"
+RUN pip install --no-cache-dir "fastapi>=0.115" "uvicorn[standard]>=0.30" "numpy>=2.0" "scipy>=1.13" "httpx>=0.27" "pydantic-settings>=2.4" "pywebpush>=2.0,<3" "pillow>=10"
 COPY app ./app
 COPY verify ./verify
 RUN useradd --system --uid 10001 thwx && mkdir -p /var/lib/thwx && chown thwx /var/lib/thwx

@@ -1,0 +1,35 @@
+/* Push alert control inside the nowcast card (components/PushControl.tsx) */
+.push-box {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-subtle);
+  font-size: var(--font-size-sm);
+}
+.push-head { display: flex; align-items: center; gap: var(--space-2); justify-content: space-between; flex-wrap: wrap; }
+.push-title { margin: 0; font-weight: var(--font-weight-semibold); display: flex; align-items: center; gap: var(--space-2); }
+.push-title svg { width: var(--size-iconSm); height: var(--size-iconSm); flex: none; }
+.push-form { display: grid; gap: var(--space-3); }
+.push-field { display: grid; gap: var(--space-1); }
+.push-field > span, .push-legend { font-size: var(--font-size-xs); color: var(--color-fg-muted); }
+.push-input, .push-select {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-default);
+  font: inherit;
+}
+.push-input:focus-visible, .push-select:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 1px; }
+.push-toggles { display: grid; gap: var(--space-1); border: 0; padding: 0; margin: 0; }
+.push-check { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; cursor: pointer; }
+.push-check input { width: 18px; height: 18px; accent-color: var(--color-accent-default); }
+.push-quiet { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.push-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.push-note { margin: 0; font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-fg-subtle); }
+.push-msg { margin: 0; font-size: var(--font-size-xs); }
+.push-msg[data-kind='error'] { color: var(--color-severity-3-fg); }
+.push-msg[data-kind='ok'] { color: var(--color-fg-muted); }

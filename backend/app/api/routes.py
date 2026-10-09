@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import binascii
+import math
+import time
+from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import cache
 
@@ -20,6 +24,11 @@ from ..nowcast.service import LEADS, RADAR_ENCODING, STALE_AFTER_MIN
 from ..products.aggregate import thai_date, thai_hhmm
 from ..products.alerts import is_partial, normalise_day, province_alerts
 from ..products.scales import weather_scales
+from ..push.messages import with_label
+from ..push.sender import PushFailed, PushGone
+from ..push.service import PushService
+from ..push.store import MAX_ENDPOINT_LEN, MAX_LABEL_LEN, Prefs, PushError, auth_matches, validate_endpoint
+from ..push.vapid import b64url_decode
 from ..store import Run
 
 router = APIRouter(prefix="/api/v1")
@@ -374,3 +383,140 @@ def nowcast_layer(request: Request, lead: int = Query(0, ge=0, le=60)) -> Respon
 @router.get("/nowcast/status")
 def nowcast_status(request: Request) -> dict:
     return {**request.app.state.nowcast.status, "leads": list(LEADS), "stale_after_min": STALE_AFTER_MIN}
+
+
+# ------------------------------------------------------------------ web push
+MAX_PUSH_BODY = 4096
+
+
+def _limit_body(content_length: int | None = Header(default=None)) -> None:
+    if content_length is not None and content_length > MAX_PUSH_BODY:
+        raise HTTPException(413, detail="request body too large")
+
+
+def _push(request: Request) -> PushService:
+    service = request.app.state.push
+    if service is None:
+        raise HTTPException(404, detail="push notifications are disabled")
+    return service
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(min_length=1, max_length=200)
+    auth: str = Field(min_length=1, max_length=64)
+
+
+class PushSubscription(BaseModel):
+    """The browser's ``PushSubscription.toJSON()``."""
+
+    endpoint: str = Field(min_length=1, max_length=MAX_ENDPOINT_LEN)
+    keys: PushKeys
+
+
+class PushPrefs(BaseModel):
+    storm: bool = True
+    heavy_rain: bool = True
+    cyclone: bool = True
+    quiet_start: int = Field(22, ge=0, le=23)  # local (Asia/Bangkok) hours; start == end disables quiet hours
+    quiet_end: int = Field(6, ge=0, le=23)
+
+
+class PushSubscribe(BaseModel):
+    subscription: PushSubscription
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    label: str = Field("", max_length=MAX_LABEL_LEN)
+    prefs: PushPrefs = PushPrefs()
+
+
+def _checked(sub: PushSubscription) -> PushSubscription:
+    try:
+        validate_endpoint(sub.endpoint)
+        if len(b64url_decode(sub.keys.p256dh)) != 65 or len(b64url_decode(sub.keys.auth)) < 16:
+            raise PushError("invalid subscription keys")
+    except (ValueError, binascii.Error):
+        raise HTTPException(422, detail="invalid subscription keys") from None
+    except PushError as exc:
+        raise HTTPException(exc.status, detail=str(exc)) from None
+    return sub
+
+
+@router.get("/push/public-key")
+def push_public_key(request: Request) -> dict:
+    return {"public_key": _push(request).keys.public}
+
+
+@router.post("/push/subscribe", dependencies=[Depends(_limit_body)])
+def push_subscribe(body: PushSubscribe, request: Request) -> dict:
+    """Register (or update, when the endpoint + auth secret match) a subscription for a location."""
+    service = _push(request)
+    _checked(body.subscription)
+    if not request.app.state.nowcast.grid.contains(body.lat, body.lon):
+        raise HTTPException(422, detail="location outside the supported domain")
+    p = body.prefs
+    try:
+        sub = service.store.upsert(
+            body.subscription.endpoint,
+            body.subscription.keys.p256dh,
+            body.subscription.keys.auth,
+            body.lat,
+            body.lon,
+            body.label,
+            Prefs(p.storm, p.heavy_rain, p.cyclone, p.quiet_start, p.quiet_end),
+        )
+    except PushError as exc:
+        raise HTTPException(exc.status, detail=str(exc)) from None
+    return {"id": sub.id, "lat": sub.lat, "lon": sub.lon, "label": sub.label, "prefs": asdict(sub.prefs)}
+
+
+@router.post("/push/unsubscribe", dependencies=[Depends(_limit_body)])
+def push_unsubscribe(body: PushSubscription, request: Request) -> dict:
+    service = _push(request)
+    _checked(body)
+    stored = service.store.by_endpoint(body.endpoint)
+    if stored is None:
+        return {"ok": True, "deleted": False}  # idempotent
+    if not auth_matches(stored, body.keys.auth):
+        raise HTTPException(403, detail="subscription credentials do not match")
+    return {"ok": True, "deleted": service.store.delete(stored.id)}
+
+
+@router.post("/push/test", dependencies=[Depends(_limit_body)])
+def push_test(body: PushSubscription, request: Request) -> dict:
+    """Send a test notification to this one subscription (at most once a minute)."""
+    service = _push(request)
+    _checked(body)
+    stored = service.store.by_endpoint(body.endpoint)
+    if stored is None:
+        raise HTTPException(404, detail="subscription not found")
+    if not auth_matches(stored, body.keys.auth):
+        raise HTTPException(403, detail="subscription credentials do not match")
+    wait = service.store.claim_test(stored.id, time.time())
+    if wait > 0:
+        raise HTTPException(
+            429,
+            detail="test notifications are limited to one per minute",
+            headers={"Retry-After": str(math.ceil(wait))},
+        )
+    payload = {
+        "title": "ทดสอบการแจ้งเตือน",
+        "body": with_label(stored.label, "ฟ้าละเอียดจะแจ้งเตือนเมื่อพายุฝนฟ้าคะนองหรือฝนหนักใกล้ถึงตำแหน่งนี้"),
+        "lang": "th",
+        "url": f"/?lat={stored.lat:.2f}&lon={stored.lon:.2f}",
+        "tag": f"thwx-test-{stored.id[:8]}",
+        "kind": "test",
+    }
+    try:
+        service.sender(stored, payload, ttl=300, urgent=False)
+    except PushGone:
+        service.store.delete(stored.id)
+        raise HTTPException(410, detail="subscription expired") from None
+    except PushFailed:
+        raise HTTPException(502, detail="push service rejected the notification") from None
+    return {"ok": True}
+
+
+@router.get("/push/status", dependencies=[Depends(require_admin)])
+def push_status(request: Request) -> dict:
+    service = request.app.state.push
+    return {"enabled": False} if service is None else service.status()

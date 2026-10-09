@@ -63,6 +63,11 @@ services:
       # radar nowcast (RainViewer) + tropical cyclones (GDACS); THWX_NOWCAST_SOURCE=off disables the radar
       THWX_NOWCAST_SOURCE: ${THWX_NOWCAST_SOURCE:-rainviewer}
       THWX_CYCLONES_ENABLED: ${THWX_CYCLONES_ENABLED:-true}
+      # Web Push alerts (docs/PUSH.md); empty VAPID keys = generated once into the data volume
+      THWX_PUSH_ENABLED: ${THWX_PUSH_ENABLED:-true}
+      THWX_VAPID_PUBLIC_KEY: ${THWX_VAPID_PUBLIC_KEY:-}
+      THWX_VAPID_PRIVATE_KEY: ${THWX_VAPID_PRIVATE_KEY:-}
+      THWX_VAPID_SUBJECT: ${THWX_VAPID_SUBJECT:-mailto:admin@example.com}
     volumes:
       - thwx-data:/var/lib/thwx
     networks:

@@ -6,6 +6,7 @@ import { fmtHour } from '../lib/format';
 import { nowcastSentence } from '../lib/nowcastText';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
+import { PushControl } from './PushControl';
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -95,6 +96,8 @@ export function NowcastCard({ lat, lon }: Props) {
           </div>
         </div>
       ))}
+
+      <PushControl lat={lat} lon={lon} />
 
       <p className="nowcast-meta subtle">
         {frame && <span>{frame} · </span>}

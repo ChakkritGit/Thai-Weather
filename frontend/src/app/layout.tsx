@@ -5,6 +5,7 @@ import '@/design/base.css';
 import '@/design/data.css';
 import { BottomNav, Header, Providers } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { translate } from '@/i18n/dict';
 import type { AlertEntry, Meta } from '@/lib/api';
 import { fromApi, getPrefs, siteUrl } from '@/lib/server';
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   applicationName: 'ฟ้าละเอียด – Thai Weather HD',
   openGraph: { type: 'website', siteName: 'ฟ้าละเอียด · Thai Weather HD', locale: 'th_TH', images: ['/og.png'] },
   icons: { icon: '/favicon.svg' },
+  appleWebApp: { capable: true, title: 'ฟ้าละเอียด', statusBarStyle: 'default' },
   alternates: { canonical: '/' },
 };
 
@@ -49,6 +51,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
       </head>
       <body>
+        <ServiceWorkerRegister />
         <Providers lang={lang} theme={theme}>
           <div className="app">
             <Header alertCount={alertCount} />

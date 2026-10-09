@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from statistics import median
@@ -64,6 +65,7 @@ class NowcastService:
         self._thread: threading.Thread | None = None
         self._http: httpx.Client | None = None
         self._radar: RadarSource | None = None
+        self._listeners: list[Callable[[str], None]] = []  # called with "radar" / "cyclones" after an update
         self._status: dict = {
             "radar_enabled": self.radar_enabled,
             "cyclones_enabled": self.cyclones_enabled,
@@ -150,6 +152,16 @@ class NowcastService:
     def poll_cyclones(self) -> None:
         self.set_cyclones(fetch_active(self._client()))
 
+    def add_listener(self, fn: Callable[[str], None]) -> None:
+        self._listeners.append(fn)
+
+    def _notify(self, what: str) -> None:
+        for fn in self._listeners:
+            try:
+                fn(what)
+            except Exception:
+                log.exception("nowcast listener failed")
+
     def run_once(self, cyclones_due: bool = True) -> None:
         if not self._poll_lock.acquire(blocking=False):
             return
@@ -158,13 +170,15 @@ class NowcastService:
             error = None
             if self.radar_enabled:
                 try:
-                    self.poll_radar()
+                    if self.poll_radar():
+                        self._notify("radar")
                 except Exception as exc:
                     log.exception("radar poll failed")
                     error = f"{exc.__class__.__name__}: {exc}"
             if self.cyclones_enabled and cyclones_due:
                 try:
                     self.poll_cyclones()
+                    self._notify("cyclones")
                 except Exception as exc:
                     log.exception("cyclone poll failed")
                     self._update_status(cyclones_error=f"{exc.__class__.__name__}: {exc}")
