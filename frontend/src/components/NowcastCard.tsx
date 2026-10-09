@@ -1,58 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { api, ApiError, type Nowcast } from '../lib/api';
-import { fmtHour } from '../lib/format';
-import { nowcastSentence } from '../lib/nowcastText';
+import { fmtStep } from '../lib/format';
+import { isFreshRadar, nowcastSentence, radarAgeMinutes, type NowcastSnapshot } from '../lib/nowcastText';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { PushControl } from './PushControl';
 
-const REFRESH_MS = 5 * 60 * 1000;
-
 interface Props {
   lat: number;
   lon: number;
+  snapshot: NowcastSnapshot;
+  nowMs: number;
 }
 
 /**
  * Radar nowcast for the selected point: will rain / a thunderstorm reach it within the hour,
- * plus any tropical cyclone near Thailand.  Refreshes every 5 minutes while mounted.
+ * plus any tropical cyclone near Thailand. The parent supplies the shared response.
  */
-export function NowcastCard({ lat, lon }: Props) {
+export function NowcastCard({ lat, lon, snapshot, nowMs }: Props) {
   const { t, lang } = useT();
-  const [data, setData] = useState<Nowcast | null>(null);
-  const [state, setState] = useState<'loading' | 'ready' | 'error' | 'hidden'>('loading');
-
-  useEffect(() => {
-    let cancelled = false;
-    setData(null);
-    setState('loading');
-    const load = () =>
-      api
-        .nowcast(lat, lon)
-        .then((d) => {
-          if (cancelled) return;
-          setData(d);
-          setState('ready');
-        })
-        .catch((e: unknown) => {
-          if (cancelled) return;
-          // outside the nowcast domain: nothing useful to show
-          if (e instanceof ApiError && e.status === 422) setState('hidden');
-          else setState((s) => (s === 'ready' ? s : 'error')); // keep the last good card on a failed refresh
-        });
-    load();
-    const id = window.setInterval(load, REFRESH_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [lat, lon]);
+  const { data, status: state } = snapshot;
 
   if (state === 'hidden') return null;
   if (state === 'loading') return <div className="skeleton" style={{ height: 88 }} aria-busy="true" />;
-  if (state === 'error' || !data) {
+  if (!data) {
     return (
       <section className="panel-section nowcast" aria-labelledby="nowcast-h">
         <h3 id="nowcast-h">{t('nowcastTitle')}</h3>
@@ -63,16 +34,29 @@ export function NowcastCard({ lat, lon }: Props) {
     );
   }
 
-  const text = nowcastSentence(data, lang);
-  const frame = data.frame_time ? `${t('radarAt')} ${fmtHour(data.frame_time, lang)}${lang === 'th' ? ' น.' : ''}` : null;
+  const age = radarAgeMinutes(snapshot, nowMs);
+  // A retained response can age out even when no later request succeeds.
+  const currentData = data.available && !isFreshRadar(snapshot, nowMs)
+    ? { ...data, available: false, reason: age === null ? 'no_data' as const : 'stale' as const, age_min: age === null ? null : Math.round(age) }
+    : data;
+  const text = nowcastSentence(currentData, lang);
+  const retained = state === 'error';
+  const frame = data.frame_time && Number.isFinite(Date.parse(data.frame_time))
+    ? `${t('radarAt')} ${fmtStep(data.frame_time, lang)}`
+    : null;
 
   return (
     <section className="panel-section nowcast" aria-labelledby="nowcast-h">
       <h3 id="nowcast-h">{t('nowcastTitle')}</h3>
+      <p className="nowcast-meta subtle">
+        {t('radarOutlook')}
+        {frame && <><br />{frame}</>}
+      </p>
+      {retained && <p className="nowcast-meta muted" role="status">{t('radarRefreshError')}</p>}
       <div className="nowcast-card" data-sev={text.severity} role="status">
         <Icon name={text.icon} className="nowcast-icon" />
         <div className="nowcast-body">
-          <p className="nowcast-headline">{text.headline}</p>
+          <p className="nowcast-headline">{retained && currentData.available ? t('radarLastEstimate', { text: text.headline }) : text.headline}</p>
           {text.details.length > 0 && (
             <ul className="nowcast-lines">
               {text.details.map((d) => (
@@ -100,7 +84,6 @@ export function NowcastCard({ lat, lon }: Props) {
       <PushControl lat={lat} lon={lon} />
 
       <p className="nowcast-meta subtle">
-        {frame && <span>{frame} · </span>}
         {t('radarEstimate')}
         {data.attribution.length > 0 && (
           <>

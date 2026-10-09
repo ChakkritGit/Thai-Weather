@@ -78,6 +78,9 @@ services:
     container_name: thai-weather-verify
     restart: unless-stopped
     command: ["python", "-m", "verify", "loop"]
+    # This worker has no HTTP server for the image's API healthcheck.
+    healthcheck:
+      disable: true
     environment:
       THWX_VERIFY_API: http://api:8000
       THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:?set THWX_ADMIN_TOKEN in deploy/.env}

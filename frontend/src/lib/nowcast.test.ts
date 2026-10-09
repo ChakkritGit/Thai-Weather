@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildRadarLut } from './color';
-import { cycloneSentence, nowcastSentence } from './nowcastText';
+import { cycloneSentence, isCurrentForecastStep, isFreshRadar, nowcastForPoint, nowcastSentence, radarAgeMinutes, radarModelRainNote, type NowcastSnapshot } from './nowcastText';
 import type { Nowcast, NowcastCyclone, NowcastEta } from './api';
+import { translate } from '../i18n/dict';
 
 const eta = (minutes: number, range: [number, number], cls: NowcastEta['class'] = 'thunderstorm'): NowcastEta => ({
   minutes,
@@ -118,6 +119,111 @@ describe('nowcast text', () => {
       ],
     });
     expect(nowcastSentence(n, 'th').cyclones.map((c) => c.id)).toEqual(['near']);
+  });
+});
+
+describe('radar and model comparison', () => {
+  const nowMs = Date.parse('2026-10-09T06:24:00Z');
+  const point = { lat: 13.84, lon: 100.56 };
+  const times = ['2026-10-09T05:00:00Z', '2026-10-09T06:00:00Z', '2026-10-09T07:00:00Z'];
+  const snapshot = (over: Partial<NowcastSnapshot> = {}): NowcastSnapshot => ({
+    ...point,
+    status: 'ready',
+    data: nc({ now: { class: 'moderate', max_dbz: 32 } }),
+    receivedAtMs: nowMs,
+    ...over,
+  });
+  const note = (over: Partial<Parameters<typeof radarModelRainNote>[0]> = {}) =>
+    radarModelRainNote({ snapshot: snapshot(), ...point, times, step: 1, modelPop: 0, nowMs, ...over });
+
+  it('uses the displayed rounded model value without changing its forecast', () => {
+    expect(note()).toBe('model-zero');
+    expect(note({ modelPop: 0.49 })).toBe('model-zero');
+    expect(note({ modelPop: 0.5 })).toBe('rain-now');
+    expect(note({ modelPop: 37 })).toBe('rain-now');
+    for (const modelPop of [NaN, Infinity, -1, 101]) expect(note({ modelPop })).toBeNull();
+    const n = snapshot();
+    const original = JSON.stringify(n);
+    note({ snapshot: n, modelPop: 0.49 });
+    expect(JSON.stringify(n)).toBe(original);
+  });
+
+  it('counts ETA zero as present rain, while excluding approaching and nearby cells', () => {
+    for (const key of ['eta_rain', 'eta_storm'] as const) {
+      expect(note({ snapshot: snapshot({ data: nc({ [key]: eta(0, [0, 0], 'heavy') }) }) })).toBe('model-zero');
+      expect(note({ snapshot: snapshot({ data: nc({ [key]: eta(15, [10, 20], 'heavy') }) }) })).toBeNull();
+    }
+    expect(note({ snapshot: snapshot({ data: nc() }) })).toBeNull();
+    expect(note({ snapshot: snapshot({ data: nc({ eta_rain: eta(0, [0, 0], 'none') }) }) })).toBeNull();
+    expect(note({ snapshot: snapshot({ data: nc({
+      nearest: { distance_km: 10, bearing_deg: 90, class: 'heavy', max_dbz: 43, approaching: true, closing_kmh: 25 },
+    }) }) })).toBeNull();
+  });
+
+  it('excludes unavailable responses and snapshots retained after a failed refresh', () => {
+    for (const reason of ['stale', 'disabled', 'no_data', 'no_coverage'] as const) {
+      expect(note({ snapshot: snapshot({ data: nc({ available: false, reason }) }) })).toBeNull();
+    }
+    for (const status of ['loading', 'error', 'hidden'] as const) {
+      expect(note({ snapshot: snapshot({ status }) })).toBeNull();
+    }
+    expect(note({ snapshot: snapshot({ data: null }) })).toBeNull();
+  });
+
+  it('ages a cached frame locally even if no request has finished', () => {
+    const cached = snapshot();
+    expect(radarAgeMinutes(cached, nowMs)).toBe(4);
+    expect(isFreshRadar(cached, nowMs + 26 * 60_000)).toBe(true);
+    expect(isFreshRadar(cached, nowMs + 26 * 60_000 + 1)).toBe(false);
+    expect(note({ snapshot: cached, nowMs: nowMs + 27 * 60_000 })).toBeNull();
+    // Reported age can be older than the browser clock suggests; use the older one.
+    expect(isFreshRadar(snapshot({ data: nc({ age_min: 29 }) }), nowMs + 2 * 60_000)).toBe(false);
+  });
+
+  it('requires valid freshness metadata', () => {
+    for (const over of [
+      { frame_time: null }, { frame_time: 'invalid' }, { frame_time: '2026-10-09T06:25:00Z' },
+      { age_min: null }, { age_min: NaN }, { age_min: -1 }, { age_min: 31 },
+      { available: true, reason: 'stale' as const },
+    ]) expect(note({ snapshot: snapshot({ data: nc({ now: { class: 'light', max_dbz: 22 }, ...over }) }) })).toBeNull();
+    expect(note({ snapshot: snapshot({ receivedAtMs: null }) })).toBeNull();
+    expect(note({ snapshot: snapshot({ receivedAtMs: nowMs + 1 }) })).toBeNull();
+  });
+
+  it('drops old-point data immediately, including before the new effect runs', () => {
+    const old = snapshot();
+    expect(note({ lon: point.lon + 1 })).toBeNull();
+    expect(note({ lat: point.lat + 1 })).toBeNull();
+    expect(nowcastForPoint(old, point.lat + 1, point.lon)).toEqual({
+      lat: point.lat + 1, lon: point.lon, status: 'loading', data: null, receivedAtMs: null,
+    });
+    expect(nowcastForPoint(old, point.lat, point.lon)).toBe(old);
+  });
+
+  it('excludes past/future selections and rechecks the current hour as time advances', () => {
+    expect(note({ step: 0 })).toBeNull();
+    expect(note({ step: 2 })).toBeNull();
+    expect(isCurrentForecastStep(times, 1, nowMs)).toBe(true);
+    expect(isCurrentForecastStep(times, 1, Date.parse('2026-10-09T06:31:00Z'))).toBe(false);
+    expect(isCurrentForecastStep(times, 2, Date.parse('2026-10-09T06:31:00Z'))).toBe(true);
+    expect(isCurrentForecastStep(times, 2, Date.parse('2026-10-09T08:00:00Z'))).toBe(false);
+    expect(isCurrentForecastStep(times, 0, Date.parse('2026-10-09T04:00:00Z'))).toBe(false);
+    expect(isCurrentForecastStep([], 0, nowMs)).toBe(false);
+    expect(isCurrentForecastStep(['invalid'], 0, nowMs)).toBe(false);
+    // The response itself is still fresh; the selected 06:00 hour has expired.
+    expect(note({ nowMs: Date.parse('2026-10-09T06:31:00Z') })).toBeNull();
+  });
+
+  it('explains the actual model resolution in both languages, without a zero claim for positive values', () => {
+    for (const lang of ['th', 'en'] as const) {
+      const { t } = translate(lang);
+      expect(t('radarRainModelZero', { km: '27.8' })).toContain('27.8');
+      expect(t('radarRainModelZero', { km: '27.8' })).toContain('0%');
+      expect(t('radarRainModelNote', { km: '27.8' })).toContain('27.8');
+      expect(t('radarRainModelNote', { km: '27.8' })).not.toContain('0%');
+    }
+    expect(translate('th').t('nowcastTitle')).toBe('ตอนนี้ (เรดาร์)');
+    expect(translate('en').t('modelForecastTitle')).toBe('Model forecast');
   });
 });
 

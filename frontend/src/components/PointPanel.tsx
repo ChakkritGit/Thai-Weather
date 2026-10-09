@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { api, type PointForecast } from '../lib/api';
 import { categorise } from '../lib/color';
 import { compass, fmtDay, fmtKm, fmtNum, fmtStep } from '../lib/format';
+import { radarModelRainNote } from '../lib/nowcastText';
+import { useNowcast } from '../lib/useNowcast';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { NowcastCard } from './NowcastCard';
@@ -23,18 +25,20 @@ interface Props {
 
 export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }: Props) {
   const { t, lang, pick } = useT();
-  const [data, setData] = useState<PointForecast | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [forecast, setForecast] = useState<{ lat: number; lon: number; data: PointForecast | null; error: string | null } | null>(null);
   const [view, setView] = useState<'chart' | 'table'>('chart');
+  const { snapshot, nowMs } = useNowcast(point.lat, point.lon);
+  const samePoint = forecast?.lat === point.lat && forecast.lon === point.lon;
+  const data = samePoint ? forecast.data : null;
+  const error = samePoint ? forecast.error : null;
 
   useEffect(() => {
     let cancelled = false;
-    setData(null);
-    setError(null);
+    setForecast(null);
     api
       .point(point.lat, point.lon)
-      .then((d) => !cancelled && setData(d))
-      .catch((e: Error) => !cancelled && setError(e.message));
+      .then((data) => !cancelled && setForecast({ lat: point.lat, lon: point.lon, data, error: null }))
+      .catch((e: Error) => !cancelled && setForecast({ lat: point.lat, lon: point.lon, data: null, error: e.message }));
     return () => {
       cancelled = true;
     };
@@ -62,7 +66,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
     );
   }
 
-  const i = Math.min(step, data.times.length - 1);
+  const i = Math.max(0, Math.min(step, data.times.length - 1));
   const f = data.fine;
   const c = data.coarse;
   const comps = data.temperature_components;
@@ -71,6 +75,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
   const title = loc.province ? pick(loc.province) : lang === 'th' ? (loc.land ? 'นอกประเทศไทย' : 'ทะเล') : loc.land ? 'Outside Thailand' : 'Sea';
   const coarseKmText = fmtKm(coarseKm, lang);
   const labels = { fine: t('fineModel', { km: fmtKm(fineKm, lang) }), coarse: t('modelCoarse', { km: coarseKmText }) };
+  const rainNote = radarModelRainNote({ snapshot, lat: point.lat, lon: point.lon, times: data.times, step: i, modelPop: f.pop[i], nowMs });
 
   const parts = [
     { key: 'lapse', label: t('lapse'), v: comps.lapse[i] },
@@ -89,30 +94,39 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         closeLabel={t('close')}
       />
 
-      <div className="hero">
-        <div className="hero-temp">{fmtNum(f.temp[i], 0)}°</div>
-        <div className="hero-meta">
-          <span>{fmtStep(data.times[i], lang)}</span>
-          <span>
-            {labels.coarse}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
-          </span>
-          {heatCat && (
+      <NowcastCard lat={point.lat} lon={point.lon} snapshot={snapshot} nowMs={nowMs} />
+
+      <section className="panel-section" aria-labelledby="model-forecast-h">
+        <h3 id="model-forecast-h">{t('modelForecastTitle')}</h3>
+        <p className="forecast-time">{fmtStep(data.times[i], lang)}</p>
+        <div className="hero">
+          <div className="hero-temp">{fmtNum(f.temp[i], 0)}°</div>
+          <div className="hero-meta">
             <span>
-              {t('heatIndex')} <b className="num">{fmtNum(f.heat[i], 0)}°</b>{' '}
-              <LevelBadge severity={Math.max(heatCat.severity, heatCat.id === 'caution' ? 1 : 0)} label={pick(heatCat)} />
+              {labels.coarse}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
             </span>
-          )}
+            {heatCat && (
+              <span>
+                {t('heatIndex')} <b className="num">{fmtNum(f.heat[i], 0)}°</b>{' '}
+                <LevelBadge severity={Math.max(heatCat.severity, heatCat.id === 'caution' ? 1 : 0)} label={pick(heatCat)} />
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      <NowcastCard lat={point.lat} lon={point.lon} />
-
-      <div className="now-grid">
-        <Stat label={t('chanceOfRain')} value={fmtNum(f.pop[i], 0)} unit="%" sub={`${labels.coarse} ${c.pop[i] >= 50 ? (lang === 'th' ? 'ฝนตก' : 'rain') : lang === 'th' ? 'ไม่มีฝน' : 'dry'}`} />
-        <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${labels.coarse} ${fmtNum(c.rain[i], 1)}`} />
-        <Stat label={t('wind')} value={fmtNum(f.wind[i], 1)} unit="m/s" sub={`${lang === 'th' ? 'จากทิศ' : 'from'} ${compass(f.wind_dir[i], lang)}`} />
-        <Stat label={t('thunder')} value={fmtNum(f.storm[i], 0)} unit="%" sub={`${t('humidity')} ${fmtNum(f.rh[i], 0)}%`} />
-      </div>
+        <div className="now-grid">
+          <Stat
+            label={t('chanceOfRain')}
+            value={fmtNum(f.pop[i], 0)}
+            unit="%"
+            sub={`${labels.coarse} ${fmtNum(c.pop[i], 0)}%`}
+            note={rainNote ? t(rainNote === 'model-zero' ? 'radarRainModelZero' : 'radarRainModelNote', { km: coarseKmText }) : undefined}
+          />
+          <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${labels.coarse} ${fmtNum(c.rain[i], 1)}`} />
+          <Stat label={t('wind')} value={fmtNum(f.wind[i], 1)} unit="m/s" sub={`${lang === 'th' ? 'จากทิศ' : 'from'} ${compass(f.wind_dir[i], lang)}`} />
+          <Stat label={t('thunder')} value={fmtNum(f.storm[i], 0)} unit="%" sub={`${t('humidity')} ${fmtNum(f.rh[i], 0)}%`} />
+        </div>
+      </section>
 
       <section className="panel-section" aria-labelledby="why-h">
         <h3 id="why-h">{t('why', { km: coarseKmText })}</h3>
@@ -266,7 +280,7 @@ function ChartTitle({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, marginTop: 4 }}>{children}</div>;
 }
 
-function Stat({ label, value, unit, sub }: { label: string; value: string; unit: string; sub?: string }) {
+function Stat({ label, value, unit, sub, note }: { label: string; value: string; unit: string; sub?: string; note?: string }) {
   return (
     <div className="stat">
       <span className="stat-label">{label}</span>
@@ -274,6 +288,7 @@ function Stat({ label, value, unit, sub }: { label: string; value: string; unit:
         {value} <small>{unit}</small>
       </span>
       {sub && <span className="stat-sub">{sub}</span>}
+      {note && <p className="stat-note">{note}</p>}
     </div>
   );
 }

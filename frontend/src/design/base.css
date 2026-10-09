@@ -1041,6 +1041,8 @@ button {
 .stat-value small { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-fg-muted); }
 .stat-sub { font-size: var(--font-size-xs); color: var(--color-fg-muted); }
 .stat-sub .vs { color: var(--color-fg-default); font-weight: var(--font-weight-semibold); }
+.stat-note { margin: var(--space-2) 0 0; font-size: var(--font-size-xs); line-height: 1.5; }
+.forecast-time { margin: 0; font-size: var(--font-size-sm); color: var(--color-fg-muted); }
 
 .hero {
   display: flex;

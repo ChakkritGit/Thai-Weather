@@ -7,7 +7,15 @@ self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim(
 
 /** Only same-origin paths are accepted, so a payload can never open another site. */
 function safeUrl(u) {
-  return typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') ? u : '/';
+  if (typeof u !== 'string' || !u.startsWith('/') || u.startsWith('//')) return '/';
+  try {
+    const url = new URL(u, self.location.origin);
+    // Backslashes can introduce an authority; normalization can also produce // paths.
+    if (url.origin !== self.location.origin || url.pathname.startsWith('//')) return '/';
+    return url.pathname + url.search + url.hash;
+  } catch (_) {
+    return '/';
+  }
 }
 
 self.addEventListener('push', (event) => {

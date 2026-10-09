@@ -1,5 +1,5 @@
 import type { Nowcast, NowcastCyclone, NowcastEta, RainClass } from './api';
-import { compass } from './format';
+import { compass, fmtNum, nearestStep } from './format';
 import type { Lang } from '../i18n/dict';
 
 /**
@@ -22,6 +22,81 @@ export interface NowcastText {
   icon: 'drop' | 'bolt' | 'cloud' | 'info';
   details: string[];
   cyclones: CycloneLine[];
+}
+
+/** The response stays tied to the point and receipt time, including a failed refresh. */
+export interface NowcastSnapshot {
+  lat: number;
+  lon: number;
+  status: 'loading' | 'ready' | 'error' | 'hidden';
+  data: Nowcast | null;
+  receivedAtMs: number | null;
+}
+
+// Keep in sync with backend/app/nowcast/service.py: STALE_AFTER_MIN.
+const RADAR_STALE_AFTER_MIN = 30;
+const CURRENT_STEP_WINDOW_MS = 30 * 60_000;
+
+/** Reject old-point snapshots before the point-change effect has run. */
+export function nowcastForPoint(snapshot: NowcastSnapshot, lat: number, lon: number): NowcastSnapshot {
+  return snapshot.lat === lat && snapshot.lon === lon
+    ? snapshot
+    : { lat, lon, status: 'loading', data: null, receivedAtMs: null };
+}
+
+/** Conservatively age the frame using both its timestamp and the server's reported age. */
+export function radarAgeMinutes(snapshot: NowcastSnapshot, nowMs: number): number | null {
+  const n = snapshot.data;
+  const frameMs = n?.frame_time ? Date.parse(n.frame_time) : NaN;
+  if (
+    !n ||
+    !Number.isFinite(nowMs) ||
+    !Number.isFinite(frameMs) ||
+    frameMs > nowMs ||
+    n.age_min === null ||
+    !Number.isFinite(n.age_min) ||
+    n.age_min < 0 ||
+    snapshot.receivedAtMs === null ||
+    !Number.isFinite(snapshot.receivedAtMs) ||
+    snapshot.receivedAtMs > nowMs
+  ) return null;
+  return Math.max((nowMs - frameMs) / 60_000, n.age_min + Math.max(0, nowMs - snapshot.receivedAtMs) / 60_000);
+}
+
+export function isFreshRadar(snapshot: NowcastSnapshot, nowMs: number): boolean {
+  const age = radarAgeMinutes(snapshot, nowMs);
+  return snapshot.data?.available === true && snapshot.data.reason === null && age !== null && age <= RADAR_STALE_AFTER_MIN;
+}
+
+/** Uses the same nearest-hour convention as the timeline, but excludes expired runs. */
+export function isCurrentForecastStep(times: string[], step: number, nowMs: number): boolean {
+  const selectedMs = Date.parse(times[step] ?? '');
+  return Number.isFinite(nowMs) && Number.isFinite(selectedMs)
+    && step === nearestStep(times, nowMs)
+    && Math.abs(selectedMs - nowMs) <= CURRENT_STEP_WINDOW_MS;
+}
+
+/** A note about present radar rain belongs only beside a current, valid model value. */
+export function radarModelRainNote({
+  snapshot, lat, lon, times, step, modelPop, nowMs,
+}: {
+  snapshot: NowcastSnapshot;
+  lat: number;
+  lon: number;
+  times: string[];
+  step: number;
+  modelPop: number;
+  nowMs: number;
+}): 'model-zero' | 'rain-now' | null {
+  const current = nowcastForPoint(snapshot, lat, lon);
+  if (
+    current.status !== 'ready' ||
+    !isFreshRadar(current, nowMs) ||
+    !isCurrentForecastStep(times, step, nowMs) ||
+    !Number.isFinite(modelPop) || modelPop < 0 || modelPop > 100
+  ) return null;
+  if (presentRainClass(current.data!) === 'none') return null;
+  return fmtNum(modelPop, 0) === '0' ? 'model-zero' : 'rain-now';
 }
 
 const TH_CLASS: Record<RainClass, string> = {
@@ -64,6 +139,13 @@ const ICON: Record<RainClass, NowcastText['icon']> = {
   thunderstorm: 'bolt',
   severe: 'bolt',
 };
+
+/** A nearby cell or a positive arrival time does not imply rain at this point now. */
+function presentRainClass(n: Nowcast): RainClass {
+  const isRain = (cls: RainClass | undefined) => cls !== undefined && cls !== 'none' && cls in SEVERITY;
+  if (isRain(n.now?.class)) return n.now!.class;
+  return [n.eta_storm, n.eta_rain].find((e) => e?.minutes === 0 && isRain(e.class))?.class ?? 'none';
+}
 
 /** Cyclones farther than this (now and at closest approach) are not worth mentioning for a point. */
 export const MAX_CYCLONE_KM = 2000;
@@ -139,10 +221,8 @@ export function nowcastSentence(n: Nowcast, lang: Lang): NowcastText {
 
   const names = th ? TH_CLASS : EN_CLASS;
   const details: string[] = [];
-  const nowClass: RainClass = n.now?.class ?? 'none';
   // an ETA of 0 minutes means it is already happening here
-  const eta0 = [n.eta_storm, n.eta_rain].find((e) => e && e.minutes === 0);
-  const presentClass: RainClass = nowClass !== 'none' ? nowClass : (eta0?.class ?? 'none');
+  const presentClass = presentRainClass(n);
   const stormLater = n.eta_storm && n.eta_storm.minutes > 0 ? n.eta_storm : null;
   const rainLater = n.eta_rain && n.eta_rain.minutes > 0 ? n.eta_rain : null;
 

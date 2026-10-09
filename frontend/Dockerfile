@@ -14,9 +14,10 @@ LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weath
       org.opencontainers.image.description="Thai Weather HD – Next.js web app"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
+# Next creates its fetch/prerender cache beneath .next while running as node.
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/public ./public
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
