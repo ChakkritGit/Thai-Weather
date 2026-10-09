@@ -17,7 +17,7 @@ dev = ["pytest>=8", "ruff>=0.6"]
 build = ["shapely>=2.0", "pillow>=10"]
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "verify*"]
 
 [tool.setuptools.package-data]
 app = ["data/*.json", "data/*.npz", "data/geo/*.geojson"]

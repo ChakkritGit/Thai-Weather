@@ -64,6 +64,22 @@ services:
     networks:
       - internal
 
+  verify:
+    image: ghcr.io/chakkritgit/thai-weather-api:${THWX_IMAGE_TAG:-latest}
+    container_name: thai-weather-verify
+    restart: unless-stopped
+    command: ["python", "-m", "verify", "loop"]
+    environment:
+      THWX_VERIFY_API: http://api:8000
+      THWX_OPENMETEO_MODEL: ${THWX_OPENMETEO_MODEL:-gfs_seamless}
+      THWX_OPENMETEO_API_KEY: ${THWX_OPENMETEO_API_KEY:-}
+    volumes:
+      - thwx-data:/var/lib/thwx
+    depends_on:
+      - api
+    networks:
+      - internal
+
   web:
     image: ghcr.io/chakkritgit/thai-weather-web:${THWX_IMAGE_TAG:-latest}
     container_name: thai-weather-web

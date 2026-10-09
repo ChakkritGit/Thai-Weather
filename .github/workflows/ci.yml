@@ -26,8 +26,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: ruff check app tests scripts
-      - run: ruff format --check app tests scripts
+      - run: ruff check app tests scripts verify
+      - run: ruff format --check app tests scripts verify
       - run: pytest -q
 
   frontend:

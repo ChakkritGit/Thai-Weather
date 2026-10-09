@@ -18,6 +18,19 @@ services:
       - "127.0.0.1:8000:8000"   # optional: direct API access (/docs), local only
     restart: unless-stopped
 
+  verify:
+    build: ./backend
+    command: ["python", "-m", "verify", "loop"]
+    environment:
+      THWX_VERIFY_API: http://api:8000
+      THWX_OPENMETEO_MODEL: ${THWX_OPENMETEO_MODEL:-gfs_seamless}
+      THWX_OPENMETEO_API_KEY: ${THWX_OPENMETEO_API_KEY:-}
+    volumes:
+      - thwx-data:/var/lib/thwx
+    depends_on:
+      - api
+    restart: unless-stopped
+
   web:
     build:
       context: ./frontend
