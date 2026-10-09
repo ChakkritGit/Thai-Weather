@@ -1024,7 +1024,7 @@ export const weatherScales = {
         {
           "id": "extremeCaution",
           "min": 32,
-          "severity": 1,
+          "severity": 0,
           "label_th": "เตือนภัย",
           "label_en": "Extreme caution",
           "color": "#ffb27a"
@@ -1075,21 +1075,21 @@ export const weatherScales = {
         {
           "id": "heavy",
           "min": 35.1,
-          "severity": 1,
+          "severity": 0,
           "label_th": "ฝนหนัก",
           "label_en": "Heavy rain"
         },
         {
           "id": "veryHeavy",
           "min": 90.1,
-          "severity": 2,
+          "severity": 1,
           "label_th": "ฝนหนักมาก",
           "label_en": "Very heavy rain"
         },
         {
           "id": "extreme",
           "min": 150,
-          "severity": 3,
+          "severity": 2,
           "label_th": "ฝนหนักมาก เสี่ยงน้ำท่วมฉับพลัน",
           "label_en": "Extreme rain – flash-flood risk"
         }
@@ -1150,7 +1150,7 @@ export const weatherScales = {
         {
           "id": "veryHot",
           "min": 40,
-          "severity": 2,
+          "severity": 1,
           "label_th": "อากาศร้อนจัด",
           "label_en": "Very hot"
         }
@@ -1197,14 +1197,14 @@ export const weatherScales = {
         {
           "id": "likely",
           "min": 50,
-          "severity": 1,
+          "severity": 0,
           "label_th": "มีพายุฝนฟ้าคะนอง",
           "label_en": "Thunderstorms likely"
         },
         {
           "id": "severe",
           "min": 75,
-          "severity": 2,
+          "severity": 1,
           "label_th": "พายุฝนฟ้าคะนองรุนแรง",
           "label_en": "Severe thunderstorms"
         }
@@ -1240,16 +1240,28 @@ export const weatherScales = {
   },
   "severity": {
     "1": {
-      "label_th": "เฝ้าระวัง",
-      "label_en": "Advisory"
+      "name_th": "เหลือง",
+      "name_en": "Yellow",
+      "advice_th": "ควรติดตาม",
+      "advice_en": "Be aware",
+      "label_th": "เหลือง · ควรติดตาม",
+      "label_en": "Yellow · Be aware"
     },
     "2": {
-      "label_th": "เตือนภัย",
-      "label_en": "Warning"
+      "name_th": "ส้ม",
+      "name_en": "Orange",
+      "advice_th": "เตรียมพร้อม",
+      "advice_en": "Be prepared",
+      "label_th": "ส้ม · เตรียมพร้อม",
+      "label_en": "Orange · Be prepared"
     },
     "3": {
-      "label_th": "อันตราย",
-      "label_en": "Danger"
+      "name_th": "แดง",
+      "name_en": "Red",
+      "advice_th": "อันตราย",
+      "advice_en": "Take action",
+      "label_th": "แดง · อันตราย",
+      "label_en": "Red · Take action"
     }
   }
 } as const;

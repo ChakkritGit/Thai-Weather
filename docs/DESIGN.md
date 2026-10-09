@@ -14,7 +14,7 @@ Live showcase: open the app → **Design system** (`/design`).
 ## Principles
 
 1. **ไทยมาก่อน (Thai first)** – Thai copy is primary; Thai script needs line-height ≥ 1.6 (stacked vowels and tone marks), IBM Plex Sans Thai; TMD terms ("ฝนเป็นแห่งๆ", "อากาศร้อนจัด").
-2. **Warnings first** – severity colours (เฝ้าระวัง / เตือนภัย / อันตราย) are reserved for alerts and always paired with an icon and a text label.
+2. **Warnings first** – alert-tier colours (เหลือง / ส้ม / แดง, see [ALERTS.md](ALERTS.md)) are reserved for alerts and always paired with an icon and a text label.
 3. **Honest uncertainty** – tropical rain is expressed as chance (%) and % of area, never as a single exact point value.
 4. **Always comparable** – any number can be compared with the 22 km model: blue solid = 2 km, orange dashed = 22 km (validated CVD-safe in both themes).
 5. **Mobile & low bandwidth** – 44 px touch targets, map frames ≈ 80 KB, no third-party map tiles.

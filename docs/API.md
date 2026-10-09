@@ -10,10 +10,10 @@ Base path `/api/v1`. Interactive OpenAPI docs at `/docs`.
 | GET | `/layers/rain24?day=&res=` | Daily rainfall total for Thai calendar day `day` |
 | GET | `/static/{hillshade\|thai\|elevation}` | Static 2 km layers (uint8) |
 | GET | `/geo/{provinces\|countries}` | Simplified GeoJSON outlines |
-| GET | `/point?lat=&lon=` | 48 h series at 2 km **and** from the 22 km model, daily totals, and per-process temperature corrections |
+| GET | `/point?lat=&lon=` | 48 h series at 2 km **and** from the global model (0.25° ≈ 27.8 km), daily totals, and per-process temperature corrections |
 | GET | `/provinces` | 77 provinces with daily summaries and alerts |
 | GET | `/provinces/{iso}` | e.g. `TH-10`: hourly province means + daily summaries |
-| GET | `/alerts?min_severity=1..3` | Province alerts grouped by day |
+| GET | `/alerts?min_severity=1..3` | Province alerts per day (default: every tier; tiers 1 yellow, 2 orange, 3 red – see [ALERTS.md](ALERTS.md)). Entries carry `partial` / `until` for days with incomplete coverage |
 | GET | `/nowcast?lat=&lon=` | Radar nowcast for a point (see below) plus active tropical cyclones; 422 outside the domain |
 | GET | `/nowcast/layer?lead=0` | Radar reflectivity `uint8` (`linear` -10..75 dBZ, 0 = no echo), headers `X-Frame-Time`, `X-Lead`, `X-Enc-Min`, `X-Enc-Max`, `X-Grid-NY/NX`, `ETag`; `lead` in 0,10..60 min (advected); 404 when unavailable or stale |
 | GET | `/nowcast/status` | Radar / cyclone polling status (also under `/health`) |

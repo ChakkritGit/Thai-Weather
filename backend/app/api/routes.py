@@ -17,6 +17,8 @@ from ..downscale.pipeline import explain_point
 from ..nowcast.cyclones import position_at, proximity
 from ..nowcast.nowcast import point_nowcast
 from ..nowcast.service import LEADS, RADAR_ENCODING, STALE_AFTER_MIN
+from ..products.aggregate import thai_date, thai_hhmm
+from ..products.alerts import is_partial, normalise_day, province_alerts
 from ..products.scales import weather_scales
 from ..store import Run
 
@@ -68,7 +70,7 @@ def meta(request: Request) -> dict:
     static = load_static()
     return {
         "status": request.app.state.refresher.status,
-        "run": run.meta if run else None,
+        "run": {**run.meta, "days": list(_day_coverage(run).values())} if run else None,
         "layers": [lyr.describe() for lyr in LAYERS.values()],
         "regions": [{"id": k, "name_th": v[0], "name_en": v[1]} for k, v in REGIONS.items()],
         "scales": weather_scales(),
@@ -178,8 +180,28 @@ def point(
 
 
 # ------------------------------------------------------------- provinces
+def _day_coverage(run: Run) -> dict[str, dict]:
+    """Per forecast day: hours covered, ``partial`` flag and the Thai local
+    time of the first/last step.  Derived from the step times, so runs made
+    before these fields existed report them too."""
+    out: dict[str, dict] = {}
+    for iso in run.meta["times"]:
+        t = datetime.fromisoformat(iso)
+        d = out.setdefault(thai_date(t), {"date": thai_date(t), "hours": 0, "since": thai_hhmm(t)})
+        d["hours"] += 1
+        d["until"] = thai_hhmm(t)
+    for d in out.values():
+        d["partial"] = is_partial(d["hours"])
+    return out
+
+
 def _province_days(run: Run, i: int) -> list[dict]:
-    return [d["provinces"][i] for d in run.provinces["days"]]
+    cover = _day_coverage(run)
+    out = []
+    for day in run.provinces["days"]:
+        c = cover.get(day["date"], {})
+        out.append({**normalise_day(day["provinces"][i]), "since": c.get("since"), "until": c.get("until")})
+    return out
 
 
 @router.get("/provinces")
@@ -209,16 +231,20 @@ def province(pid: str, run: Run = Depends(current_run)) -> dict:
 
 
 @router.get("/alerts")
-def alerts(min_severity: int = Query(2, ge=1, le=3), run: Run = Depends(current_run)) -> dict:
+def alerts(min_severity: int = Query(1, ge=1, le=3), run: Run = Depends(current_run)) -> dict:
     static = load_static()
+    cover = _day_coverage(run)
     out = []
     for day in run.provinces["days"]:
+        c = cover.get(day["date"], {})
         for p, summary in zip(static.provinces, day["provinces"], strict=False):
-            hits = [a for a in summary["alerts"] if a["severity"] >= min_severity]
+            hits = [a for a in province_alerts(summary) if a["severity"] >= min_severity]
             if hits:
                 out.append(
                     {
                         "date": day["date"],
+                        "partial": c.get("partial", False),
+                        "until": c.get("until"),
                         "province": {k: p[k] for k in ("id", "name_th", "name_en", "region", "lat", "lon")},
                         "alerts": hits,
                     }

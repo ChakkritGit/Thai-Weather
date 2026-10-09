@@ -9,7 +9,8 @@ import { fmtDay, fmtNum } from '../lib/format';
 import { paths } from '../lib/paths';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icon';
-import { AlertBadge, LevelBadge } from '../components/SeverityBadge';
+import { coverageNote, isPartialDay } from '../lib/alertText';
+import { AlertBadge } from '../components/SeverityBadge';
 
 export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMeta; provinces: ProvinceWithDays[] }) {
   const { t, lang, pick } = useT();
@@ -17,6 +18,7 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
   const [q, setQ] = useState('');
   const [region, setRegion] = useState('all');
   const [day, setDay] = useState(run.days.length > 1 && run.days[0].hours < 12 ? 1 : 0);
+  const note = run.days[day] && isPartialDay(run.days[day]) ? coverageNote(run.days[day], lang) : null;
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -33,8 +35,8 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
           <h1>{lang === 'th' ? 'พยากรณ์อากาศรายจังหวัด' : 'Forecast by province'}</h1>
           <p>
             {lang === 'th'
-              ? 'สรุปจากกริด 2 กม. ทุกจุดในจังหวัด — บอกได้ว่าฝนตกกี่เปอร์เซ็นต์ของพื้นที่ ซึ่งโมเดล 22 กม. ที่มีเพียง 3–4 จุดต่อจังหวัดทำไม่ได้'
-              : 'Summarised from every 2 km cell in each province – including the share of the area that gets rain, which a 22 km model with 3–4 cells per province cannot tell.'}
+              ? 'สรุปจากกริด 2 กม. ทุกจุดในจังหวัด — บอกได้ว่าฝนตกกี่เปอร์เซ็นต์ของพื้นที่ ซึ่งโมเดลโลก (ความละเอียด ~25–28 กม. มีเพียงไม่กี่จุดต่อจังหวัด) ทำไม่ได้'
+              : 'Summarised from every 2 km cell in each province – including the share of the area that gets rain, which a global model (~25–28 km, only a few cells per province) cannot tell.'}
           </p>
         </header>
 
@@ -61,6 +63,15 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
           </div>
         </div>
 
+        {note && (
+          <p className="muted" style={{ fontSize: 'var(--font-size-sm)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="partial-note">{note}</span>
+            {lang === 'th'
+              ? 'อุณหภูมิต่ำสุด/สูงสุดและดัชนีความร้อนเป็นค่าเท่าที่มีข้อมูล ไม่ใช่ค่าของทั้งวัน'
+              : 'Low / high temperature and heat index cover the available hours only, not the whole day.'}
+          </p>
+        )}
+
         <div className="card table-wrap">
           <table className="data-table">
             <thead>
@@ -68,11 +79,15 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
                 <th>{lang === 'th' ? 'จังหวัด' : 'Province'}</th>
                 <th className="num">
                   {t('tmin')}–{t('tmax')} °C
+                  {note && <div className="level-tag">{lang === 'th' ? 'เท่าที่มีข้อมูล' : 'so far'}</div>}
                 </th>
-                <th className="num">{t('heatIndex')}</th>
+                <th className="num">
+                  {t('heatIndex')}
+                  <div className="level-tag">{lang === 'th' ? 'เกณฑ์กรมอนามัย' : 'Dept. of Health scale'}</div>
+                </th>
                 <th>{t('areaRain')}</th>
                 <th className="num">{t('maxRain')}</th>
-                <th>{t('navAlerts')}</th>
+                <th>{t('alertsCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -95,7 +110,10 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
                       {fmtNum(d.tmin, 0)}–{fmtNum(d.tmax, 0)}
                     </td>
                     <td className="num">
-                      {fmtNum(d.heat_max, 0)} {heat && heat.severity >= 1 && <LevelBadge severity={heat.severity} label={pick(heat)} />}
+                      <span className="heat-cell">
+                        <span>{fmtNum(d.heat_max, 0)}</span>
+                        {heat && <span className="level-tag">{pick(heat)}</span>}
+                      </span>
                     </td>
                     <td>
                       <span className="num">{fmtNum(d.rain_coverage, 0)}%</span>{' '}

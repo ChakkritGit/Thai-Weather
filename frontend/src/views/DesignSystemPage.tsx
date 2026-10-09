@@ -6,7 +6,7 @@ import { categories, cssGradient, scales } from '../lib/color';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
 import { Icon } from '../components/Icon';
-import { AlertBadge, LevelBadge } from '../components/SeverityBadge';
+import { AlertBadge, LevelBadge, TierChip } from '../components/SeverityBadge';
 import { ChartLegend, TimeSeriesChart } from '../components/TimeSeriesChart';
 
 const varName = (p: string) => `--${p.replace(/[._]/g, '-')}`;
@@ -23,9 +23,9 @@ function useResolved(theme: string) {
 
 const PRINCIPLES = [
   { th: ['ไทยมาก่อน', 'ภาษาไทยเป็นหลัก ระยะบรรทัด ≥ 1.6 รองรับสระ/วรรณยุกต์ซ้อน ใช้ศัพท์ของกรมอุตุฯ'], en: ['Thai first', 'Thai is the primary language; line-height ≥ 1.6 for stacked vowels and tone marks; TMD vocabulary'] },
-  { th: ['เตือนภัยมาก่อน', 'สิ่งที่อันตรายต้องเห็นก่อนเสมอ สีระดับเตือนภัยสงวนไว้ใช้เฉพาะเรื่องนี้ และมาพร้อมไอคอน+ข้อความ'], en: ['Warnings first', 'What is dangerous is seen first; severity colours are reserved and always paired with icon + text'] },
+  { th: ['สิ่งอันตรายมาก่อน', 'สิ่งที่อันตรายต้องเห็นก่อนเสมอ สีเหลือง ส้ม แดงสงวนไว้ใช้กับการแจ้งเตือนเท่านั้น และมาพร้อมไอคอน+ข้อความ'], en: ['Danger first', 'What is dangerous is seen first; yellow / orange / red are reserved for alerts and always paired with icon + text'] },
   { th: ['บอกความไม่แน่นอนตรงๆ', 'ฝนเขตร้อนบอกเป็นโอกาส (%) และร้อยละของพื้นที่ ไม่แสร้งว่าแม่นยำระดับจุด'], en: ['Honest uncertainty', 'Tropical rain is shown as chance and % of area – never fake point precision'] },
-  { th: ['เทียบได้เสมอ', 'ทุกค่ามีค่าโมเดล 22 กม. ให้เทียบ (สีส้ม เส้นประ) ผู้ใช้เห็นว่าระบบเพิ่มอะไร'], en: ['Always comparable', 'Every value can be compared with the 22 km model (orange, dashed)'] },
+  { th: ['เทียบได้เสมอ', 'ทุกค่ามีค่าโมเดลโลก (~25–28 กม.) ให้เทียบ (สีส้ม เส้นประ) ผู้ใช้เห็นว่าระบบเพิ่มอะไร'], en: ['Always comparable', 'Every value can be compared with the global model (~25–28 km; orange, dashed)'] },
   { th: ['มือถือและเน็ตช้า', 'แตะได้ ≥ 44px ข้อมูลแผนที่ 1 ไบต์/จุด บีบอัดแล้ว ~80 KB ต่อเฟรม'], en: ['Mobile & low bandwidth', 'Touch targets ≥ 44px; map data 1 byte/cell, ~80 KB per frame gzipped'] },
   { th: ['เข้าถึงได้', 'คอนทราสต์ WCAG AA, สเกลสีแยกได้สำหรับตาบอดสี, มีตารางแทนกราฟ, รองรับคีย์บอร์ด'], en: ['Accessible', 'WCAG AA contrast, CVD-checked series colours, table views, keyboard support'] },
 ];
@@ -190,7 +190,7 @@ export function DesignSystemPage() {
                 </b>
                 {c.levels.map((l) => (
                   <span key={l.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <LevelBadge severity={l.severity} label={pick(l)} />
+                    <LevelBadge label={pick(l)} />
                     <span className="num muted">
                       {l.min !== undefined ? `≥ ${l.min}` : `≤ ${l.max}`} {c.unit}
                     </span>
@@ -230,9 +230,12 @@ export function DesignSystemPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <AlertBadge alert={{ hazard: 'heat', level: 'danger', severity: 2, value: 43, label_th: 'อันตราย', label_en: 'Danger' }} showValue />
-            <AlertBadge alert={{ hazard: 'rain', level: 'veryHeavy', severity: 2, value: 112, label_th: 'ฝนหนักมาก', label_en: 'Very heavy rain' }} showValue />
-            <AlertBadge alert={{ hazard: 'storm', level: 'likely', severity: 1, value: 60, label_th: 'มีพายุฝนฟ้าคะนอง', label_en: 'Thunderstorms likely' }} />
-            <AlertBadge alert={{ hazard: 'rain', level: 'extreme', severity: 3, value: 180, label_th: 'เสี่ยงน้ำท่วมฉับพลัน', label_en: 'Flash-flood risk' }} />
+            <AlertBadge alert={{ hazard: 'rain', level: 'veryHeavy', severity: 1, value: 112, label_th: 'ฝนหนักมาก', label_en: 'Very heavy rain' }} showValue />
+            <AlertBadge alert={{ hazard: 'storm', level: 'severe', severity: 1, value: 80, label_th: 'พายุฝนฟ้าคะนองรุนแรง', label_en: 'Severe thunderstorms' }} />
+            <AlertBadge alert={{ hazard: 'heat', level: 'extremeDanger', severity: 3, value: 56, label_th: 'อันตรายมาก', label_en: 'Extreme danger' }} />
+            <TierChip severity={1} advice />
+            <TierChip severity={2} advice />
+            <TierChip severity={3} advice />
             <span className="badge badge--demo">DEMO</span>
             <span className="badge badge--info">2 กม.</span>
           </div>
@@ -243,25 +246,25 @@ export function DesignSystemPage() {
                 <span className="stat-value">
                   40 <small>%</small>
                 </span>
-                <span className="stat-sub">{th ? 'โมเดล 22 กม. ฝนตก' : '22 km model: rain'}</span>
+                <span className="stat-sub">{th ? 'โมเดลโลก: ฝนตก' : 'Global model: rain'}</span>
               </div>
               <div className="stat">
                 <span className="stat-label">{th ? 'ดัชนีความร้อน' : 'Heat index'}</span>
                 <span className="stat-value">43°</span>
                 <span className="stat-sub">
-                  <LevelBadge severity={2} label={th ? 'อันตราย' : 'Danger'} />
+                  <LevelBadge label={th ? 'อันตราย' : 'Danger'} hazard={th ? 'ดัชนีความร้อน' : 'Heat index'} />
                 </span>
               </div>
             </div>
             <div className="card card-pad" style={{ display: 'grid', gap: 6 }}>
-              <ChartLegend fine={th ? 'ฟ้าละเอียด 2 กม.' : 'Downscaled 2 km'} coarse={th ? 'โมเดล 22 กม.' : '22 km model'} />
+              <ChartLegend fine={th ? 'ฟ้าละเอียด 2 กม.' : 'Downscaled 2 km'} coarse={th ? 'โมเดลโลก' : 'Global model'} />
               <TimeSeriesChart
                 title="demo"
                 times={demoTimes}
                 unit="°C"
                 series={[
                   { key: 'f', label: '2 km', values: demoFine, kind: 'line', tone: 'fine' },
-                  { key: 'c', label: '22 km', values: demoCoarse, kind: 'line', tone: 'coarse' },
+                  { key: 'c', label: 'Global', values: demoCoarse, kind: 'line', tone: 'coarse' },
                 ]}
               />
             </div>

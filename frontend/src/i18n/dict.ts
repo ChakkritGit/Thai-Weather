@@ -5,7 +5,7 @@ export const dict = {
   tagline: { th: 'พยากรณ์อากาศความละเอียด 2 กม.', en: '2 km high-resolution forecast' },
   navMap: { th: 'แผนที่', en: 'Map' },
   navProvinces: { th: 'รายจังหวัด', en: 'Provinces' },
-  navAlerts: { th: 'เตือนภัย', en: 'Alerts' },
+  navAlerts: { th: 'แจ้งเตือน', en: 'Alerts' },
   navMethod: { th: 'วิธีการ', en: 'Method' },
   navDesign: { th: 'Design system', en: 'Design system' },
   demoBanner: {
@@ -47,8 +47,8 @@ export const dict = {
   close: { th: 'ปิด', en: 'Close' },
   search: { th: 'ค้นหาจังหวัด', en: 'Search province' },
   allRegions: { th: 'ทุกภาค', en: 'All regions' },
-  noAlerts: { th: 'ไม่มีการเตือนภัยในระดับนี้', en: 'No alerts at this level' },
-  minSeverity: { th: 'ระดับขั้นต่ำ', en: 'Minimum level' },
+  noAlerts: { th: 'ไม่มีการแจ้งเตือน', en: 'No alerts' },
+  minSeverity: { th: 'แสดงตั้งแต่ระดับ', en: 'Show from tier' },
   areaRain: { th: 'พื้นที่ฝนตก', en: 'Rain area' },
   maxRain: { th: 'ฝนสูงสุด', en: 'Max rain' },
   tmax: { th: 'สูงสุด', en: 'High' },
@@ -56,7 +56,7 @@ export const dict = {
   peaks: { th: 'ยอดดอย', en: 'Peaks' },
   source: { th: 'แหล่งข้อมูล', en: 'Source' },
   issued: { th: 'ออกเมื่อ', en: 'Issued' },
-  members: { th: 'สมาชิก ensemble', en: 'Ensemble members' },
+  members: { th: 'จำนวนสมาชิกชุดพยากรณ์ (ensemble)', en: 'Ensemble members' },
   openDetail: { th: 'ดูรายละเอียด', en: 'Details' },
   forecastText: { th: 'คำพยากรณ์', en: 'Forecast' },
   overview: { th: 'ภาพรวมประเทศไทย', en: 'Thailand overview' },
@@ -76,6 +76,11 @@ export const dict = {
   cyclones: { th: 'พายุหมุนเขตร้อน', en: 'Tropical cyclones' },
   dataFrom: { th: 'ข้อมูล', en: 'Data' },
   radarEstimate: { th: 'ประเมินจากเรดาร์ เป็นการคาดการณ์ ไม่ใช่คำเตือนทางการ', en: 'Radar-based estimate, not an official warning' },
+  alertsCol: { th: 'การแจ้งเตือน', en: 'Alerts' },
+  updatedAt: { th: 'อัปเดตล่าสุด', en: 'Last updated' },
+  techDetails: { th: 'รายละเอียดทางเทคนิค', en: 'Technical details' },
+  gridPoints: { th: 'จำนวนจุดกริด', en: 'Grid points' },
+  provincesUnit: { th: 'จังหวัด', en: 'provinces' },
 } as const;
 
 export type DictKey = keyof typeof dict;

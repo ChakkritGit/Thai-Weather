@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import '@/design/generated/tokens.css';
 import '@/design/base.css';
+import '@/design/data.css';
 import { BottomNav, Header, Providers } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
 import { translate } from '@/i18n/dict';
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: { default: 'ฟ้าละเอียด · พยากรณ์อากาศความละเอียด 2 กม. ทั่วประเทศไทย', template: '%s · ฟ้าละเอียด' },
   description:
-    'พยากรณ์อากาศความละเอียด 2 กม. สำหรับประเทศไทย ละเอียดกว่าโมเดลโลก 22 กม. ราว 100 เท่า — ฝน โอกาสฝน ดัชนีความร้อน พายุฝนฟ้าคะนอง รายจังหวัด',
+    'พยากรณ์อากาศความละเอียด 2 กม. สำหรับประเทศไทย ละเอียดกว่าโมเดลโลก (~25–28 กม.) กว่า 100 เท่า — ฝน โอกาสฝน ดัชนีความร้อน พายุฝนฟ้าคะนอง รายจังหวัด',
   applicationName: 'ฟ้าละเอียด – Thai Weather HD',
   openGraph: { type: 'website', siteName: 'ฟ้าละเอียด · Thai Weather HD', locale: 'th_TH', images: ['/og.png'] },
   icons: { icon: '/favicon.svg' },
@@ -31,7 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const { t } = translate(lang);
   const meta = await fromApi<Meta>('/api/v1/meta', 60);
   const run = meta?.run ?? null;
-  const alerts = run ? await fromApi<{ alerts: AlertEntry[] }>('/api/v1/alerts?min_severity=2', 120) : null;
+  const alerts = run ? await fromApi<{ alerts: AlertEntry[] }>('/api/v1/alerts?min_severity=1', 120) : null;
   const today = run?.days[0]?.date;
   const alertCount = alerts?.alerts.filter((a) => a.date === today).length ?? 0;
   const upstreamNote = run?.notes.find((n) => n.startsWith('Upstream'));

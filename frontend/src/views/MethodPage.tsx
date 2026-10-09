@@ -6,8 +6,8 @@ import { useT } from '../i18n';
 
 const STEPS = [
   {
-    th: ['รับข้อมูลโมเดลโลก', 'GFS / ECMWF / ICON ผ่าน Open-Meteo ที่ค่าดิบของกริด (~22–25 กม.) ไม่ใช้ค่าที่ปรับแล้ว'],
-    en: ['Ingest the global model', 'GFS / ECMWF / ICON via Open-Meteo at raw grid-cell values (~22–25 km)'],
+    th: ['รับข้อมูลโมเดลโลก', 'GFS / ECMWF / ICON ผ่าน Open-Meteo ที่ค่าดิบของกริด (~25–28 กม.) ไม่ใช้ค่าที่ปรับแล้ว'],
+    en: ['Ingest the global model', 'GFS / ECMWF / ICON via Open-Meteo at raw grid-cell values (~25–28 km)'],
   },
   {
     th: ['ประมาณค่าลงกริด 2 กม.', 'Bilinear interpolation ลงกริด 0.02° (751×421 จุด ≈ 316,000 จุด)'],
@@ -30,16 +30,19 @@ const STEPS = [
     en: ['Correct with stations', 'Ingest station observations (TMD, HII, citizen) and spread residuals by distance and height'],
   },
   {
-    th: ['ผลิตภัณฑ์', 'ดัชนีความร้อน · โอกาสฝน · ร้อยละพื้นที่ฝนตก · พายุฝนฟ้าคะนอง · สรุปรายจังหวัดและการเตือนภัย'],
+    th: ['ผลิตภัณฑ์', 'ดัชนีความร้อน · โอกาสฝน · ร้อยละพื้นที่ฝนตก · พายุฝนฟ้าคะนอง · สรุปรายจังหวัดและการแจ้งเตือน'],
     en: ['Products', 'Heat index · chance of rain · % area with rain · thunderstorms · province summaries & alerts'],
   },
 ];
 
-const FALLBACK = { coarse_grid: { resolution_km: 22.3 }, fine_grid: { resolution_km: 2.2 } };
+const FALLBACK = { coarse_grid: { resolution_km: 27.8 }, fine_grid: { resolution_km: 2.2 } };
 
-export function MethodPage({ run }: { run: Pick<RunMeta, 'coarse_grid' | 'fine_grid'> | null }) {
+type MethodRun = Pick<RunMeta, 'coarse_grid' | 'fine_grid'> &
+  Partial<Pick<RunMeta, 'ensemble_members' | 'observations_used' | 'source' | 'model' | 'demo' | 'issued'>>;
+
+export function MethodPage({ run }: { run: MethodRun | null }) {
   const { lang } = useT();
-  const grids = run ?? (FALLBACK as Pick<RunMeta, 'coarse_grid' | 'fine_grid'>);
+  const grids = run ?? (FALLBACK as MethodRun);
   const th = lang === 'th';
   const ratio = Math.round((grids.coarse_grid.resolution_km / grids.fine_grid.resolution_km) ** 2);
 
@@ -56,8 +59,8 @@ export function MethodPage({ run }: { run: Pick<RunMeta, 'coarse_grid' | 'fine_g
         </header>
 
         <section className="two-col">
-          <GridIllustration coarse />
-          <GridIllustration />
+          <GridIllustration coarse km={grids.coarse_grid.resolution_km} />
+          <GridIllustration km={grids.fine_grid.resolution_km} />
         </section>
 
         <section className="card card-pad prose">
@@ -65,14 +68,14 @@ export function MethodPage({ run }: { run: Pick<RunMeta, 'coarse_grid' | 'fine_g
           <ul>
             {(th
               ? [
-                  'ฝนเขตร้อนเป็นฝนพาความร้อน (convective) เซลล์ฝนกว้าง 5–20 กม. โมเดล 22 กม. จึงเกลี่ยฝนหนักในจุดเดียวให้เป็นฝนเล็กน้อยทั้งช่องกริด — “ฝนตกทั้งจังหวัด แต่ไม่หนักที่ไหนเลย”',
+                  'ฝนเขตร้อนเป็นฝนพาความร้อน (convective) เซลล์ฝนกว้าง 5–20 กม. โมเดลโลกจึงเกลี่ยฝนหนักในจุดเดียวให้เป็นฝนเล็กน้อยทั้งช่องกริด — “ฝนตกทั้งจังหวัด แต่ไม่หนักที่ไหนเลย”',
                   'ภูมิประเทศถูกทำให้เรียบ: ดอยอินทนนท์สูง 2,565 ม. แต่ในโมเดลเหลือไม่ถึงครึ่ง อุณหภูมิบนยอดดอยจึงคลาดเคลื่อนได้เกิน 5 °C',
                   'ฝนภูเขาด้านรับลมมรสุมตะวันตกเฉียงใต้ (เช่น ระนอง ตราด) และเงาฝนด้านหลังเขาหายไป',
                   'จังหวัดชายฝั่งถูกผสมกับทะเลในช่องกริดเดียว ลมบก–ลมทะเลและฝนช่วงบ่ายจึงผิดตำแหน่ง',
                   'เกาะความร้อนกรุงเทพฯ (กลางคืนอุ่นกว่าชานเมือง 2–4 °C) ไม่ปรากฏ ทำให้ประเมินดัชนีความร้อนต่ำเกินไป',
                 ]
               : [
-                  'Tropical rain is convective, in cells 5–20 km wide. A 22 km model smears one heavy cell into light rain over the whole box – “rain everywhere, heavy nowhere”.',
+                  'Tropical rain is convective, in cells 5–20 km wide. A global model smears one heavy cell into light rain over the whole box – “rain everywhere, heavy nowhere”.',
                   'Terrain is flattened: Doi Inthanon is 2,565 m but less than half that in the model, so mountain temperatures can be off by more than 5 °C.',
                   'Windward monsoon rain (Ranong, Trat) and lee-side rain shadows disappear.',
                   'Coastal provinces are blended with the sea, so sea/land breezes and afternoon storms are misplaced.',
@@ -98,6 +101,44 @@ export function MethodPage({ run }: { run: Pick<RunMeta, 'coarse_grid' | 'fine_g
             })}
           </ol>
         </section>
+
+        {run && (
+          <section className="card card-pad" style={{ display: 'grid', gap: 8 }}>
+            <h2>{th ? 'รายละเอียดทางเทคนิคของรอบพยากรณ์ล่าสุด' : 'Technical details of the latest run'}</h2>
+            <dl className="kv">
+              {run.source && (
+                <>
+                  <dt>{th ? 'แหล่งข้อมูล' : 'Source'}</dt>
+                  <dd>
+                    {run.source} · {run.model}
+                  </dd>
+                </>
+              )}
+              <dt>{th ? 'ความละเอียดโมเดลโลก' : 'Global-model resolution'}</dt>
+              <dd>
+                0.25° ≈ {grids.coarse_grid.resolution_km} {th ? 'กม.' : 'km'}
+              </dd>
+              <dt>{th ? 'ความละเอียดหลังลดย่อส่วน' : 'Downscaled resolution'}</dt>
+              <dd>
+                {grids.fine_grid.resolution_km} {th ? 'กม.' : 'km'}
+              </dd>
+              <dt>{th ? 'จำนวนจุดกริด' : 'Grid points'}</dt>
+              <dd>{(grids.fine_grid.nx * grids.fine_grid.ny).toLocaleString()}</dd>
+              {run.ensemble_members !== undefined && (
+                <>
+                  <dt>{th ? 'จำนวนสมาชิกชุดพยากรณ์ (ensemble)' : 'Ensemble members'}</dt>
+                  <dd>{run.ensemble_members}</dd>
+                </>
+              )}
+              {!!run.observations_used && (
+                <>
+                  <dt>{th ? 'สถานีตรวจวัดที่ใช้แก้ไขค่า' : 'Stations used for correction'}</dt>
+                  <dd>{run.observations_used}</dd>
+                </>
+              )}
+            </dl>
+          </section>
+        )}
 
         <section className="two-col">
           <div className="card card-pad prose">
@@ -140,8 +181,8 @@ export function MethodPage({ run }: { run: Pick<RunMeta, 'coarse_grid' | 'fine_g
   );
 }
 
-/** Schematic: one 22 km cell versus the 2 km cells inside it, with convective rain. */
-function GridIllustration({ coarse = false }: { coarse?: boolean }) {
+/** Schematic: one global-model cell versus the 2 km cells inside it, with convective rain. */
+function GridIllustration({ coarse = false, km }: { coarse?: boolean; km: number }) {
   const { lang } = useT();
   const n = 10;
   const size = 220;
@@ -156,7 +197,7 @@ function GridIllustration({ coarse = false }: { coarse?: boolean }) {
   };
   return (
     <figure className="card card-pad" style={{ margin: 0, display: 'grid', gap: 8, justifyItems: 'center' }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxWidth: 260 }} role="img" aria-label={coarse ? '22 km' : '2 km'}>
+      <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxWidth: 260 }} role="img" aria-label={`${km} km`}>
         <rect width={size} height={size} fill="var(--color-map-land)" stroke="var(--color-border-strong)" />
         {coarse ? (
           <rect width={size} height={size} fill={color(mean)} opacity={0.85} />
@@ -169,7 +210,7 @@ function GridIllustration({ coarse = false }: { coarse?: boolean }) {
         )}
       </svg>
       <figcaption style={{ textAlign: 'center', fontSize: 'var(--font-size-sm)' }}>
-        <b>{coarse ? (lang === 'th' ? 'โมเดลโลก 22 กม.: 1 ช่อง' : 'Global model 22 km: 1 cell') : lang === 'th' ? 'ฟ้าละเอียด 2 กม.: 100 ช่อง' : 'Downscaled 2 km: 100 cells'}</b>
+        <b>{coarse ? (lang === 'th' ? `โมเดลโลก ~${Math.round(km)} กม.: 1 ช่อง` : `Global model ~${Math.round(km)} km: 1 cell`) : lang === 'th' ? 'ฟ้าละเอียด 2 กม.: 100 ช่อง' : 'Downscaled 2 km: 100 cells'}</b>
         <div className="muted">
           {coarse
             ? lang === 'th'
