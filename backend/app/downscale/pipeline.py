@@ -133,6 +133,7 @@ class Downscaler:
         acc: DayAccumulator | None = None
         correction = None
         obs_used = 0
+        obs_stations: list[str] = []
 
         try:
             for i, t in enumerate(times):
@@ -144,11 +145,17 @@ class Downscaler:
                 # -- temperature & humidity
                 temp, _ = downscale_temperature(f["t2m"], ctx.terrain, rg)
                 if i == 0 and observations:
-                    window = [o for o in observations if abs((o.time - t).total_seconds()) <= 5400]
-                    res = obsmod.residuals(window, temp, static.elev_land, fine)
+                    # one report per station (closest to t0) so a station is not over-weighted
+                    nearest: dict[str, tuple[float, obsmod.Observation]] = {}
+                    for o in observations:
+                        dt = abs((o.time - t).total_seconds())
+                        if dt <= 5400 and dt < nearest.get(o.station_id, (dt + 1, o))[0]:
+                            nearest[o.station_id] = (dt, o)
+                    res = obsmod.residuals([o for _, o in nearest.values()], temp, static.elev_land, fine)
                     if res:
                         correction = obsmod.correction_field(res, static.elev_land, fine)
                         obs_used = len(res)
+                        obs_stations = sorted(o.station_id for o, _ in res)
                 if correction is not None:
                     temp = temp + correction * obsmod.lead_weight((t - times[0]).total_seconds() / 3600)
                 _, rh = downscale_humidity(temp, f["td2m"], f["psfc"], ctx.terrain.dz)
@@ -225,6 +232,7 @@ class Downscaler:
             "coarse_grid": coarse.grid.describe(),
             "ensemble_members": self.members,
             "observations_used": obs_used,
+            "observation_stations": obs_stations,
             "notes": coarse.notes,
             "compute_seconds": round(time.perf_counter() - t0, 1),
         }

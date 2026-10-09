@@ -121,3 +121,50 @@ def test_integration_against_real_app(run_dir, tmp_path):
     finally:
         mp.undo()
         get_settings.cache_clear()
+
+
+def test_collect_records_correction_use(tmp_path):
+    conn = _setup(tmp_path)
+    inner = _api_handler()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        resp = inner(request)
+        if request.url.path == "/api/v1/meta":
+            body = resp.json()
+            body["run"].update(observations_used=2, observation_stations=["VTBS", "VTCC"])
+            return httpx.Response(200, json=body)
+        return resp
+
+    api = httpx.Client(transport=httpx.MockTransport(handler), base_url="http://api")
+    assert collect_mod.collect(conn, api, None) is not None
+    run = conn.execute("SELECT obs_used, obs_stations FROM runs").fetchone()
+    assert (run["obs_used"], run["obs_stations"]) == (2, "VTBS,VTCC")
+
+
+def test_collect_defaults_to_no_correction(tmp_path):
+    conn = _setup(tmp_path)
+    api = httpx.Client(transport=httpx.MockTransport(_api_handler()), base_url="http://api")
+    collect_mod.collect(conn, api, None)
+    run = conn.execute("SELECT obs_used, obs_stations FROM runs").fetchone()
+    assert (run["obs_used"], run["obs_stations"]) == (0, "")
+
+
+def test_connect_migrates_old_runs_table(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.sqlite"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE runs (run_id TEXT PRIMARY KEY, run_time TEXT NOT NULL, collected_at TEXT NOT NULL, "
+        "n_stations INTEGER NOT NULL, baseline_ok INTEGER NOT NULL)"
+    )
+    old.execute("INSERT INTO runs VALUES ('R0','2026-10-08T00:00','2026-10-08T00:10',3,1)")
+    old.commit()
+    old.close()
+    for _ in range(2):  # idempotent
+        conn = db.connect(path)
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(runs)")]
+        assert cols[-2:] == ["obs_used", "obs_stations"]
+        conn.close()
+    row = db.connect(path).execute("SELECT * FROM runs").fetchone()
+    assert row["run_id"] == "R0" and row["obs_used"] is None

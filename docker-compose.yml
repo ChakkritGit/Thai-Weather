@@ -12,6 +12,7 @@ services:
       THWX_ENSEMBLE_MEMBERS: ${THWX_ENSEMBLE_MEMBERS:-8}
       THWX_FALLBACK_TO_DEMO: ${THWX_FALLBACK_TO_DEMO:-true}
       THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:-change-me}
+      THWX_RUN_ON_STARTUP: ${THWX_RUN_ON_STARTUP:-true}
     volumes:
       - thwx-data:/var/lib/thwx
     ports:
@@ -23,6 +24,8 @@ services:
     command: ["python", "-m", "verify", "loop"]
     environment:
       THWX_VERIFY_API: http://api:8000
+      THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:-change-me}
+      THWX_VERIFY_PUSH: ${THWX_VERIFY_PUSH:-true}
       THWX_OPENMETEO_MODEL: ${THWX_OPENMETEO_MODEL:-gfs_seamless}
       THWX_OPENMETEO_API_KEY: ${THWX_OPENMETEO_API_KEY:-}
     volumes:

@@ -3,7 +3,7 @@ import pytest
 from verify.__main__ import build_parser, main
 
 
-@pytest.mark.parametrize("cmd", [[], ["collect"], ["observe"], ["score"], ["loop"]])
+@pytest.mark.parametrize("cmd", [[], ["collect"], ["observe"], ["push"], ["score"], ["loop"]])
 def test_help_works(cmd, capsys):
     with pytest.raises(SystemExit) as exc:
         build_parser().parse_args([*cmd, "--help"])

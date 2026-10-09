@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS obs (
 );
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, run_time TEXT NOT NULL, collected_at TEXT NOT NULL,
-    n_stations INTEGER NOT NULL, baseline_ok INTEGER NOT NULL
+    n_stations INTEGER NOT NULL, baseline_ok INTEGER NOT NULL,
+    obs_used INTEGER, obs_stations TEXT
 );
 CREATE TABLE IF NOT EXISTS forecasts (
     run_id TEXT NOT NULL, source TEXT NOT NULL, station TEXT NOT NULL, valid TEXT NOT NULL,
@@ -48,6 +49,17 @@ def parse_time(s: str) -> datetime:
     return datetime.strptime(s, TIME_FMT).replace(tzinfo=UTC)
 
 
+RUNS_COLUMNS = (("obs_used", "INTEGER"), ("obs_stations", "TEXT"))
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after the first release to databases created earlier."""
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(runs)")}
+    for name, decl in RUNS_COLUMNS:
+        if name not in have:
+            conn.execute(f"ALTER TABLE runs ADD COLUMN {name} {decl}")
+
+
 def connect(path: str | Path) -> sqlite3.Connection:
     """Open (creating if needed) the verification database. Idempotent."""
     p = Path(path)
@@ -56,6 +68,7 @@ def connect(path: str | Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()
     return conn
 

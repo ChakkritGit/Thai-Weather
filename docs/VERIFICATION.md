@@ -42,7 +42,7 @@ Open-Meteo (`openmeteo`, โมเดลเดียวกัน ปรับต
 
 ## Running / วิธีรัน
 
-The `verify` compose service runs `python -m verify loop` (hourly: collect → observe → score).
+The `verify` compose service runs `python -m verify loop` (every 15 min: observe → push → collect; the report is rewritten at most hourly).
 The database is `$THWX_DATA_DIR/verification/verify.sqlite` and the latest report is
 `$THWX_DATA_DIR/verification/report.md` (volume `thwx-data`).
 
@@ -57,6 +57,39 @@ docker compose exec verify python -m verify observe --csv /path/obs.csv
 Environment: `THWX_VERIFY_API` (default `http://localhost:8000`), `THWX_DATA_DIR`,
 `THWX_OPENMETEO_MODEL`, `THWX_OPENMETEO_API_KEY`. Use `collect --no-baseline` to skip the
 Open-Meteo request.
+
+Also: `THWX_ADMIN_TOKEN` (bearer token for the push step; same value as the api service) and
+`THWX_VERIFY_PUSH=false` to disable feeding the correction (verification only).
+
+## Station correction feed and hold-out / การป้อนข้อมูลสถานีและชุด hold-out
+
+The same METAR temperatures also drive the app's station correction
+(`POST /api/v1/observations`, see `docs/API.md`):
+
+- **Push:** every 15 min the `push` step sends the latest report (temperature not null,
+  not older than 120 min, within −30…60 °C) of each assimilated station. The app buffers
+  6 h of reports and at the start of a forecast run uses, **per station, the report closest
+  to the run's first hour within ±90 min**. Pushing every 15 min guarantees a fresh report
+  in that window whatever minute the run starts. The correction is spread with a 40 km / 300 m
+  kernel and decays with a 12 h e-folding time. `meta.run.observations_used` and
+  `observation_stations` show which stations were used; they are archived per run.
+- **Hold-out:** about one station in four (sorted by latitude, every 4th starting at index 2,
+  so the set spreads north → south) is chosen once, stored in the database (`meta.holdout`)
+  and **never fed to the app**. Stations that appear later are assimilated; they never join
+  the hold-out, so hold-out scores stay comparable over time.
+- Disable with `THWX_VERIFY_PUSH=false` (verification only, no correction). Tip: set
+  `THWX_RUN_ON_STARTUP=false` when only restarting/redeploying the api, otherwise it
+  re-fetches the whole grid from Open-Meteo (~2.3k calls) at start-up.
+- Manual run: `docker compose exec verify python -m verify push`.
+
+**Section 7 of the report (Station correction effect)** compares, on the same matched
+sample, rows of `hold-out` vs `assimilated` stations × `corrected` (the run used ≥ 1
+observation) vs `uncorrected` runs, split into lead 0–11 h (where the correction is strong)
+and 12–47 h (where it has decayed). Judge the method on the **hold-out** rows: compare
+MAE/bias of `fine` between `corrected` and `uncorrected` at lead 0–11 h. Assimilated stations
+were used by the correction, so their error is optimistic and not independent. A hold-out
+station near an assimilated one may also improve (the kernel reaches 40 km) — that is the
+real benefit for nearby users. Early on there are few corrected runs; the section says so.
 
 ## Reading the report / อ่านรายงาน
 

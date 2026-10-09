@@ -142,8 +142,17 @@ def collect(
             [(run_id, *row) for row in rows],
         )
         conn.execute(
-            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok) VALUES (?,?,?,?,?)",
-            (run_id, db.fmt_time(t0), db.fmt_time(datetime.now(UTC)), len(used), baseline_ok),
+            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (
+                run_id,
+                db.fmt_time(t0),
+                db.fmt_time(datetime.now(UTC)),
+                len(used),
+                baseline_ok,
+                int(run.get("observations_used") or 0),
+                ",".join(run.get("observation_stations") or []),
+            ),
         )
         conn.commit()
     except Exception:

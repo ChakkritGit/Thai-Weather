@@ -45,4 +45,4 @@ curl -X POST localhost:8000/api/v1/observations \
   -d '[{"station_id":"48455","lat":13.73,"lon":100.56,"time":"2026-10-09T06:00:00Z","t2m":33.4,"elevation":4}]'
 ```
 
-Observations within ±90 min of a run's first step are used; residuals are spread with a 40 km / 300 m Gaussian kernel and decay with a 12 h e-folding time.
+Observations within ±90 min of a run's first step are used, and **only one report per station** (the one closest to the run start), so sending several reports of the same station does not over-weight it; residuals are spread with a 40 km / 300 m Gaussian kernel and decay with a 12 h e-folding time. The run's `meta` reports `observations_used` and `observation_stations`. The `verify` service pushes METARs automatically (see `docs/VERIFICATION.md`).

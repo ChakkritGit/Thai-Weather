@@ -26,7 +26,7 @@ from functools import cache
 
 import numpy as np
 
-from . import db
+from . import db, holdout
 from .observe import is_rain
 
 SOURCES = ("fine", "gfs_raw", "openmeteo")
@@ -37,6 +37,7 @@ RAIN_THRESHOLD_MM = 0.2
 ICT_OFFSET_MIN = 7 * 60
 WINDOW_MIN = 180
 MIN_RECOMMENDED_N = 500
+EFFECT_SPLIT_H = 12  # the correction decays with an e-folding time of 12 h
 LEAD_BUCKETS = ("0-11 h", "12-23 h", "24-35 h", "36-47 h")
 ELEV_BANDS = ("< 100 m", "100-400 m", "> 400 m")
 
@@ -108,6 +109,9 @@ class Report:
     rain_unmatched: dict[str, int] = field(default_factory=dict)
     rain: dict[str, Contingency] = field(default_factory=dict)
     brier: dict[str, float] = field(default_factory=dict)
+    holdout_ids: list[str] = field(default_factory=list)
+    corrected_samples: int = 0
+    effect: list[Row] = field(default_factory=list)
 
 
 # ----------------------------------------------------------------- helpers
@@ -218,12 +222,14 @@ def _score_temperature(report, fc_rows, obs_rows, stations, sources, conn) -> No
     temp_sources = [s for s in sources if any(s in v for v in by_key.values())]
     report.temp_unmatched = dict.fromkeys(temp_sources, 0)
     samples: list[tuple[str, int, str, dict[str, float]]] = []
+    sample_run: list[str] = []
     for (_run, station, valid), vals in by_key.items():
         o = obs.get((station, _epoch_min(valid)))
         if o is None:
             continue
         if all(s in vals for s in temp_sources):
             samples.append((station, lead_of[(_run, station, valid)], valid, {s: vals[s] - o for s in temp_sources}))
+            sample_run.append(_run)
         else:
             for s in vals:
                 report.temp_unmatched[s] += 1
@@ -252,6 +258,31 @@ def _score_temperature(report, fc_rows, obs_rows, stations, sources, conn) -> No
             "model_elevation": model_e,
         }
     report.by_station = rows
+    _score_correction_effect(report, samples, sample_run, srcs, conn)
+
+
+def _score_correction_effect(report: Report, samples, sample_run: list[str], srcs: list[str], conn) -> None:
+    """Split the matched sample by hold-out/assimilated station and corrected/uncorrected run."""
+    held = holdout.load(conn)
+    report.holdout_ids = sorted(held)
+    used = {r["run_id"]: r["obs_used"] or 0 for r in conn.execute("SELECT run_id, obs_used FROM runs")}
+    groups: dict[tuple[str, str, str], list[dict[str, float]]] = defaultdict(list)
+    for (station, lead, _valid, errs), run_id in zip(samples, sample_run, strict=True):
+        group = "hold-out" if station in held else "assimilated"
+        run_type = "corrected" if used.get(run_id, 0) > 0 else "uncorrected"
+        span = f"0-{EFFECT_SPLIT_H - 1} h" if lead < EFFECT_SPLIT_H else f"{EFFECT_SPLIT_H}-{MAX_LEAD_H} h"
+        groups[(group, run_type, span)].append(errs)
+        if run_type == "corrected":
+            report.corrected_samples += 1
+    spans = (f"0-{EFFECT_SPLIT_H - 1} h", f"{EFFECT_SPLIT_H}-{MAX_LEAD_H} h")
+    for group in ("hold-out", "assimilated"):
+        for run_type in ("corrected", "uncorrected"):
+            for span in spans:
+                errs = groups.get((group, run_type, span))
+                if errs:
+                    row = Row(group, len(errs), {s: _metrics([e[s] for e in errs]) for s in srcs})
+                    row.extra = {"run": run_type, "lead": span}
+                    report.effect.append(row)
 
 
 def _score_rain(report: Report, fc_rows, obs_rows, sources: list[str]) -> None:
@@ -427,5 +458,23 @@ def render_markdown(report: Report) -> str:
         lines += [
             "",
             "Brier ของ `fine` ใช้ความน่าจะเป็น pop/100 (ค่าสูงสุดในช่วง) ส่วน gfs_raw และ openmeteo ใช้ 0/1",
+        ]
+
+    lines += ["", "## 7. ผลของการแก้ค่าด้วยข้อมูลสถานี (Station correction effect)", ""]
+    if not report.holdout_ids:
+        lines += ["ยังไม่ได้เลือกสถานี hold-out (no hold-out set chosen yet) — รัน `observe`/`loop` เพื่อเลือก"]
+    elif not report.corrected_samples:
+        lines += ["ยังไม่มีรอบพยากรณ์ที่ใช้ข้อมูลสถานีแก้ค่า (no corrected runs yet in this window)."]
+    else:
+        extra = (("Run", "run"), ("Lead", "lead"))
+        lines += _table("Stations", report.effect, srcs, extra)
+        lines += [
+            "",
+            "สถานี `assimilated` ถูกใช้ในการแก้ค่าแล้ว จึงไม่เป็นอิสระ — ให้ตัดสินวิธีนี้จากแถว **hold-out** เท่านั้น "
+            "(`corrected` = รอบที่ใช้ข้อมูลสถานี, `uncorrected` = รอบที่ไม่ได้ใช้) · "
+            f"การแก้ค่าจางลงตามเวลา (e-folding {EFFECT_SPLIT_H} ชม.) จึงแยก lead 0-{EFFECT_SPLIT_H - 1} ชม. กับ "
+            f"{EFFECT_SPLIT_H}-{MAX_LEAD_H} ชม.",
+            "",
+            "สถานี hold-out: " + ", ".join(f"`{s}`" for s in report.holdout_ids),
         ]
     return "\n".join(lines) + "\n"

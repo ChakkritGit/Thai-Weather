@@ -12,7 +12,10 @@ RUN = "R1"
 
 def _db(tmp_path):
     conn = db.connect(tmp_path / "v.sqlite")
-    conn.execute("INSERT INTO runs VALUES (?,?,?,?,?)", (RUN, "2026-10-09T00:00", "2026-10-09T00:10", 1, 1))
+    conn.execute(
+        "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok) VALUES (?,?,?,?,?)",
+        (RUN, "2026-10-09T00:00", "2026-10-09T00:10", 1, 1),
+    )
     return conn
 
 
@@ -119,3 +122,52 @@ def test_empty_database_renders_no_data(tmp_path):
     conn = _db(tmp_path)
     md = score.render_markdown(score.score(conn, None, UNTIL))
     assert "no data yet" in md
+
+
+def _effect_db(tmp_path, with_holdout=True):
+    """Run R1 corrected, R2 not; station H is held out, A is assimilated; errors fine +1 / +3, gfs +2 / +4."""
+    conn = _db(tmp_path)
+    conn.execute("UPDATE runs SET obs_used = 2, obs_stations = 'A' WHERE run_id = 'R1'")
+    conn.execute(
+        "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used) "
+        "VALUES ('R2','2026-10-09T00:00','2026-10-09T00:10',2,1,0)"
+    )
+    for sid in ("A", "H"):
+        _station(conn, sid)
+    if with_holdout:
+        db.set_meta(conn, "holdout", "H")
+    for sid in ("A", "H"):
+        for hour in (1, 14):  # lead 1 h and 14 h
+            _obs(conn, sid, f"{hour:02d}:00", t2m=30.0)
+        for run, fine_err, gfs_err in (("R1", 1.0, 2.0), ("R2", 3.0, 4.0)):
+            for hour in (1, 14):
+                valid = f"2026-10-09T{hour:02d}:00"
+                for src, err in (("fine", fine_err), ("gfs_raw", gfs_err)):
+                    conn.execute(
+                        "INSERT INTO forecasts VALUES (?,?,?,?,?,?,?,?)",
+                        (run, src, sid, valid, hour, 30.0 + err, 0.0, None),
+                    )
+    conn.commit()
+    return conn
+
+
+def test_correction_effect_cells(tmp_path):
+    rep = score.score(_effect_db(tmp_path), SINCE, UNTIL)
+    assert rep.holdout_ids == ["H"] and rep.corrected_samples == 4
+    cells = {(r.label, r.extra["run"], r.extra["lead"]): r for r in rep.effect}
+    assert len(cells) == 8 and all(r.n == 1 for r in cells.values())
+    h = cells[("hold-out", "corrected", "0-11 h")]
+    assert h.metrics["fine"].mae == pytest.approx(1.0) and h.metrics["gfs_raw"].mae == pytest.approx(2.0)
+    assert cells[("hold-out", "uncorrected", "12-47 h")].metrics["fine"].bias == pytest.approx(3.0)
+    md = score.render_markdown(rep)
+    assert "## 7." in md and "`H`" in md and "| hold-out | corrected | 0-11 h | 1 |" in md
+
+
+def test_correction_effect_absent_messages(tmp_path):
+    md = score.render_markdown(score.score(_effect_db(tmp_path, with_holdout=False), SINCE, UNTIL))
+    assert "## 7." in md and "no hold-out set chosen yet" in md
+    conn = _effect_db(tmp_path / "x")
+    conn.execute("UPDATE runs SET obs_used = 0")
+    conn.commit()
+    md = score.render_markdown(score.score(conn, SINCE, UNTIL))
+    assert "no corrected runs yet" in md
