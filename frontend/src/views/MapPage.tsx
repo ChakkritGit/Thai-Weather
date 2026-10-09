@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { LayerId, Meta, RunMeta } from '../lib/api';
-import { buildLut } from '../lib/color';
-import { nearestStep, thaiDate } from '../lib/format';
+import { buildLut, cssGradient, radarScale } from '../lib/color';
+import { fmtHour, nearestStep, thaiDate } from '../lib/format';
+import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
 import { Icon } from '../components/Icon';
@@ -43,6 +44,8 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     window.history.replaceState(null, '', url);
   }, []);
   const [loading, setLoading] = useState(false);
+  const [radarOn, setRadarOn] = useState(false);
+  const radar = useRadar(radarOn);
   const stageRef = useRef<HTMLDivElement>(null);
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
 
@@ -133,7 +136,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     });
   };
 
-  const common = { run, layer, windLayer, index, lut, theme, selected, onSelect: setSelected };
+  const common = { run, layer, windLayer, index, lut, theme, selected, radar: radar.frame, onSelect: setSelected };
 
   return (
     <div className="map-page">
@@ -186,6 +189,10 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         <LayerPicker layers={meta.layers} value={layerId} onChange={setLayerId} />
 
         <div className="map-tools">
+          <button type="button" className="btn" aria-pressed={radarOn} onClick={() => setRadarOn((r) => !r)}>
+            <Icon name="radar" />
+            {t('radar')}
+          </button>
           <button type="button" className="btn" aria-pressed={compare} onClick={() => setCompare((c) => !c)}>
             <Icon name="split" />
             {t('compare')}
@@ -194,6 +201,31 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             <button type="button" className="btn" onClick={locate} aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}>
               <Icon name="locate" />
             </button>
+          )}
+          {radarOn && (
+            <div className="radar-tag glass" role="status">
+              {radar.status === 'ready' && radar.frame ? (
+                <>
+                  <b>
+                    {t('radarAt')} {fmtHour(radar.frame.frameTime, lang)}
+                    {lang === 'th' ? ' น.' : ''}
+                  </b>
+                  <span className="muted"> · RainViewer</span>
+                  <div className="radar-tag-bar" style={{ background: cssGradient(radarScale, 12, 70) }} aria-hidden="true" />
+                  <div className="radar-tag-scale muted" aria-hidden="true">
+                    {[20, 40, 60].map((v) => (
+                      <span key={v} style={{ left: `${((v - 12) / 58) * 100}%` }}>
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : radar.status === 'loading' ? (
+                <span className="muted">{t('loading')}</span>
+              ) : (
+                <span className="muted">{t('radarOff')}</span>
+              )}
+            </div>
           )}
         </div>
 

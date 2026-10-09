@@ -13,6 +13,9 @@ services:
       THWX_FALLBACK_TO_DEMO: ${THWX_FALLBACK_TO_DEMO:-true}
       THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:-change-me}
       THWX_RUN_ON_STARTUP: ${THWX_RUN_ON_STARTUP:-true}
+      # radar nowcast (RainViewer) + tropical cyclones (GDACS); THWX_NOWCAST_SOURCE=off disables the radar
+      THWX_NOWCAST_SOURCE: ${THWX_NOWCAST_SOURCE:-rainviewer}
+      THWX_CYCLONES_ENABLED: ${THWX_CYCLONES_ENABLED:-true}
     volumes:
       - thwx-data:/var/lib/thwx
     ports:

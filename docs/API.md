@@ -14,6 +14,9 @@ Base path `/api/v1`. Interactive OpenAPI docs at `/docs`.
 | GET | `/provinces` | 77 provinces with daily summaries and alerts |
 | GET | `/provinces/{iso}` | e.g. `TH-10`: hourly province means + daily summaries |
 | GET | `/alerts?min_severity=1..3` | Province alerts grouped by day |
+| GET | `/nowcast?lat=&lon=` | Radar nowcast for a point (see below) plus active tropical cyclones; 422 outside the domain |
+| GET | `/nowcast/layer?lead=0` | Radar reflectivity `uint8` (`linear` -10..75 dBZ, 0 = no echo), headers `X-Frame-Time`, `X-Lead`, `X-Enc-Min`, `X-Enc-Max`, `X-Grid-NY/NX`, `ETag`; `lead` in 0,10..60 min (advected); 404 when unavailable or stale |
+| GET | `/nowcast/status` | Radar / cyclone polling status (also under `/health`) |
 | POST | `/observations` | *(admin)* Ingest station temperatures for the next run's bias correction |
 | POST | `/runs` | *(admin)* Trigger a forecast run now |
 
@@ -46,3 +49,30 @@ curl -X POST localhost:8000/api/v1/observations \
 ```
 
 Observations within ±90 min of a run's first step are used, and **only one report per station** (the one closest to the run start), so sending several reports of the same station does not over-weight it; residuals are spread with a 40 km / 300 m Gaussian kernel and decay with a 12 h e-folding time. The run's `meta` reports `observations_used` and `observation_stations`. The `verify` service pushes METARs automatically (see `docs/VERIFICATION.md`).
+
+## Nowcast (radar + cyclones)
+
+`GET /nowcast?lat=&lon=` (details in `docs/NOWCAST.md`):
+
+```json
+{
+  "available": true, "reason": null,
+  "frame_time": "2026-10-09T06:20:00+00:00", "age_min": 4,
+  "now": {"class": "none", "max_dbz": null},
+  "eta_rain":  {"minutes": 25, "minutes_range": [20, 30], "class": "heavy", "max_dbz": 43.0},
+  "eta_storm": {"minutes": 30, "minutes_range": [25, 40], "class": "thunderstorm", "max_dbz": 51.0},
+  "nearest": {"distance_km": 18.2, "bearing_deg": 225, "class": "heavy", "max_dbz": 43.0, "approaching": true, "closing_kmh": 24.7},
+  "motion": {"speed_kmh": 32.0, "heading_deg": 45},
+  "cyclones": [{"id": "1001335-7", "name": "Simon", "source": "NOAA", "category": "TY", "max_wind_kmh": 222.2, "peak_category": "TY",
+                "report_url": "https://www.gdacs.org/report.aspx?...", "position": {"lat": 15.6, "lon": 110.0},
+                "distance_now_km": 820.1,
+                "closest": {"time": "2026-10-10T19:00:00+00:00", "hours": 36.0, "distance_km": 410.3},
+                "in_wind_zone_kmh": null}],
+  "attribution": [{"name": "RainViewer", "url": "https://www.rainviewer.com"}, {"name": "GDACS", "url": "https://www.gdacs.org"}]
+}
+```
+
+- `class` is one of `none | light | moderate | heavy | thunderstorm | severe`. `eta_*` are `null` when nothing is expected
+  within 60 minutes; `minutes: 0` means it is happening now. `heading_deg` is the direction the echoes move **toward**.
+- When `available` is `false`, `reason` is `disabled | no_data | stale | no_coverage`; `cyclones` is still filled.
+- Cyclones are all currently active storms within 1,500 km of Thailand, nearest first; `category` is `TD | TS | TY`.

@@ -96,3 +96,32 @@ export function categorise(category: string, value: number): CategoryLevel | nul
   }
   return best;
 }
+
+/** Radar layer from `/api/v1/nowcast/layer`: uint8 code 0..255 ↔ −10..75 dBZ (0 = no echo). */
+export const RADAR_ENCODING: Encoding = { kind: 'linear', min: -10, max: 75 };
+
+/** Reflectivity colours (dBZ): pale blue drizzle → green → yellow → orange → red → magenta for hail-sized cores. */
+export const radarScale: Scale = {
+  unit: 'dBZ',
+  mode: 'continuous',
+  stops: [
+    { value: 12, color: '#7dd3fc', alpha: 0 },
+    { value: 20, color: '#7dd3fc', alpha: 0.6 },
+    { value: 25, color: '#38bdf8', alpha: 0.75 },
+    { value: 30, color: '#22c55e', alpha: 0.85 },
+    { value: 35, color: '#a3e635', alpha: 0.9 },
+    { value: 40, color: '#facc15', alpha: 0.95 },
+    { value: 45, color: '#f97316', alpha: 1 },
+    { value: 50, color: '#dc2626', alpha: 1 },
+    { value: 55, color: '#be185d', alpha: 1 },
+    { value: 60, color: '#a21caf', alpha: 1 },
+    { value: 70, color: '#f5d0fe', alpha: 1 },
+  ],
+};
+
+/** 256-entry RGBA lookup table for radar codes. */
+export function buildRadarLut(): Uint8ClampedArray {
+  const lut = new Uint8ClampedArray(256 * 4);
+  for (let c = 0; c < 256; c++) lut.set(scaleColor(radarScale, decode(RADAR_ENCODING, c)), c * 4);
+  return lut;
+}

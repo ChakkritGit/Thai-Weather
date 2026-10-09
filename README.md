@@ -114,6 +114,7 @@ docs/            เอกสารเทคนิค
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — สถาปัตยกรรมระบบและการไหลของข้อมูล
 - [docs/DOWNSCALING.md](docs/DOWNSCALING.md) — วิธีการทางวิทยาศาสตร์และข้อจำกัด
 - [docs/VERIFICATION.md](docs/VERIFICATION.md) — การตรวจสอบความแม่นยำเทียบข้อมูลสถานีจริง
+- [docs/NOWCAST.md](docs/NOWCAST.md) — เรดาร์เตือนฝนระยะสั้น (0–60 นาที) และพายุหมุนเขตร้อน: แหล่งข้อมูล วิธีการ ข้อจำกัด
 - [docs/API.md](docs/API.md) — REST API
 - [docs/DESIGN.md](docs/DESIGN.md) — design system และหลักการ UX
 - [deploy/README.md](deploy/README.md) — **deploy บน VPS**: Docker + Portainer + Nginx Proxy Manager (SSL) ใน compose เดียว

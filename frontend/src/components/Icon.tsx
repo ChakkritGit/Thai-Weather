@@ -27,6 +27,8 @@ const paths: Record<string, string> = {
   chevron: 'm9 6 6 6-6 6',
   mountain: 'm3 20 6-10 4 6 3-4 5 8H3Z',
   grid: 'M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16',
+  radar: 'M12 21a9 9 0 1 1 9-9M12 17a5 5 0 1 1 5-5M12 12 18 6M12 12h.01',
+  cyclone: 'M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0-8a6 6 0 0 1 6 6M12 18a6 6 0 0 1-6-6M12 2a10 10 0 0 1 10 10M12 22A10 10 0 0 1 2 12',
 };
 
 export type IconName = keyof typeof paths;

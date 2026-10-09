@@ -15,6 +15,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from .api.routes import router
 from .config import get_settings
 from .core.static import load_static
+from .nowcast.service import NowcastService
 from .scheduler import ObservationBuffer, Refresher
 from .store import RunStore
 
@@ -31,8 +32,12 @@ async def lifespan(app: FastAPI):
     app.state.store = store
     app.state.observations = observations
     app.state.refresher = refresher
+    nowcast = NowcastService(settings)
+    app.state.nowcast = nowcast
     refresher.start()
+    nowcast.start()  # no-op when both radar and cyclones are disabled
     yield
+    nowcast.stop()
     refresher.stop()
 
 
@@ -51,6 +56,6 @@ app.add_middleware(
     allow_origins=get_settings().cors_origins,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
-    expose_headers=["X-Grid-NY", "X-Grid-NX", "X-Run-Id"],
+    expose_headers=["X-Grid-NY", "X-Grid-NX", "X-Run-Id", "X-Frame-Time", "X-Lead", "X-Enc-Min", "X-Enc-Max"],
 )
 app.include_router(router)

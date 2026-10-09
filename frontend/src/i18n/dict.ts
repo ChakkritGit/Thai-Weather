@@ -68,6 +68,14 @@ export const dict = {
   table: { th: 'ตาราง', en: 'Table' },
   chart: { th: 'กราฟ', en: 'Chart' },
   time: { th: 'เวลา', en: 'Time' },
+  nowcastTitle: { th: 'ฝนใน 1 ชั่วโมงข้างหน้า', en: 'Rain in the next hour' },
+  nowcastError: { th: 'โหลดข้อมูลเรดาร์ไม่สำเร็จ', en: 'Could not load radar data' },
+  radarAt: { th: 'เรดาร์', en: 'Radar' },
+  radarOff: { th: 'เรดาร์ยังไม่พร้อมใช้งาน', en: 'Radar not available' },
+  radar: { th: 'เรดาร์', en: 'Radar' },
+  cyclones: { th: 'พายุหมุนเขตร้อน', en: 'Tropical cyclones' },
+  dataFrom: { th: 'ข้อมูล', en: 'Data' },
+  radarEstimate: { th: 'ประเมินจากเรดาร์ เป็นการคาดการณ์ ไม่ใช่คำเตือนทางการ', en: 'Radar-based estimate, not an official warning' },
 } as const;
 
 export type DictKey = keyof typeof dict;

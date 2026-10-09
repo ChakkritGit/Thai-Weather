@@ -10,11 +10,12 @@ dependencies = [
   "scipy>=1.13",
   "httpx>=0.27",
   "pydantic-settings>=2.4",
+  "pillow>=10",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
-build = ["shapely>=2.0", "pillow>=10"]
+build = ["shapely>=2.0"]
 
 [tool.setuptools.packages.find]
 include = ["app*", "verify*"]

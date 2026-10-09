@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     refresh_minutes: int = 360  # 4 fetches/day fits Open-Meteo's free 10,000 calls/day
     run_on_startup: bool = True
 
+    # radar nowcast (RainViewer) and tropical cyclones (GDACS); "off" disables the radar part
+    nowcast_source: str = "rainviewer"  # "rainviewer" | "off"
+    nowcast_poll_minutes: int = 5
+    cyclones_enabled: bool = True
+
     data_dir: Path = Path("var")
     admin_token: str | None = None
     cors_origins: list[str] = ["*"]

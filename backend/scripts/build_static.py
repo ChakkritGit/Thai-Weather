@@ -16,7 +16,7 @@ Data sources (downloaded once, cached under ``--cache``):
 * Boundaries: Natural Earth 1:10m admin-0 and admin-1 (public domain).
 
 Run:  python scripts/build_static.py --cache /tmp/thwx-cache
-Requires the ``build`` extra (shapely, pillow).
+Requires the ``build`` extra (shapely); pillow is a runtime dependency.
 """
 
 from __future__ import annotations

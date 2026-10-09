@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type ImageSource, type Map as MLMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { api, type GridData, type GridDesc, type LayerMeta, type RunMeta } from '../lib/api';
-import { decode, hexToRgb } from '../lib/color';
+import { api, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
+import { buildRadarLut, decode, hexToRgb } from '../lib/color';
 import { gridBounds, imageCoordinates, rasterFor, renderGrid, sampleGrid, type Raster } from '../lib/render';
 import { fmtNum } from '../lib/format';
 import { useT } from '../i18n';
@@ -24,6 +24,8 @@ interface Props {
   theme: 'light' | 'dark';
   showGrid?: boolean;
   selected?: MapPoint | null;
+  /** latest radar frame to overlay above the weather layer (null/undefined = hidden) */
+  radar?: RadarFrame | null;
   onSelect?: (p: MapPoint) => void;
   onMap?: (map: MLMap | null) => void;
   onLoading?: (loading: boolean) => void;
@@ -33,6 +35,7 @@ interface Props {
 
 const THAILAND: [number, number, number, number] = [97.3, 5.6, 105.7, 20.5];
 const LAND_ONLY = new Set(['temp', 'heat', 'rh']);
+let radarLut: Uint8ClampedArray | null = null;
 
 const CITIES: { th: string; en: string; lat: number; lon: number }[] = [
   { th: 'กรุงเทพฯ', en: 'Bangkok', lat: 13.7563, lon: 100.5018 },
@@ -168,6 +171,7 @@ export function WeatherMap(props: Props) {
       map.addSource('provinces', { type: 'geojson', data: api.geoUrl('provinces'), promoteId: 'id' });
       map.addSource('hillshade', { type: 'image', url: blank, coordinates: coords });
       map.addSource('weather', { type: 'image', url: blank, coordinates: coords });
+      map.addSource('radar', { type: 'image', url: blank, coordinates: coords });
       map.addSource('grid', { type: 'geojson', data: coarseGridLines(run.coarse_grid) });
       map.addSource('wind', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addImage('arrow', arrowImage(), { sdf: true });
@@ -180,6 +184,13 @@ export function WeatherMap(props: Props) {
         type: 'raster',
         source: 'weather',
         paint: { 'raster-opacity': 0.88, 'raster-fade-duration': 0, 'raster-resampling': res === 'coarse' ? 'nearest' : 'linear' },
+      });
+      map.addLayer({
+        id: 'radar',
+        type: 'raster',
+        source: 'radar',
+        layout: { visibility: 'none' },
+        paint: { 'raster-opacity': 0.9, 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
       });
       map.addLayer({ id: 'grid', type: 'line', source: 'grid', layout: { visibility: 'none' }, paint: { 'line-color': token('--color-map-coarseGrid'), 'line-width': 0.8 } });
       map.addLayer({ id: 'provinces-line', type: 'line', source: 'provinces', paint: { 'line-color': token('--color-map-provinceBorder'), 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.4, 9, 1.2] } });
@@ -325,6 +336,26 @@ export function WeatherMap(props: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, run.run_id, layer.id, index, res, lut]);
+
+  // ----------------------------------------------------------- radar overlay
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const frame = props.radar;
+    const g = run.fine_grid;
+    if (!frame || frame.ny !== g.ny || frame.nx !== g.nx || !rasterRef.current) {
+      map.setLayoutProperty('radar', 'visibility', 'none');
+      return;
+    }
+    const c = document.createElement('canvas');
+    c.width = rasterRef.current.width;
+    c.height = rasterRef.current.height;
+    radarLut ??= buildRadarLut();
+    renderGrid(c.getContext('2d')!, rasterRef.current, frame.codes, g, radarLut, { edgeFadeDeg: 0.4, edgeBounds: fineBounds });
+    (map.getSource('radar') as ImageSource).updateImage({ url: c.toDataURL(), coordinates: imageCoordinates(fineBounds) });
+    map.setLayoutProperty('radar', 'visibility', 'visible');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, props.radar, run.run_id]);
 
   // ------------------------------------------------------------ wind arrows
   useEffect(() => {

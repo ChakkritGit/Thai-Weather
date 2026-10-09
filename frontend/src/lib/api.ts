@@ -138,6 +138,55 @@ export interface AlertEntry {
   alerts: Alert[];
 }
 
+export type RainClass = 'none' | 'light' | 'moderate' | 'heavy' | 'thunderstorm' | 'severe';
+export type NowcastReason = 'disabled' | 'no_data' | 'stale' | 'no_coverage';
+
+export interface NowcastEta {
+  minutes: number;
+  minutes_range: [number, number];
+  class: RainClass;
+  max_dbz: number;
+}
+
+export interface NowcastNearest {
+  distance_km: number;
+  bearing_deg: number;
+  class: RainClass;
+  max_dbz: number;
+  approaching: boolean;
+  closing_kmh: number;
+}
+
+export interface NowcastCyclone {
+  id: string;
+  name: string;
+  source: string;
+  category: 'TD' | 'TS' | 'TY';
+  /** category of the forecast peak wind (GDACS); stronger than `category` when the storm is expected to intensify */
+  peak_category: 'TD' | 'TS' | 'TY';
+  max_wind_kmh: number;
+  report_url: string | null;
+  position: { lat: number; lon: number };
+  distance_now_km: number;
+  closest: { time: string; hours: number; distance_km: number };
+  in_wind_zone_kmh: number | null;
+}
+
+/** Radar-based 0–60 min nowcast plus active tropical cyclones (GET /api/v1/nowcast). */
+export interface Nowcast {
+  available: boolean;
+  reason: NowcastReason | null;
+  frame_time: string | null;
+  age_min: number | null;
+  now: { class: RainClass; max_dbz: number | null } | null;
+  eta_rain: NowcastEta | null;
+  eta_storm: NowcastEta | null;
+  nearest: NowcastNearest | null;
+  motion: { speed_kmh: number; heading_deg: number | null } | null;
+  cyclones: NowcastCyclone[];
+  attribution: { name: string; url: string }[];
+}
+
 /** Backend origin for split deployments (e.g. web on Vercel, API elsewhere). Empty = same origin. */
 const BASE = (process.env.NEXT_PUBLIC_API_BASE ?? '').replace(/\/+$/, '');
 
@@ -192,6 +241,25 @@ async function getGrid(path: string): Promise<GridData> {
   return p;
 }
 
+export interface RadarFrame extends GridData {
+  /** ISO time of the radar frame (X-Frame-Time) */
+  frameTime: string;
+}
+
+/** Latest radar frame advected `lead` minutes ahead; null when the radar is unavailable (404). */
+async function getRadar(lead: number): Promise<RadarFrame | null> {
+  const r = await fetch(`${BASE}/api/v1/nowcast/layer?lead=${lead}`);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new ApiError(r.status, r.statusText);
+  const buf = await r.arrayBuffer();
+  return {
+    codes: new Uint8Array(buf),
+    ny: Number(r.headers.get('X-Grid-NY')),
+    nx: Number(r.headers.get('X-Grid-NX')),
+    frameTime: r.headers.get('X-Frame-Time') ?? '',
+  };
+}
+
 export const api = {
   meta: () => getJson<Meta>('/api/v1/meta'),
   layer: (runId: string, layer: LayerId, index: number, res: 'fine' | 'coarse', daily: boolean) =>
@@ -203,5 +271,7 @@ export const api = {
   province: (id: string) => getJson<ProvinceDetail>(`/api/v1/provinces/${id}`),
   alerts: (minSeverity = 1) =>
     getJson<{ run_id: string; demo: boolean; alerts: AlertEntry[] }>(`/api/v1/alerts?min_severity=${minSeverity}`),
+  nowcast: (lat: number, lon: number) => getJson<Nowcast>(`/api/v1/nowcast?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
+  nowcastLayer: (lead = 0) => getRadar(lead),
   geoUrl: (name: 'provinces' | 'countries') => `${BASE}/api/v1/geo/${name}`,
 };

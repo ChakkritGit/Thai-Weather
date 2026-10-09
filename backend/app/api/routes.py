@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import cache
 
 import numpy as np
@@ -14,6 +14,9 @@ from ..core.static import DATA_DIR, load_static
 from ..downscale.layers import LAYERS
 from ..downscale.observations import Observation
 from ..downscale.pipeline import explain_point
+from ..nowcast.cyclones import position_at, proximity
+from ..nowcast.nowcast import point_nowcast
+from ..nowcast.service import LEADS, RADAR_ENCODING, STALE_AFTER_MIN
 from ..products.scales import weather_scales
 from ..store import Run
 
@@ -51,7 +54,12 @@ def _binary(data: np.ndarray, etag: str, request: Request, extra: dict | None = 
 @router.get("/health")
 def health(request: Request) -> dict:
     run = request.app.state.store.latest()
-    return {"ok": True, "run": run.run_id if run else None, "refresher": request.app.state.refresher.status}
+    return {
+        "ok": True,
+        "run": run.run_id if run else None,
+        "refresher": request.app.state.refresher.status,
+        "nowcast": request.app.state.nowcast.status,
+    }
 
 
 @router.get("/meta")
@@ -243,3 +251,100 @@ def ingest_observations(items: list[ObservationIn], request: Request) -> dict:
 def trigger_run(request: Request) -> dict:
     request.app.state.refresher.trigger()
     return {"status": "scheduled"}
+
+
+# --------------------------------------------------------------- nowcast
+ATTRIBUTION = [
+    {"name": "RainViewer", "url": "https://www.rainviewer.com"},
+    {"name": "GDACS", "url": "https://www.gdacs.org"},
+]
+
+
+def _cyclones_for(request: Request, lat: float, lon: float, now: datetime) -> list[dict]:
+    out = []
+    for c in request.app.state.nowcast.snapshot().cyclones:
+        here = position_at(c, now)
+        out.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "source": c.source,
+                "category": c.category,
+                "peak_category": c.peak_category,
+                "max_wind_kmh": c.max_wind_kmh,
+                "report_url": c.report_url,
+                "position": {"lat": round(here[0], 2), "lon": round(here[1], 2)},
+                **proximity(c, lat, lon, now),
+            }
+        )
+    return sorted(out, key=lambda c: c["distance_now_km"])
+
+
+@router.get("/nowcast")
+def nowcast(
+    request: Request,
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+) -> dict:
+    """Radar-based 0-60 min rain/storm nowcast for a point, plus active tropical cyclones."""
+    service = request.app.state.nowcast
+    if not service.grid.contains(lat, lon):
+        raise HTTPException(422, detail="location outside the nowcast domain")
+    now = datetime.now(UTC)
+    snap = service.snapshot()
+    out: dict = {
+        "available": False,
+        "reason": None,
+        "frame_time": snap.frame_time.isoformat() if snap.frame_time else None,
+        "age_min": None,
+        "now": None,
+        "eta_rain": None,
+        "eta_storm": None,
+        "nearest": None,
+        "motion": None,
+        "cyclones": _cyclones_for(request, lat, lon, now),
+        "attribution": ATTRIBUTION,
+    }
+    if not service.radar_enabled:
+        out["reason"] = "disabled"
+        return out
+    if snap.frame_time is None or snap.latest is None:
+        out["reason"] = "no_data"
+        return out
+    out["age_min"] = round((now - snap.frame_time).total_seconds() / 60.0)
+    if out["age_min"] > STALE_AFTER_MIN:
+        out["reason"] = "stale"
+        return out
+    iy, ix = service.grid.index(lat, lon)
+    if snap.coverage is not None and not snap.coverage[iy, ix]:
+        out["reason"] = "no_coverage"
+        return out
+    out.update(point_nowcast(snap.latest, snap.u, snap.v, service.grid, lat, lon, snap.coverage))
+    out["available"] = True
+    return out
+
+
+@router.get("/nowcast/layer")
+def nowcast_layer(request: Request, lead: int = Query(0, ge=0, le=60)) -> Response:
+    """Radar reflectivity as uint8 (``linear`` -10..75 dBZ, 0 = no echo), advected ``lead`` min ahead."""
+    service = request.app.state.nowcast
+    snap = service.snapshot()
+    if not service.radar_enabled or snap.frame_time is None or lead not in snap.layers:
+        raise HTTPException(404, detail="radar layer not available")
+    if (datetime.now(UTC) - snap.frame_time).total_seconds() / 60.0 > STALE_AFTER_MIN:
+        raise HTTPException(404, detail="radar layer is stale")
+    frame = snap.frame_time.isoformat()
+    extra = {
+        "Cache-Control": "public, max-age=60",
+        "X-Frame-Time": frame,
+        "X-Lead": str(lead),
+        "X-Enc-Min": str(RADAR_ENCODING.min),
+        "X-Enc-Max": str(RADAR_ENCODING.max),
+        "Access-Control-Expose-Headers": "X-Grid-NY, X-Grid-NX, X-Frame-Time, X-Lead, X-Enc-Min, X-Enc-Max",
+    }
+    return _binary(snap.layers[lead], f"nowcast-{frame}-{lead}", request, extra)
+
+
+@router.get("/nowcast/status")
+def nowcast_status(request: Request) -> dict:
+    return {**request.app.state.nowcast.status, "leads": list(LEADS), "stale_after_min": STALE_AFTER_MIN}

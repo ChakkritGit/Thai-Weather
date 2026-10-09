@@ -6,6 +6,7 @@ import { categorise } from '../lib/color';
 import { compass, fmtDay, fmtNum, fmtStep } from '../lib/format';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
+import { NowcastCard } from './NowcastCard';
 import { LevelBadge } from './SeverityBadge';
 import { ChartLegend, TimeSeriesChart } from './TimeSeriesChart';
 import type { MapPoint } from './WeatherMap';
@@ -99,6 +100,8 @@ export function PointPanel({ point, step, nowIndex, onClose }: Props) {
           )}
         </div>
       </div>
+
+      <NowcastCard lat={point.lat} lon={point.lon} />
 
       <div className="now-grid">
         <Stat label={t('chanceOfRain')} value={fmtNum(f.pop[i], 0)} unit="%" sub={`${t('model22')} ${c.pop[i] >= 50 ? (lang === 'th' ? 'ฝนตก' : 'rain') : lang === 'th' ? 'ไม่มีฝน' : 'dry'}`} />
