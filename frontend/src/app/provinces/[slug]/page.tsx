@@ -46,5 +46,10 @@ export default async function ProvinceRoute({ params }: Params) {
   if (!data) return <Warming reachable={false} />;
   const { lang } = await getPrefs();
   const region = meta?.regions.find((r) => r.id === data.region);
-  return <ProvinceView data={data} regionName={region ? (lang === 'th' ? region.name_th : region.name_en) : ''} />;
+  return <ProvinceView
+    data={data}
+    regionName={region ? (lang === 'th' ? region.name_th : region.name_en) : ''}
+    fineKm={meta?.run?.fine_grid.resolution_km ?? meta?.fine_grid.resolution_km}
+    coarseKm={meta?.run?.coarse_grid.resolution_km}
+  />;
 }

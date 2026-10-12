@@ -73,8 +73,13 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
   const heatCat = categorise('heatIndex', f.heat[i]);
   const loc = data.location;
   const title = loc.province ? pick(loc.province) : lang === 'th' ? (loc.land ? 'นอกประเทศไทย' : 'ทะเล') : loc.land ? 'Outside Thailand' : 'Sea';
+  const fineKmText = fmtKm(fineKm, lang);
   const coarseKmText = fmtKm(coarseKm, lang);
-  const labels = { fine: t('fineModel', { km: fmtKm(fineKm, lang) }), coarse: t('modelCoarse', { km: coarseKmText }) };
+  const labels = {
+    fine: t('fineModel', { km: fineKmText }),
+    coarse: t('modelCoarse', { km: coarseKmText }),
+    comparison: t('modelComparison', { km: coarseKmText }),
+  };
   const rainNote = radarModelRainNote({ snapshot, lat: point.lat, lon: point.lon, times: data.times, step: i, modelPop: f.pop[i], nowMs });
 
   const parts = [
@@ -103,7 +108,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
           <div className="hero-temp">{fmtNum(f.temp[i], 0)}°</div>
           <div className="hero-meta">
             <span>
-              {labels.coarse}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
+              {labels.comparison}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
             </span>
             {heatCat && (
               <span>
@@ -119,10 +124,10 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
             label={t('chanceOfRain')}
             value={fmtNum(f.pop[i], 0)}
             unit="%"
-            sub={`${labels.coarse} ${fmtNum(c.pop[i], 0)}%`}
-            note={rainNote ? t(rainNote === 'model-zero' ? 'radarRainModelZero' : 'radarRainModelNote', { km: coarseKmText }) : undefined}
+            sub={labels.fine}
+            note={rainNote ? t(rainNote === 'model-zero' ? 'radarRainModelZero' : 'radarRainModelNote', { km: fineKmText }) : undefined}
           />
-          <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${labels.coarse} ${fmtNum(c.rain[i], 1)}`} />
+          <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${labels.comparison} ${fmtNum(c.rain[i], 1)}`} />
           <Stat label={t('wind')} value={fmtNum(f.wind[i], 1)} unit="m/s" sub={`${lang === 'th' ? 'จากทิศ' : 'from'} ${compass(f.wind_dir[i], lang)}`} />
           <Stat label={t('thunder')} value={fmtNum(f.storm[i], 0)} unit="%" sub={`${t('humidity')} ${fmtNum(f.rh[i], 0)}%`} />
         </div>
@@ -165,7 +170,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
 
       <section className="panel-section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <h3>{t('next48')}</h3>
+          <h3>{t('next48Comparison')}</h3>
           <div className="segmented" role="group">
             <button type="button" aria-pressed={view === 'chart'} onClick={() => setView('chart')}>
               {t('chart')}
@@ -175,7 +180,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
             </button>
           </div>
         </div>
-        <ChartLegend fine={labels.fine} coarse={labels.coarse} />
+        <ChartLegend fine={labels.fine} coarse={labels.comparison} />
         {view === 'chart' ? (
           <>
             <ChartTitle>{t('temperature')} (°C)</ChartTitle>
@@ -188,7 +193,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
               coarseKm={coarseKm}
               series={[
                 { key: 'f', label: labels.fine, values: f.temp, kind: 'line', tone: 'fine' },
-                { key: 'c', label: labels.coarse, values: c.temp, kind: 'line', tone: 'coarse' },
+                { key: 'c', label: labels.comparison, values: c.temp, kind: 'line', tone: 'coarse' },
               ]}
             />
             <ChartTitle>{t('chanceOfRain')} (%)</ChartTitle>
@@ -204,7 +209,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
               coarseKm={coarseKm}
               series={[
                 { key: 'f', label: labels.fine, values: f.pop, kind: 'line', tone: 'fine' },
-                { key: 'c', label: labels.coarse, values: c.pop, kind: 'line', tone: 'coarse' },
+                { key: 'c', label: labels.comparison, values: c.pop, kind: 'line', tone: 'coarse' },
               ]}
             />
             <ChartTitle>{t('rain')} ({lang === 'th' ? 'มม./ชม.' : 'mm/h'})</ChartTitle>
@@ -218,7 +223,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
               coarseKm={coarseKm}
               series={[
                 { key: 'f', label: labels.fine, values: f.rain, kind: 'bar', tone: 'fine' },
-                { key: 'c', label: labels.coarse, values: c.rain, kind: 'bar', tone: 'coarse' },
+                { key: 'c', label: labels.comparison, values: c.rain, kind: 'bar', tone: 'coarse' },
               ]}
             />
           </>
@@ -229,7 +234,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
                 <tr>
                   <th>{t('time')}</th>
                   <th className="num">°C</th>
-                  <th className="num">{coarseKmText} km</th>
+                  <th className="num">{labels.comparison} (°C)</th>
                   <th className="num">HI</th>
                   <th className="num">{lang === 'th' ? 'โอกาสฝน' : 'Rain %'}</th>
                   <th className="num">mm/h</th>
@@ -264,7 +269,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
                   {fmtNum(data.daily.fine_rain[k], 1)} <small className="muted">{lang === 'th' ? 'มม.' : 'mm'}</small>
                 </span>
                 <span className="subtle">
-                  {labels.coarse} {fmtNum(data.daily.coarse_rain[k], 1)}
+                  {labels.comparison} {fmtNum(data.daily.coarse_rain[k], 1)}
                 </span>
                 {cat && <LevelBadge severity={cat.severity} label={pick(cat)} />}
               </div>

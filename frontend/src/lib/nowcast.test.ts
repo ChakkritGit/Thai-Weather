@@ -217,10 +217,10 @@ describe('radar and model comparison', () => {
   it('explains the actual model resolution in both languages, without a zero claim for positive values', () => {
     for (const lang of ['th', 'en'] as const) {
       const { t } = translate(lang);
-      expect(t('radarRainModelZero', { km: '27.8' })).toContain('27.8');
-      expect(t('radarRainModelZero', { km: '27.8' })).toContain('0%');
-      expect(t('radarRainModelNote', { km: '27.8' })).toContain('27.8');
-      expect(t('radarRainModelNote', { km: '27.8' })).not.toContain('0%');
+      expect(t('radarRainModelZero', { km: '2.2' })).toContain('2.2');
+      expect(t('radarRainModelZero', { km: '2.2' })).toContain('0%');
+      expect(t('radarRainModelNote', { km: '2.2' })).toContain('2.2');
+      expect(t('radarRainModelNote', { km: '2.2' })).not.toContain('0%');
     }
     expect(translate('th').t('nowcastTitle')).toBe('ตอนนี้ (เรดาร์)');
     expect(translate('en').t('modelForecastTitle')).toBe('Model forecast');

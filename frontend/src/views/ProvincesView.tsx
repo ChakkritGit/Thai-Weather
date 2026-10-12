@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Meta, ProvinceWithDays, RunMeta } from '../lib/api';
 import { categorise } from '../lib/color';
-import { fmtDay, fmtNum } from '../lib/format';
+import { fmtDay, fmtKm, fmtNum } from '../lib/format';
 import { paths } from '../lib/paths';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icon';
@@ -25,7 +25,7 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
     return provinces
       .filter((p) => region === 'all' || p.region === region)
       .filter((p) => !needle || p.name_th.includes(needle) || p.name_en.toLowerCase().includes(needle))
-      .sort((a, b) => (lang === 'th' ? a.name_th.localeCompare(b.name_th, 'th') : a.name_en.localeCompare(b.name_en)));
+      .sort((a, b) => (lang === 'th' ? a.name_th.localeCompare(b.name_th, 'th') : a.name_en.localeCompare(b.name_en, 'en')));
   }, [provinces, q, region, lang]);
 
   return (
@@ -35,8 +35,8 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
           <h1>{lang === 'th' ? 'พยากรณ์อากาศรายจังหวัด' : 'Forecast by province'}</h1>
           <p>
             {lang === 'th'
-              ? 'สรุปจากกริด 2 กม. ทุกจุดในจังหวัด — บอกได้ว่าฝนตกกี่เปอร์เซ็นต์ของพื้นที่ ซึ่งโมเดลโลก (ความละเอียด ~25–28 กม. มีเพียงไม่กี่จุดต่อจังหวัด) ทำไม่ได้'
-              : 'Summarised from every 2 km cell in each province – including the share of the area that gets rain, which a global model (~25–28 km, only a few cells per province) cannot tell.'}
+              ? `สรุปจากกริดละเอียด ${fmtKm(run.fine_grid.resolution_km, lang)} กม. ทุกจุดในจังหวัด รวมถึงสัดส่วนพื้นที่ที่คาดว่ามีฝน`
+              : `Summarised from every downscaled ${fmtKm(run.fine_grid.resolution_km, lang)} km cell in each province, including the share of the area expected to get rain.`}
           </p>
         </header>
 

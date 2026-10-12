@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ProvinceDetail } from '../lib/api';
 import { coverageNote } from '../lib/alertText';
 import { forecastSentence } from '../lib/forecastText';
-import { fmtDay, nearestStep } from '../lib/format';
+import { fmtDay, fmtKm, nearestStep } from '../lib/format';
 import { paths } from '../lib/paths';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icon';
@@ -12,11 +12,15 @@ import { AlertBadge } from '../components/SeverityBadge';
 import { TimeSeriesChart } from '../components/TimeSeriesChart';
 
 /** Server-rendered (SSR) province forecast page – the text is indexable by search engines. */
-export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regionName: string }) {
+export function ProvinceView({ data, regionName, fineKm, coarseKm }: { data: ProvinceDetail; regionName: string; fineKm?: number; coarseKm?: number }) {
   const { t, lang, pick } = useT();
   const now = nearestStep(data.times);
-  // one ~27.8 km global-model cell covers about (27.8 / 2.2)² ≈ 160 of the 2 km cells
-  const globalCells = Math.max(1, Math.round(data.cells / 160));
+  const fineLabel = fineKm === undefined
+    ? (lang === 'th' ? 'กริดละเอียด' : 'Downscaled grid')
+    : t('fineModel', { km: fmtKm(fineKm, lang) });
+  const globalCells = fineKm && coarseKm
+    ? Math.max(1, Math.round(data.cells / (coarseKm / fineKm) ** 2))
+    : null;
   return (
     <div className="page">
       <div className="page-inner" style={{ maxWidth: 820 }}>
@@ -30,9 +34,16 @@ export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regio
           </h1>
           <p>
             {lang === 'th'
-              ? `ความละเอียด 2 กม. จาก ${data.cells.toLocaleString()} จุดกริดในจังหวัด (โมเดลโลกความละเอียด ~25–28 กม. มีราว ${globalCells} จุด)`
-              : `2 km resolution from ${data.cells.toLocaleString()} grid cells in the province (a ~25–28 km global model has about ${globalCells})`}
+              ? `${fineLabel} จาก ${data.cells.toLocaleString()} จุดกริดในจังหวัด`
+              : `${fineLabel} from ${data.cells.toLocaleString()} grid cells in the province`}
           </p>
+          {globalCells !== null && coarseKm !== undefined && (
+            <p className="subtle">
+              {lang === 'th'
+                ? `สำหรับเปรียบเทียบ: โมเดลโลก ${fmtKm(coarseKm, lang)} กม. มีราว ${globalCells.toLocaleString()} จุดกริดในจังหวัด`
+                : `For comparison: the ${fmtKm(coarseKm, lang)} km global model has about ${globalCells.toLocaleString()} grid cells in the province`}
+            </p>
+          )}
         </header>
 
         {data.days.map((d) => (
@@ -67,8 +78,8 @@ export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regio
           <h2 style={{ fontSize: 'var(--font-size-lg)' }}>{t('hourly')}</h2>
           <p className="subtle" style={{ fontSize: 'var(--font-size-xs)' }}>
             {lang === 'th'
-              ? 'อุณหภูมิเฉลี่ยทั้งจังหวัด (°C) และโอกาสฝนเฉลี่ย (%) จากกริด 2 กม.'
-              : 'Province-mean temperature (°C) and chance of rain (%) from the 2 km grid'}
+              ? `อุณหภูมิเฉลี่ยทั้งจังหวัด (°C) และโอกาสฝนเฉลี่ย (%) จาก${fineLabel}`
+              : `Province-mean temperature (°C) and chance of rain (%) from ${fineLabel}`}
           </p>
           <TimeSeriesChart
             title={t('temperature')}
@@ -91,7 +102,7 @@ export function ProvinceView({ data, regionName }: { data: ProvinceDetail; regio
 
         <div>
           <Link className="btn btn--primary btn--lg" href={paths.mapAt(data.lat, data.lon)}>
-            <Icon name="map" /> {lang === 'th' ? 'ดูบนแผนที่ความละเอียด 2 กม.' : 'Open on the 2 km map'}
+            <Icon name="map" /> {lang === 'th' ? `ดูบนแผนที่${fineLabel}` : `Open on the ${fineLabel} map`}
           </Link>
         </div>
       </div>
