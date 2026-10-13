@@ -1399,3 +1399,5 @@ button {
 .radar-range { width: 100%; margin: var(--space-1) 0 0; }
 .radar-note { margin: var(--space-1) 0 0; color: var(--color-severity-3-fg); line-height: 1.3; }
 .radar-credit { display: block; font-size: var(--font-size-2xs); }
+.radar-note--muted { color: var(--color-fg-muted); }
+.radar-tag[data-active='false'] .radar-head b { color: var(--color-fg-muted); }

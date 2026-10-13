@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import type { RunMeta } from '../lib/api';
 import { fmtDay, fmtStep, nearestStep, thaiDate, thaiHour } from '../lib/format';
 import { useT } from '../i18n';
@@ -13,17 +12,14 @@ interface Props {
   onChange: (i: number) => void;
   playing: boolean;
   onPlaying: (p: boolean) => void;
+  /** replaces the hour label, e.g. the radar frame's time while the radar part of playback runs */
+  label?: string;
 }
 
-export function Timeline({ run, daily, index, onChange, playing, onPlaying }: Props) {
+/** Hourly / daily time control. Playback itself runs in MapPage, so the radar and forecast stay in step. */
+export function Timeline({ run, daily, index, onChange, playing, onPlaying, label }: Props) {
   const { t, lang } = useT();
   const n = daily ? run.days.length : run.times.length;
-
-  useEffect(() => {
-    if (!playing) return;
-    const id = window.setInterval(() => onChange((index + 1) % n), daily ? 1400 : 650);
-    return () => window.clearInterval(id);
-  }, [playing, index, n, daily, onChange]);
 
   if (daily) {
     return (
@@ -55,7 +51,7 @@ export function Timeline({ run, daily, index, onChange, playing, onPlaying }: Pr
       </button>
       <div className="timeline-body">
         <div className="timeline-label">
-          <span aria-live="polite">{fmtStep(run.times[index], lang)}</span>
+          <span aria-live={playing ? 'off' : 'polite'}>{label ?? fmtStep(run.times[index], lang)}</span>
           {index !== nowIdx ? (
             <button type="button" className="btn btn--ghost timeline-now-btn" onClick={() => onChange(nowIdx)}>
               {t('now')}

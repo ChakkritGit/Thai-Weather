@@ -18,10 +18,7 @@ const nextConfig = {
       { source: '/api/v1/:path*', destination: `${API}/api/v1/:path*` },
       { source: '/docs', destination: `${API}/docs` },
       { source: '/openapi.json', destination: `${API}/openapi.json` },
-      // iOS probes these fixed paths (e.g. bookmarks, older versions) when no <link> is found
-      { source: '/apple-touch-icon.png', destination: '/icons/apple-180' },
-      { source: '/apple-touch-icon-precomposed.png', destination: '/icons/apple-180' },
-      { source: '/favicon.ico', destination: '/icons/192' },
+      { source: '/favicon.ico', destination: '/app-icons/icon-192.png' },
     ];
   },
 };

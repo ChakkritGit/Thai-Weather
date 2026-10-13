@@ -25,10 +25,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: `/icons/192?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
+      { url: `/app-icons/icon-192.png?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
     ],
-    // versioned: iOS keeps a "no icon" result per site, a new URL makes it fetch again
-    apple: [{ url: `/icons/apple-180?v=${ICON_VERSION}`, sizes: '180x180', type: 'image/png' }],
+    // static .png files (public/), versioned: iOS keeps a "no icon" result per site, a new URL refetches
+    apple: [{ url: `/apple-touch-icon.png?v=${ICON_VERSION}`, sizes: '180x180', type: 'image/png' }],
   },
   appleWebApp: {
     capable: true,

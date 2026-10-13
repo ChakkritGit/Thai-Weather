@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type RadarFrame } from './api';
-import { nextFrameId, normaliseFrames, selectAfterUpdate, type RadarFrameInfo } from './radarHistory';
+import { normaliseFrames, selectAfterUpdate, type RadarFrameInfo } from './radarHistory';
 
 /** RainViewer adds a frame every 10 min and the server polls every ~5: checking the list every 2 min is plenty. */
 const LIST_MS = 2 * 60 * 1000;
-const PLAY_MS = 700;
-/** extra ticks to rest on the latest frame before the loop starts again */
-const HOLD_LATEST = 2;
 
 export interface RadarState {
   status: 'off' | 'loading' | 'ready' | 'unavailable';
@@ -22,15 +19,15 @@ export interface RadarState {
   stale: boolean;
   /** the last list refresh failed; the frames already loaded stay usable */
   refreshError: boolean;
-  playing: boolean;
-  setPlaying: (p: boolean) => void;
   select: (id: string) => void;
+  /** the frame is downloaded (playback waits for it instead of skipping ahead) */
+  isLoaded: (id: string) => boolean;
 }
 
 /**
- * Observed radar frames of the last ~hour while `enabled`: the newest by default, a Play loop from the
- * oldest to the newest, and new frames appended as the server publishes them – without moving a past
- * frame the user picked.  Independent from the forecast timeline.
+ * Observed radar frames of the last ~hour while `enabled`: the newest by default, new frames appended as
+ * the server publishes them – without moving a past frame the user picked.  Playback is driven by the
+ * map page, which runs the radar and the forecast timeline as one sequence (see MapPage).
  */
 export function useRadar(enabled: boolean): RadarState {
   const [frames, setFrames] = useState<RadarFrameInfo[]>([]);
@@ -40,7 +37,6 @@ export function useRadar(enabled: boolean): RadarState {
   const [status, setStatus] = useState<RadarState['status']>('off');
   const [stale, setStale] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
-  const [playing, setPlaying] = useState(false);
   const cache = useRef(new Map<string, RadarFrame>());
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedId;
@@ -55,7 +51,6 @@ export function useRadar(enabled: boolean): RadarState {
       setSelectedId(null);
       setShown(null);
       setShownId(null);
-      setPlaying(false);
       cache.current.clear();
       return;
     }
@@ -127,29 +122,8 @@ export function useRadar(enabled: boolean): RadarState {
     }
   }, [selectedId, loadedTick]);
 
-  // ------------------------------------------------------------ playback
-  const hold = useRef(0);
-  useEffect(() => {
-    if (!playing || frames.length < 2) return;
-    const id = window.setInterval(() => {
-      const list = framesRef.current;
-      const cur = selectedRef.current;
-      if (cur === list[list.length - 1]?.id && hold.current < HOLD_LATEST) {
-        hold.current += 1;
-        return;
-      }
-      const next = nextFrameId(list, cur);
-      if (!next || !cache.current.has(next)) return; // wait for the download instead of skipping ahead
-      hold.current = 0;
-      setSelectedId(next);
-    }, PLAY_MS);
-    return () => window.clearInterval(id);
-  }, [playing, frames.length]);
-
-  const select = useCallback((id: string) => {
-    setPlaying(false);
-    setSelectedId(id);
-  }, []);
+  const select = useCallback((id: string) => setSelectedId(id), []);
+  const isLoaded = useCallback((id: string) => cache.current.has(id), []);
 
   const latestId = frames[frames.length - 1]?.id ?? null;
   return {
@@ -161,8 +135,7 @@ export function useRadar(enabled: boolean): RadarState {
     pending: selectedId !== null && selectedId !== shownId,
     stale,
     refreshError,
-    playing,
-    setPlaying,
     select,
+    isLoaded,
   };
 }

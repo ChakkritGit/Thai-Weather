@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { LayerId, Meta, RunMeta } from '../lib/api';
 import { buildLut } from '../lib/color';
-import { fmtKm, nearestStep, thaiDate } from '../lib/format';
+import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
+import { nextFrameId } from '../lib/radarHistory';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
@@ -228,8 +229,102 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   }, []);
   const canLocate = typeof navigator !== 'undefined' && 'geolocation' in navigator;
 
+  // ------------------------------------------------------------ one playback for radar + forecast
+  // With the radar on, Play runs the observed frames of the past hour up to the latest, then the
+  // forecast hours from now on, then starts over; one play / pause state drives both controls.
+  // The radar is an observation of "now": it is shown only while the timeline sits on the current hour.
+  const radarFrames = radar.frames;
+  const radarFirst = radarFrames[0]?.id ?? null;
+  const radarLast = radarFrames[radarFrames.length - 1]?.id ?? null;
+  const radarPlayable = radarOn && radarFrames.length > 1;
+  const atNow = layer.daily || step === nowIdx;
+  const phase = useRef<'radar' | 'forecast'>('forecast');
+  const hold = useRef(0);
+  const live = useRef({ radar, radarPlayable, radarFirst, radarLast, daily: layer.daily, nowIdx, n: run.times.length });
+  live.current = { radar, radarPlayable, radarFirst, radarLast, daily: layer.daily, nowIdx, n: run.times.length };
+
+  const togglePlay = useCallback(
+    (p: boolean) => {
+      if (p && radarPlayable && atNow) {
+        phase.current = 'radar';
+        hold.current = 0;
+        if (radar.selectedId === radarLast && radarFirst) radar.select(radarFirst); // start from the oldest frame
+      } else {
+        phase.current = 'forecast';
+      }
+      setPlaying(p);
+    },
+    [radarPlayable, atNow, radar, radarFirst, radarLast],
+  );
+
+  useEffect(() => {
+    if (!playing) return;
+    let timer = 0;
+    const tick = () => {
+      const L = live.current;
+      if (phase.current === 'radar' && L.radarPlayable) {
+        const cur = L.radar.selectedId;
+        if (cur === L.radarLast) {
+          if (hold.current < 2) hold.current += 1; // rest on the latest frame for a moment
+          else {
+            hold.current = 0;
+            if (L.daily || L.nowIdx + 1 >= L.n) {
+              if (L.radarFirst) L.radar.select(L.radarFirst); // nothing ahead: loop the radar
+            } else {
+              phase.current = 'forecast';
+              setStep(L.nowIdx + 1);
+            }
+          }
+        } else {
+          const next = nextFrameId(L.radar.frames, cur);
+          if (next && L.radar.isLoaded(next)) L.radar.select(next); // else wait for the download
+        }
+      } else if (!L.daily) {
+        setStep((s) => {
+          if (s + 1 < L.n) return s + 1;
+          if (L.radarPlayable && L.radarFirst) {
+            phase.current = 'radar';
+            L.radar.select(L.radarFirst);
+            return L.nowIdx;
+          }
+          return L.radarPlayable ? L.nowIdx : 0;
+        });
+      } else {
+        setPlaying(false); // daily layers have no hourly playback
+        return;
+      }
+      timer = window.setTimeout(tick, phase.current === 'radar' ? 700 : 650);
+    };
+    timer = window.setTimeout(tick, phase.current === 'radar' ? 700 : 650);
+    return () => window.clearTimeout(timer);
+  }, [playing]);
+
+  // back on "now" (Now button, slider): show the latest radar frame again
+  const onTimeline = useCallback(
+    (i: number) => {
+      if (layer.daily) return setDay(i);
+      setStep(i);
+      if (i === nowIdx && radarLast) radar.select(radarLast);
+      phase.current = 'forecast';
+    },
+    [layer.daily, nowIdx, radarLast, radar],
+  );
+  // picking a radar frame pauses and moves the timeline to the current hour
+  const onRadarSelect = useCallback(
+    (id: string) => {
+      setPlaying(false);
+      setStep(nowIdx);
+      radar.select(id);
+    },
+    [nowIdx, radar],
+  );
+  const radarTimeLabel =
+    radarOn && atNow && radar.frame && !radar.isLatest
+      ? `${t('radarPast')} ${fmtHour(radar.frame.frameTime, lang)}${lang === 'th' ? ' น.' : ''}`
+      : undefined;
+
   const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
-  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare, radar: radar.frame, onSelect: setSelected };
+  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare, radar: atNow ? radar.frame : null, onSelect: setSelected };
 
   return (
     <div className="map-page">
@@ -318,7 +413,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
               <Icon name="locate" />
             </button>
           )}
-          {radarOn && <RadarControl radar={radar} />}
+          {radarOn && <RadarControl radar={radar} active={atNow} playing={playing} onPlaying={togglePlay} onSelect={onRadarSelect} />}
         </div>
 
         {canLocate && !selected && !compare && <LocateCta variant="float" status={locateStatus} onLocate={() => locate()} />}
@@ -335,9 +430,10 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             run={run}
             daily={layer.daily}
             index={index}
-            onChange={layer.daily ? setDay : setStep}
+            onChange={onTimeline}
             playing={playing}
-            onPlaying={setPlaying}
+            onPlaying={togglePlay}
+            label={radarTimeLabel}
           />
         </div>
       </div>

@@ -10,7 +10,20 @@ import { Icon } from './Icon';
  * Radar box on the map: the observed frame's time (latest / past), Play through the last hour and a
  * frame slider.  Labels always describe the frame on screen, never a selection that is still loading.
  */
-export function RadarControl({ radar }: { radar: RadarState }) {
+export function RadarControl({
+  radar,
+  active,
+  playing,
+  onPlaying,
+  onSelect,
+}: {
+  radar: RadarState;
+  /** the timeline is on the current hour, so the radar is on the map */
+  active: boolean;
+  playing: boolean;
+  onPlaying: (p: boolean) => void;
+  onSelect: (id: string) => void;
+}) {
   const { t, lang } = useT();
   const th = lang === 'th';
   const { frame, frames, selectedId } = radar;
@@ -33,20 +46,20 @@ export function RadarControl({ radar }: { radar: RadarState }) {
   const index = Math.max(0, frames.findIndex((f) => f.id === selectedId));
   const time = `${fmtHour(frame.frameTime, lang)}${th ? ' น.' : ''}`;
   return (
-    <div className="radar-tag glass" role="group" aria-label={t('radar')}>
+    <div className="radar-tag glass" role="group" aria-label={t('radar')} data-active={active ? undefined : 'false'}>
       <div className="radar-head">
         {frames.length > 1 && (
           <button
             type="button"
             className="radar-play"
-            onClick={() => radar.setPlaying(!radar.playing)}
-            aria-label={radar.playing ? t('radarPause') : t('radarPlay')}
-            title={radar.playing ? t('radarPause') : t('radarPlay')}
+            onClick={() => onPlaying(!playing)}
+            aria-label={playing ? t('radarPause') : t('radarPlay')}
+            title={playing ? t('radarPause') : t('radarPlay')}
           >
-            <Icon name={radar.playing ? 'pause' : 'play'} />
+            <Icon name={playing ? 'pause' : 'play'} />
           </button>
         )}
-        <span aria-live={radar.playing ? 'off' : 'polite'}>
+        <span aria-live={playing ? 'off' : 'polite'}>
           <b>
             {radar.isLatest ? t('radarLatest') : t('radarPast')} {time}
           </b>
@@ -60,11 +73,12 @@ export function RadarControl({ radar }: { radar: RadarState }) {
           min={0}
           max={frames.length - 1}
           value={index}
-          onChange={(e) => radar.select(frames[Number(e.target.value)].id)}
+          onChange={(e) => onSelect(frames[Number(e.target.value)].id)}
           aria-label={t('radarFrames')}
           aria-valuetext={`${fmtHour(frames[index].time, lang)}${th ? ' น.' : ''}`}
         />
       )}
+      {!active && <p className="radar-note radar-note--muted">{t('radarFutureHidden')}</p>}
       {radar.stale && <p className="radar-note">{t('radarStale')}</p>}
       {radar.refreshError && <p className="radar-note">{t('radarRefreshFailed')}</p>}
       <div className="radar-tag-bar" style={{ background: cssGradient(radarScale, 12, 70) }} aria-hidden="true" />
