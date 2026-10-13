@@ -556,7 +556,7 @@ async function overviewView(token) {
       tile('CPU ตอนนี้', fmtPct(cpuNow), `เฉลี่ยช่วงนี้ ${fmtPct(cpuAvg)} · สูงสุด ${fmtPct(maxOf((hs.cpu_user ?? []).map((v, i) => (v ?? 0) + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))))}`, cpuNow, pctTone(cpuNow)),
       tile('หน่วยความจำ', fmtBytes(memUsed), `จาก ${fmtBytes(sn.mem_total)} · ${fmtPct(memPct)}`, memPct, pctTone(memPct)),
       tile('ดิสก์', fmtBytes(sn.disk_used), `ว่าง ${fmtBytes(sn.disk_free)} จาก ${fmtBytes(sn.disk_total)}`, diskPct, pctTone(diskPct)),
-      tile('Load (1 / 5 / 15 นาที)', sn.load.map((v) => v.toFixed(2)).join(' / '), `${sn.cpus} CPU = รับได้เต็ม ${sn.cpus}.00`, (sn.load[0] / sn.cpus) * 100, pctTone((sn.load[0] / sn.cpus) * 100)),
+      tile('Load (1 นาที)', sn.load[0].toFixed(2), `5 นาที ${sn.load[1].toFixed(2)} · 15 นาที ${sn.load[2].toFixed(2)} · เต็ม = ${sn.cpus}.00`, (sn.load[0] / sn.cpus) * 100, pctTone((sn.load[0] / sn.cpus) * 100)),
       tile('เครือข่ายตอนนี้', `↓ ${fmtRate(lastOf(hs.net_rx))}`, `↑ ${fmtRate(lastOf(hs.net_tx))}`),
       tile('Swap', fmtBytes(swapUsed), `จาก ${fmtBytes(sn.swap_total)}`, sn.swap_total ? (swapUsed / sn.swap_total) * 100 : NaN, ''),
     );
@@ -612,16 +612,16 @@ async function overviewView(token) {
       tile('ข้อมูลที่ส่งออก', fmtBytes(bytes), 'body ของ response'),
     );
     const short = (hn) => hn.replace(/\.chakkritton\.com$/, '');
-    const reqOpts = { ...T, kind: 'columns', format: (v) => fmtNum(v),
+    const reqOpts = { ...T, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
       series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].req ?? [] })) };
-    const statusOpts = { ...T, kind: 'columns', format: (v) => fmtNum(v),
+    const statusOpts = { ...T, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
       series: [
         { name: '2xx สำเร็จ', color: 'var(--good)', values: ng.all?.s2 ?? [] },
         { name: '3xx เปลี่ยนเส้นทาง', color: 'var(--neutral)', values: ng.all?.s3 ?? [] },
         { name: '4xx คำขอผิด', color: 'var(--warning)', values: ng.all?.s4 ?? [] },
         { name: '5xx เซิร์ฟเวอร์ผิดพลาด', color: 'var(--critical)', values: ng.all?.s5 ?? [] },
       ] };
-    const bwOpts = { ...T, kind: 'stack', format: (v) => fmtBytes(v),
+    const bwOpts = { ...T, kind: 'stack', legend: 'sum', format: (v) => fmtBytes(v),
       series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].bytes ?? [] })) };
     for (const [key, title, sub, opts] of [
       ['req', 'คำขอตามเว็บไซต์', 'จำนวนต่อช่วง', reqOpts],

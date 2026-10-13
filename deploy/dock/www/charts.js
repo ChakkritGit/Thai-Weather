@@ -94,6 +94,12 @@ export function chart(host, initial) {
     const m = compact ? { l: 0, r: 0, t: 6, b: 2 } : { l: 46, r: 10, t: 10, b: 24 };
     let { times } = o;
     let series = o.series.map((ser) => ({ ...ser, color: resolve(ser.color) }));
+    // start where the data starts (a new collector has no history yet): no long empty stretch on the left
+    const first = times.findIndex((_, i) => series.some((ser) => ser.values[i] !== null && ser.values[i] !== undefined));
+    if (first > 0 && times.length - first >= 2) {
+      times = times.slice(first);
+      series = series.map((ser) => ({ ...ser, values: ser.values.slice(first) }));
+    }
     let k = 1;
     if (o.kind === 'columns') ({ times, series, k } = bin(times, series, Math.max(12, Math.floor((W - m.l - m.r) / 9))));
     const n = times.length;
@@ -229,7 +235,10 @@ export function chart(host, initial) {
         const key = document.createElement('span');
         key.className = o.kind === 'line' ? 'key key-line' : 'key key-box';
         key.style.background = ser.color;
-        const latest = [...ser.values].reverse().find((v) => v !== null && v !== undefined);
+        // counters (requests, bytes per bucket) show the range total, gauges the latest value
+        const latest = o.legend === 'sum'
+          ? o.series.find((x) => x.name === ser.name).values.reduce((a, b) => a + (b ?? 0), 0)
+          : [...ser.values].reverse().find((v) => v !== null && v !== undefined);
         const name = document.createElement('span');
         name.textContent = ser.name;
         const val = document.createElement('b');
