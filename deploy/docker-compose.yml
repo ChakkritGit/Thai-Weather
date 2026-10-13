@@ -3,6 +3,7 @@
 #
 #   nginx-proxy-manager  :80 :443 public (SSL)   UI → nginx.chakkritton.com
 #   portainer            internal only            UI → portainer.chakkritton.com
+#   dock                 internal only            UI → docker.chakkritton.com (minimal mobile UI on Portainer's API)
 #   web  (Next.js)       internal only            →    thai-weather.chakkritton.com
 #   api  (FastAPI)       private network only     reachable only from `web`
 #
@@ -44,6 +45,23 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
+    networks:
+      - proxy
+
+  # Minimal, mobile-first Docker dashboard: static page + /api forwarded to Portainer (deploy/dock).
+  # No Docker socket here – login and every Docker call go through Portainer.
+  dock:
+    image: nginx:1.28-alpine
+    container_name: dock
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    volumes:
+      - ./dock/www:/usr/share/nginx/html:ro
+      - ./dock/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - proxy
 
