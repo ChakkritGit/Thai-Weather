@@ -104,3 +104,15 @@ def cyclone_title(name: str, cat: str, prox: dict) -> str:
     if prox["in_wind_zone_kmh"]:
         return f"{TH_CAT[cat]} {name}: จุดนี้อยู่ในเขตลมแรง"
     return f"{TH_CAT[cat]} {name} อาจเข้าใกล้ภายใน ~{_round(prox['closest']['distance_km'])} กม."
+
+
+HEAT_LEVEL = {"danger": "อันตราย", "extremeDanger": "อันตรายมาก"}
+
+
+def heat_title(level: str) -> str:
+    return f"ดัชนีความร้อนระดับ{HEAT_LEVEL[level]}ตามพยากรณ์"
+
+
+def heat_body(peak: float, local_time: str) -> str:
+    """``local_time`` is the Bangkok clock time of the forecast peak, e.g. "14:00"."""
+    return f"คาดว่าดัชนีความร้อนสูงสุดราว {_round(peak)}°C ช่วง {local_time} น. ใน 3 ชม. ข้างหน้า · เลี่ยงแดดจัดและดื่มน้ำบ่อย ๆ"

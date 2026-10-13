@@ -4,7 +4,7 @@ import { fmtStep } from '../lib/format';
 import { isFreshRadar, nowcastSentence, radarAgeMinutes, type NowcastSnapshot } from '../lib/nowcastText';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
-import { PushControl } from './PushControl';
+import { PushSettingsLink } from './PushSettings';
 
 interface Props {
   lat: number;
@@ -81,7 +81,7 @@ export function NowcastCard({ lat, lon, snapshot, nowMs }: Props) {
         </div>
       ))}
 
-      <PushControl lat={lat} lon={lon} />
+      <PushSettingsLink lat={lat} lon={lon} />
 
       <p className="nowcast-meta subtle">
         {t('radarEstimate')}

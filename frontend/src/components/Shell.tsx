@@ -8,7 +8,6 @@ import { ThemeProvider, useTheme, type Theme } from '../lib/theme';
 import { fmtDateTime } from '../lib/format';
 import { paths } from '../lib/paths';
 import { Icon, type IconName } from './Icon';
-import { LogoMark } from './Logo';
 import { ErrorState, StateMessage } from './States';
 
 export function Providers({ lang, theme, children }: { lang: Lang; theme: Theme | null; children: ReactNode }) {
@@ -47,11 +46,6 @@ export function Header({ alertCount }: { alertCount: number }) {
   const active = useActive();
   return (
     <header className="header">
-      <Link className="brand" href={paths.map} aria-label={`${t('brand')} – ${t('navMap')}`}>
-        <LogoMark />
-        <span className="brand-name">{t('brand')}</span>
-        <span className="brand-tag">{t('tagline')}</span>
-      </Link>
       <nav className="nav" aria-label="main">
         {NAV.map((n) => (
           <Link key={n.href} href={n.href} aria-current={active(n.href) ? 'page' : undefined}>

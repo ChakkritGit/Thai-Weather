@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { LayerId, Meta, RunMeta } from '../lib/api';
-import { buildLut, cssGradient, radarScale } from '../lib/color';
-import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
+import { buildLut } from '../lib/color';
+import { fmtKm, nearestStep, thaiDate } from '../lib/format';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
@@ -12,12 +12,33 @@ import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
 import { LocateCta, type LocateStatus } from '../components/LocateCta';
 import { Legend } from '../components/Legend';
+import { RadarControl } from '../components/RadarControl';
 import { OverviewPanel } from '../components/OverviewPanel';
 import { PointPanel } from '../components/PointPanel';
 import { Timeline } from '../components/Timeline';
 import { WeatherMap, type MapPoint } from '../components/WeatherMap';
 
 const STORE_KEY = 'thwx.layer';
+const LOC_KEY = 'thwx.lastLocation';
+
+function lastLocation(): MapPoint | null {
+  try {
+    const p = JSON.parse(localStorage.getItem(LOC_KEY) ?? 'null');
+    return p && Number.isFinite(p.lat) && Number.isFinite(p.lon) ? { lat: p.lat, lon: p.lon } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True only when the user already granted location access – never triggers a permission prompt. */
+async function locationGranted(): Promise<boolean> {
+  try {
+    const st = await navigator.permissions?.query({ name: 'geolocation' });
+    return st?.state === 'granted';
+  } catch {
+    return false;
+  }
+}
 
 function initialLayer(): LayerId {
   try {
@@ -50,6 +71,18 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const stageRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
+  // a point to fly to once the fine map exists and has loaded
+  const pendingFly = useRef<MapPoint | null>(null);
+  const flyTo = useCallback((p: MapPoint, zoom = 8) => {
+    const m = maps.current.fine;
+    if (!m) {
+      pendingFly.current = p;
+      return;
+    }
+    const go = () => m.flyTo({ center: [p.lon, p.lat], zoom });
+    if (m.loaded()) go();
+    else m.once('load', go);
+  }, []);
 
   const layer = meta.layers.find((l) => l.id === layerId) ?? meta.layers[0];
   const windLayer = meta.layers.find((l) => l.id === 'wind_dir');
@@ -108,6 +141,11 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
       maps.current.fine = m;
       syncMaps();
       if (m && initialPoint) m.once('load', () => m.flyTo({ center: [initialPoint.lon, initialPoint.lat], zoom: 7.5 }));
+      else if (m && pendingFly.current) {
+        const p = pendingFly.current;
+        pendingFly.current = null;
+        m.once('load', () => m.flyTo({ center: [p.lon, p.lat], zoom: 8 }));
+      }
     },
     [syncMaps, initialPoint],
   );
@@ -140,23 +178,54 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   };
 
   const [locateStatus, setLocateStatus] = useState<LocateStatus>('idle');
-  const locate = () => {
-    if (!navigator.geolocation) {
-      setLocateStatus('failed');
-      return;
-    }
-    setLocateStatus('locating');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const p = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        setLocateStatus('idle');
-        setSelected(p);
-        maps.current.fine?.flyTo({ center: [p.lon, p.lat], zoom: 8 });
-      },
-      (err) => setLocateStatus(err.code === err.PERMISSION_DENIED ? 'denied' : 'failed'),
-      { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
-    );
-  };
+  const locate = useCallback(
+    (opts: { quiet?: boolean } = {}) => {
+      if (!navigator.geolocation) {
+        if (!opts.quiet) setLocateStatus('failed');
+        return;
+      }
+      if (!opts.quiet) setLocateStatus('locating');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const p = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          try {
+            localStorage.setItem(LOC_KEY, JSON.stringify(p));
+          } catch {
+            /* storage unavailable */
+          }
+          setLocateStatus('idle');
+          setSelected(p);
+          flyTo(p);
+        },
+        (err) => {
+          if (!opts.quiet) setLocateStatus(err.code === err.PERMISSION_DENIED ? 'denied' : 'failed');
+        },
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
+      );
+    },
+    [setSelected, flyTo],
+  );
+
+  // Location already granted earlier and no point in the URL: show it right away on load –
+  // the last known position instantly, then a fresh fix. Never asks for permission by itself.
+  useEffect(() => {
+    if (initialPoint || !('geolocation' in navigator)) return;
+    let cancelled = false;
+    locationGranted().then((granted) => {
+      if (!granted || cancelled) return;
+      const last = lastLocation();
+      if (last) {
+        setSelected(last);
+        flyTo(last);
+      }
+      locate({ quiet: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const canLocate = typeof navigator !== 'undefined' && 'geolocation' in navigator;
 
   const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
@@ -242,41 +311,17 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             <button
               type="button"
               className="btn btn--icon btn--locate"
-              onClick={locate}
+              onClick={() => locate()}
               aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}
               title={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}
             >
               <Icon name="locate" />
             </button>
           )}
-          {radarOn && (
-            <div className="radar-tag glass" role="status">
-              {radar.status === 'ready' && radar.frame ? (
-                <>
-                  <b>
-                    {t('radarAt')} {fmtHour(radar.frame.frameTime, lang)}
-                    {lang === 'th' ? ' น.' : ''}
-                  </b>
-                  <span className="muted"> · RainViewer</span>
-                  <div className="radar-tag-bar" style={{ background: cssGradient(radarScale, 12, 70) }} aria-hidden="true" />
-                  <div className="radar-tag-scale muted" aria-hidden="true">
-                    {[20, 40, 60].map((v) => (
-                      <span key={v} style={{ left: `${((v - 12) / 58) * 100}%` }}>
-                        {v}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : radar.status === 'loading' ? (
-                <span className="muted">{t('loading')}</span>
-              ) : (
-                <span className="muted">{t('radarOff')}</span>
-              )}
-            </div>
-          )}
+          {radarOn && <RadarControl radar={radar} />}
         </div>
 
-        {canLocate && !selected && !compare && <LocateCta variant="float" status={locateStatus} onLocate={locate} />}
+        {canLocate && !selected && !compare && <LocateCta variant="float" status={locateStatus} onLocate={() => locate()} />}
 
         {loading && (
           <div className="map-loading glass" role="status">
@@ -302,7 +347,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
         ) : (
           <>
-            {canLocate && <LocateCta variant="card" status={locateStatus} onLocate={locate} />}
+            {canLocate && <LocateCta variant="card" status={locateStatus} onLocate={() => locate()} />}
             <OverviewPanel run={run} dayIndex={day} />
           </>
         )}

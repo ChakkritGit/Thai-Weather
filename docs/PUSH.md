@@ -4,15 +4,17 @@
 
 ## ภาพรวม (ไทย)
 
-ผู้ใช้กด **"รับการแจ้งเตือนที่ตำแหน่งนี้"** ในการ์ดเรดาร์ของจุดที่เลือก (หรือติดตั้งเว็บเป็นแอปแล้วเปิดใช้) ระบบจะส่งการแจ้งเตือนไปที่อุปกรณ์เมื่อ
+ตั้งค่าได้ที่หน้า **การแจ้งเตือน** (`/alerts#notifications`) — การ์ดเรดาร์ของจุดที่เลือกบนแผนที่มีลิงก์ส่งพิกัดไปให้ (`/alerts?lat=…&lon=…#notifications`); เข้าหน้าแจ้งเตือนโดยตรงจะใช้ตำแหน่งที่บันทึกไว้ หรือให้ผู้ใช้กดใช้ตำแหน่งปัจจุบัน/เลือกบนแผนที่ (ระบบไม่เลือกพิกัดและไม่ขอสิทธิ์แจ้งเตือนเอง) ระบบจะส่งการแจ้งเตือนไปที่อุปกรณ์เมื่อ
 
 | ประเภท | เงื่อนไข (คำนวณจาก nowcast เรดาร์ทุก ~5 นาที) |
 |---|---|
 | `storm` พายุฝนฟ้าคะนอง | คาดว่าถึงจุดนั้นภายใน 45 นาที (>= 45 dBZ) หรือกำลังเกิดอยู่แล้ว |
 | `heavy_rain` ฝนหนัก | คาดว่าฝนระดับ "หนัก" ขึ้นไปถึงภายใน 45 นาที (ไม่ซ้ำกับ storm) |
 | `cyclone` พายุหมุนเขตร้อน | จุดนั้นอยู่ในเขตลมแรงตามแนวพยากรณ์ หรือพายุเข้าใกล้สุด <= 300 กม. ภายใน 48 ชม. |
+| `heat` ดัชนีความร้อน (เลือกเปิดเอง) | ตรวจทุก 5 นาทีจากกริดพยากรณ์ 2.2 กม.: ค่าสูงสุดในชั่วโมงปัจจุบันถึง 3 ชม. ข้างหน้า >= 41°C (อันตราย) หรือ >= 54°C (อันตรายมาก) ตามเกณฑ์ใน design tokens; ไม่ส่งถ้ารอบพยากรณ์เก่ากว่า 2 รอบอัปเดต + 1 ชม., หมดช่วงเวลา, ไม่มีข้อมูล/ค่าผิดปกติ หรืออยู่นอกพื้นที่ |
 
-- **ไม่แจ้งซ้ำ**: คีย์เดิมไม่ส่งซ้ำภายใน 3 ชม. (storm/heavy_rain) หรือ 12 ชม. (cyclone) เว้นแต่ระดับรุนแรงขึ้น (เช่น พายุฝนฟ้าคะนอง -> รุนแรง, พายุเข้าเขตลมแรง)
+- `heat` เป็น opt-in: ผู้สมัครเดิม (ก่อนมีฟีเจอร์นี้) มีค่า `heat=false`; เลือก heat อย่างเดียวก็ได้
+- **ไม่แจ้งซ้ำ**: คีย์เดิมไม่ส่งซ้ำภายใน 3 ชม. (storm/heavy_rain), 6 ชม. (heat) หรือ 12 ชม. (cyclone) เว้นแต่ระดับรุนแรงขึ้น (เช่น พายุฝนฟ้าคะนอง -> รุนแรง, พายุเข้าเขตลมแรง)
 - **ช่วงไม่รบกวน** (ค่าเริ่มต้น 22:00-06:00 เวลาไทย) ใช้กับทุกประเภท ยกเว้นพายุหมุนที่จุดอยู่ในเขตลมแรง
 - ข้อมูลเรดาร์เก่าเกิน 30 นาที หรือจุดอยู่นอกพื้นที่เรดาร์ -> ไม่ส่งการแจ้งเตือนจากเรดาร์
 - เป็นการประเมินจากเรดาร์ ไม่ใช่คำเตือนทางการ
@@ -50,7 +52,7 @@ Safari บน iOS รองรับ Web Push เฉพาะเว็บที�
 
 ```bash
 docker compose up --build            # web http://localhost:3000, API http://localhost:8000
-# เปิด http://localhost:3000 -> แตะจุดบนแผนที่ -> การ์ด "ฝนใน 1 ชั่วโมงข้างหน้า" -> "รับการแจ้งเตือนที่ตำแหน่งนี้"
+# เปิด http://localhost:3000 -> แตะจุดบนแผนที่ -> การ์ด "ฝนใน 1 ชั่วโมงข้างหน้า" -> "ตั้งการแจ้งเตือนสำหรับตำแหน่งนี้" (ไปหน้า /alerts)
 # -> อนุญาตการแจ้งเตือน -> "ส่งทดสอบ"
 ```
 
@@ -71,15 +73,17 @@ docker compose up --build            # web http://localhost:3000, API http://loc
 
 ## English
 
-Users tap **"Get alerts for this spot"** in the radar card of a selected point (works best once the site is installed as an app). The server pushes a notification when:
+Settings live on the **Alerts** page (`/alerts#notifications`). The radar card of a point on the map links there with the coordinates (`/alerts?lat=…&lon=…#notifications`); opening the page directly uses the saved subscription, or the user picks their current location / a point on the map (nothing is chosen or requested automatically). The server pushes a notification when:
 
 | Kind | Condition (evaluated from the radar nowcast after every ~5 min ingest) |
 |---|---|
 | `storm` | a thunderstorm (>= 45 dBZ) is expected at the spot within 45 min, or is already there |
 | `heavy_rain` | "heavy" or stronger rain is expected within 45 min (not sent in addition to `storm`) |
 | `cyclone` | the spot is inside a forecast wind swath, or the closest approach is <= 300 km within 48 h |
+| `heat` (opt-in) | checked every 5 min from the 2.2 km forecast grid: the peak heat index in the current hour + next 3 h reaches 41 °C (danger) or 54 °C (extreme danger), thresholds from the design tokens; skipped when the run is older than two refresh periods + 1 h, has expired, or the value is missing / implausible / outside the domain |
 
-- **De-duplication**: the same alert key is not re-sent within 3 h (storm / heavy rain) or 12 h (cyclone) unless its tier rises (thunderstorm -> severe, cyclone enters a wind swath).
+- `heat` is opt-in: subscriptions made before it existed read `heat=false`; heat alone is a valid choice.
+- **De-duplication**: the same alert key is not re-sent within 3 h (storm / heavy rain), 6 h (heat) or 12 h (cyclone) unless its tier rises (thunderstorm -> severe, cyclone enters a wind swath).
 - **Quiet hours** (default 22:00-06:00 Asia/Bangkok) apply to everything except a cyclone wind-swath warning. A suppressed alert is not consumed: if the threat persists it is sent when quiet hours end.
 - Stale radar (> 30 min) or a spot outside radar coverage means no radar alerts. These are radar-based estimates, not official warnings.
 
@@ -114,7 +118,7 @@ Web Push only works for sites **added to the Home Screen** (iOS/iPadOS **16.4+**
 
 ```bash
 docker compose up --build            # web http://localhost:3000, API http://localhost:8000
-# open http://localhost:3000, tap a point, use "Get alerts for this spot" in the radar card,
+# open http://localhost:3000, tap a point, follow "Set up alerts for this spot" in the radar card to /alerts,
 # allow notifications, then "Send test".
 ```
 

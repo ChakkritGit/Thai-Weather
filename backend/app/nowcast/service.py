@@ -34,7 +34,9 @@ LEADS = (0, 10, 20, 30, 40, 50, 60)  # minutes ahead, available as map layers
 RADAR_ENCODING = Encoding("linear", -10.0, 75.0)  # dBZ -> uint8; code 0 = no echo
 STALE_AFTER_MIN = 30
 CYCLONE_REFRESH_S = 30 * 60
-KEEP_FRAMES = 3
+KEEP_FRAMES = 3  # newest frames used for the motion estimate
+HISTORY_MIN = 60  # observed frames kept for playback (RainViewer publishes one every 10 min)
+HISTORY_FRAMES = HISTORY_MIN // 10 + 1
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,8 @@ class Snapshot:
     v: np.ndarray | None = None  # km/h north
     coverage: np.ndarray | None = None
     layers: dict[int, np.ndarray] = field(default_factory=dict)  # lead (min) -> uint8 codes
+    # observed (not advected) frames of the last ~hour for playback, oldest first: (time, uint8 codes)
+    history: tuple[tuple[datetime, np.ndarray], ...] = ()
     cyclones: tuple[Cyclone, ...] = ()
     cyclones_updated: datetime | None = None
 
@@ -58,7 +62,7 @@ class NowcastService:
         self.radar_enabled = settings.nowcast_source != "off"
         self.cyclones_enabled = settings.cyclones_enabled
         self._snapshot = Snapshot()
-        self._frames: deque[tuple[datetime, np.ndarray]] = deque(maxlen=KEEP_FRAMES)
+        self._frames: deque[tuple[datetime, np.ndarray]] = deque(maxlen=HISTORY_FRAMES)
         self._lock = threading.Lock()
         self._poll_lock = threading.Lock()
         self._stop = threading.Event()
@@ -98,10 +102,18 @@ class NowcastService:
 
     # ----------------------------------------------------------------- compute
     def ingest(self, frames: list[tuple[datetime, np.ndarray]], coverage: np.ndarray | None = None) -> Snapshot:
-        """Compute motion and lead-time layers from decoded frames (oldest first) and publish them."""
+        """Compute motion and lead-time layers from decoded frames (oldest first) and publish them.
+
+        Motion uses the newest ``KEEP_FRAMES``; every frame within ``HISTORY_MIN`` of the newest is
+        published (encoded, as observed) for playback, in the same snapshot as the nowcast layers.
+        """
         if not frames:
             raise ValueError("need at least one frame")
         cov = coverage if coverage is not None else np.ones(self.grid.shape, dtype=bool)
+        newest = frames[-1][0]
+        kept = [(t, f) for t, f in frames if (newest - t).total_seconds() <= HISTORY_MIN * 60][-HISTORY_FRAMES:]
+        history = tuple((t, RADAR_ENCODING.encode(np.where(cov, f, np.nan))) for t, f in kept)
+        frames = frames[-KEEP_FRAMES:]
         masked = [np.where(cov, f, np.nan).astype(np.float32) for _, f in frames]
         times = [t for t, _ in frames]
         gaps = [(b - a).total_seconds() / 60.0 for a, b in zip(times, times[1:], strict=False)]
@@ -111,7 +123,14 @@ class NowcastService:
         layers = {lead: RADAR_ENCODING.encode(advect(latest, u, v, self.grid, lead)) for lead in LEADS}
         with self._lock:
             self._snapshot = replace(
-                self._snapshot, frame_time=times[-1], latest=latest, u=u, v=v, coverage=cov, layers=layers
+                self._snapshot,
+                frame_time=times[-1],
+                latest=latest,
+                u=u,
+                v=v,
+                coverage=cov,
+                layers=layers,
+                history=history,
             )
             self._status.update(last_frame=times[-1].isoformat())
             return self._snapshot
@@ -135,9 +154,11 @@ class NowcastService:
         if self._radar is None:
             self._radar = RadarSource(self._client())
         radar = self._radar
-        listing = radar.frames()[-KEEP_FRAMES:]
+        listing = radar.frames()
         if not listing:
             return False
+        # the last hour of frames (playback history); the newest few also drive the motion estimate
+        listing = [f for f in listing if (listing[-1][0] - f[0]).total_seconds() <= HISTORY_MIN * 60]
         known = self._frames[-1][0] if self._frames else None
         fresh = [f for f in listing if known is None or f[0] > known]
         if not fresh:
@@ -146,6 +167,8 @@ class NowcastService:
             self._frames.clear()  # we missed frames: the buffer would not be consecutive
         for t, path in fresh:
             self._frames.append((t, radar.fetch_frame(radar.host, path, self.grid)))
+        while self._frames and (self._frames[-1][0] - self._frames[0][0]).total_seconds() > HISTORY_MIN * 60:
+            self._frames.popleft()
         self.ingest(list(self._frames), radar.coverage(self.grid))
         return True
 

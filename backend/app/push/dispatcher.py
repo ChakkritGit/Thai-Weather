@@ -1,4 +1,5 @@
-"""Decides which saved locations get a notification after each radar / cyclone update.
+"""Decides which saved locations get a notification after each radar / cyclone update, and every
+few minutes for the forecast heat index.
 
 ``candidates`` is pure (nowcast dict + cyclone proximity in, alerts out) and ``allowed`` applies
 the de-duplication and quiet-hours rules, so both are unit-tested without I/O.  ``PushDispatcher``
@@ -18,6 +19,7 @@ from ..nowcast.cyclones import Cyclone, proximity
 from ..nowcast.nowcast import point_nowcast
 from ..nowcast.service import STALE_AFTER_MIN, NowcastService
 from . import messages as msg
+from .heat import HeatOutlook, HeatSource, outlook
 from .sender import PushFailed, PushGone, Sender
 from .store import Prefs, Subscription, SubscriptionStore
 
@@ -26,16 +28,16 @@ log = logging.getLogger(__name__)
 ETA_LIMIT_MIN = 45  # notify when the storm / heavy rain is expected within this many minutes
 CYCLONE_APPROACH_KM = 300.0
 CYCLONE_WITHIN_H = 48.0
-COOLDOWN_S = {"storm": 3 * 3600, "heavy_rain": 3 * 3600, "cyclone": 12 * 3600}
+COOLDOWN_S = {"storm": 3 * 3600, "heavy_rain": 3 * 3600, "cyclone": 12 * 3600, "heat": 6 * 3600}
 BANGKOK = timedelta(hours=7)
 RANK = {"none": 0, "light": 0, "moderate": 0, "heavy": 1, "thunderstorm": 2, "severe": 3}
-TTL_S = {"storm": 30 * 60, "heavy_rain": 30 * 60, "cyclone": 3 * 3600}
+TTL_S = {"storm": 30 * 60, "heavy_rain": 30 * 60, "cyclone": 3 * 3600, "heat": 3600}
 
 
 @dataclass(frozen=True)
 class Alert:
-    key: str  # de-duplication key: "storm", "heavy_rain" or "cyclone:<id>"
-    kind: str  # "storm" | "heavy_rain" | "cyclone"
+    key: str  # de-duplication key: "storm", "heavy_rain", "heat" or "cyclone:<id>"
+    kind: str  # "storm" | "heavy_rain" | "cyclone" | "heat"
     tier: int  # re-send before the cooldown ends only when this rises
     title: str
     body: str
@@ -139,6 +141,22 @@ def candidates(
     return out
 
 
+def heat_candidate(sub: Subscription, heat: HeatOutlook | None) -> Alert | None:
+    """The heat-index alert for one subscription, or None (pure; ``heat`` comes from ``heat.outlook``)."""
+    if heat is None or not sub.prefs.heat:
+        return None
+    local = (heat.time.astimezone(UTC) + BANGKOK).strftime("%H:%M")
+    return Alert(
+        "heat",
+        "heat",
+        heat.tier,
+        msg.heat_title(heat.level),
+        msg.with_label(sub.label, msg.heat_body(heat.peak, local)),
+        location_url(sub),
+        f"thwx-heat-{sub.id[:8]}",
+    )
+
+
 def allowed(sub: Subscription, alert: Alert, now: datetime) -> bool:
     """De-duplication and quiet hours."""
     if in_quiet_hours(sub.prefs, local_hour(now)) and not (alert.kind == "cyclone" and alert.urgent):
@@ -157,10 +175,14 @@ class PushDispatcher:
         sender: Sender,
         workers: int = 8,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        heat: HeatSource | None = None,
     ) -> None:
         self.store, self.nowcast, self.sender, self.workers, self.clock = store, nowcast, sender, workers, clock
+        self.heat = heat
         self._run_lock = threading.Lock()
+        self._heat_lock = threading.Lock()  # separate, so a radar dispatch never makes a heat check skip
         self.last_run: dict | None = None
+        self.last_heat_run: dict | None = None
 
     def on_update(self, kind: str) -> None:
         """Hook for ``NowcastService``: ``kind`` is "radar" (new frame) or "cyclones" (refresh)."""
@@ -211,17 +233,50 @@ class PushDispatcher:
                             cyc_cache[ck] = proximity(c, sub.lat, sub.lon, now)
                         cyc.append((c, cyc_cache[ck]))
                 work.extend((sub, a) for a in candidates(sub, nc, cyc) if allowed(sub, a, now))
-            stats["alerts"] = len(work)
-            if work:
-                with ThreadPoolExecutor(max_workers=self.workers) as pool:
-                    for res in pool.map(lambda w: self._deliver(w[0], w[1], now), work):
-                        stats[res] += 1
+            self._send(work, stats, now)
             self.last_run = stats
-            if work:
-                log.info("push: %s", {k: v for k, v in stats.items() if k != "time"})
             return stats
         finally:
             self._run_lock.release()
+
+    def run_heat(self) -> dict:
+        """Heat-index alerts from the latest forecast run (radar independent)."""
+        if self.heat is None:
+            return {"skipped": "disabled"}
+        if not self._heat_lock.acquire(blocking=False):
+            return {"skipped": "busy"}
+        try:
+            now = self.clock()
+            subs = [s for s in self.store.all() if s.prefs.heat]
+            stats = {"time": now.isoformat(), "kind": "heat", "subscriptions": len(subs)}
+            stats |= {"sent": 0, "failed": 0, "removed": 0}
+            run = self.heat.usable(now) if subs else None
+            stats["run_ok"] = run is not None
+            work: list[tuple[Subscription, Alert]] = []
+            if run is not None:
+                cache: dict[tuple[float, float], HeatOutlook | None] = {}
+                for sub in subs:
+                    pos = (sub.lat, sub.lon)
+                    if pos not in cache:
+                        series = self.heat.series(run, sub.lat, sub.lon)
+                        cache[pos] = outlook(series[0], series[1], now) if series else None
+                    alert = heat_candidate(sub, cache[pos])
+                    if alert is not None and allowed(sub, alert, now):
+                        work.append((sub, alert))
+            self._send(work, stats, now)
+            self.last_heat_run = stats
+            return stats
+        finally:
+            self._heat_lock.release()
+
+    def _send(self, work: list[tuple[Subscription, Alert]], stats: dict, now: datetime) -> None:
+        stats["alerts"] = len(work)
+        if not work:
+            return
+        with ThreadPoolExecutor(max_workers=self.workers) as pool:
+            for res in pool.map(lambda w: self._deliver(w[0], w[1], now), work):
+                stats[res] += 1
+        log.info("push: %s", {k: v for k, v in stats.items() if k != "time"})
 
     @staticmethod
     def _nowcast_at(snap, grid, sub: Subscription) -> dict | None:

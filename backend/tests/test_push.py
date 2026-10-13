@@ -428,8 +428,9 @@ def test_subscribe_update_unsubscribe_roundtrip(client):
     assert r.status_code == 200
     d = r.json()
     assert (d["lat"], d["lon"]) == (13.75, 100.5) and d["prefs"]["quiet_start"] == 22 and d["prefs"]["quiet_end"] == 6
-    again = _subscribe(client, ep, creds, prefs={"storm": False, "quiet_start": 0, "quiet_end": 0}).json()
-    assert again["id"] == d["id"] and again["prefs"]["storm"] is False
+    assert d["prefs"]["heat"] is False  # heat alerts are opt-in
+    again = _subscribe(client, ep, creds, prefs={"storm": False, "quiet_start": 0, "quiet_end": 0, "heat": True}).json()
+    assert again["id"] == d["id"] and again["prefs"]["storm"] is False and again["prefs"]["heat"] is True
 
     other = _sub_json(ep)  # same endpoint, someone else's auth secret
     assert _subscribe(client, ep, (other["keys"]["p256dh"], other["keys"]["auth"])).status_code == 403
@@ -469,3 +470,193 @@ def test_status_needs_the_admin_token(client):
     assert client.get("/api/v1/push/status").status_code == 401
     d = client.get("/api/v1/push/status", headers={"Authorization": "Bearer secret"}).json()
     assert d["enabled"] is True and d["subscriptions"] >= 1 and d["limit"] == 5000
+
+
+# ------------------------------------------------------------------ heat index (forecast, fine grid)
+from app.push import store as store_mod  # noqa: E402
+from app.push.dispatcher import heat_candidate  # noqa: E402
+from app.push.heat import HeatSource, outlook  # noqa: E402
+
+HOURS = [T0 + timedelta(hours=h) for h in range(-3, 12)]
+
+
+def _series(peak_at: int | None = None, peak: float = 0.0, base: float = 36.0) -> list[float]:
+    """Hourly heat index for ``HOURS``; ``peak_at`` is the hour offset from T0 of the peak value."""
+    return [peak if peak_at is not None and t == T0 + timedelta(hours=peak_at) else base for t in HOURS]
+
+
+@pytest.mark.parametrize(
+    ("value", "tier", "level"),
+    [(40.9, None, None), (41.0, 2, "danger"), (53.9, 2, "danger"), (54.0, 3, "extremeDanger")],
+)
+def test_heat_outlook_thresholds_follow_the_scale(value, tier, level):
+    o = outlook(HOURS, _series(2, value), T0)
+    assert (o.tier, o.level) == (tier, level) if tier else o is None
+
+
+def test_heat_outlook_window_is_the_next_three_hours():
+    assert outlook(HOURS, _series(3, 45.0), T0).time == T0 + timedelta(hours=3)
+    assert outlook(HOURS, _series(4, 45.0), T0) is None  # beyond 3 h
+    assert outlook(HOURS, _series(-1, 45.0), T0) is None  # already over
+    assert outlook(HOURS, _series(0, 45.0), T0 + timedelta(minutes=30)) is not None  # the current hour counts
+
+
+def test_heat_outlook_ignores_missing_and_implausible_values():
+    assert outlook(HOURS, _series(1, float("nan"), base=float("nan")), T0) is None
+    assert outlook(HOURS, _series(1, 63.75, base=0.0), T0) is None  # encoding clip / NaN-as-zero
+    assert outlook([], [], T0) is None
+    late = T0 + timedelta(hours=20)  # past the end of the run
+    assert outlook(HOURS, _series(10, 50.0), late) is None
+
+
+class FakeRun:
+    def __init__(self, values, created=T0 - timedelta(hours=1), times=HOURS):
+        self.meta = {"created": created.isoformat()}
+        self.times = times
+        self.fine_grid = G
+        self.values = values
+        self.reads = 0
+
+    def series(self, res, layer, iy, ix):
+        assert (res, layer) == ("fine", "heat")
+        self.reads += 1
+        return self.values
+
+
+class HeatEnv(Env):
+    def __init__(self, tmp_path, monkeypatch):
+        super().__init__(tmp_path, monkeypatch)
+        self.forecast = FakeRun(_series(2, 44.0))
+        self.dispatcher.heat = HeatSource(lambda: self.forecast, timedelta(hours=13))
+
+    def heat_sub(self, endpoint=FCM, **prefs):
+        return self.subscribe(endpoint, prefs=Prefs(storm=False, heavy_rain=False, cyclone=False, heat=True, **prefs))
+
+
+@pytest.fixture
+def henv(tmp_path, monkeypatch):
+    return HeatEnv(tmp_path, monkeypatch)
+
+
+def test_heat_alert_is_opt_in_and_worded_as_a_forecast(henv):
+    henv.subscribe("https://fcm.googleapis.com/old")  # default prefs: heat off
+    henv.heat_sub()
+    stats = henv.dispatcher.run_heat()
+    assert stats["subscriptions"] == 1 and stats["sent"] == 1 and len(henv.sender.calls) == 1
+    _, payload, ttl, urgent = henv.sender.calls[0]
+    assert payload["title"] == "ดัชนีความร้อนระดับอันตรายตามพยากรณ์"
+    assert payload["body"] == "บ้าน · คาดว่าดัชนีความร้อนสูงสุดราว 44°C ช่วง 15:00 น. ใน 3 ชม. ข้างหน้า · เลี่ยงแดดจัดและดื่มน้ำบ่อย ๆ"
+    assert payload["kind"] == "heat" and payload["url"] == "/?lat=13.75&lon=100.50"
+    assert ttl == 3600 and urgent is False
+
+
+def test_heat_alone_is_a_valid_subscription(henv):
+    sub = henv.heat_sub()
+    assert (sub.prefs.storm, sub.prefs.heavy_rain, sub.prefs.cyclone, sub.prefs.heat) == (False, False, False, True)
+    henv.result = nc(storm=eta(20, (15, 25)))  # radar dispatch sends nothing for a heat-only subscription
+    assert henv.run()["alerts"] == 0
+
+
+def test_heat_cooldown_and_escalation(henv):
+    henv.heat_sub()
+    assert henv.dispatcher.run_heat()["sent"] == 1
+    henv.now += timedelta(minutes=5)
+    assert henv.dispatcher.run_heat()["sent"] == 0  # same tier within 6 h
+    henv.forecast = FakeRun(_series(2, 55.0))
+    assert henv.dispatcher.run_heat()["sent"] == 1  # extreme danger outranks danger
+
+    later = timedelta(hours=5)  # a new day's danger-level forecast, inside the extreme-danger cooldown
+    henv.now += later
+    henv.forecast = FakeRun(_series(2, 44.0), created=henv.now - timedelta(hours=1), times=[t + later for t in HOURS])
+    assert henv.dispatcher.run_heat()["sent"] == 0
+    henv.now += timedelta(hours=1, minutes=5)  # 6 h since the last heat alert
+    henv.forecast.times = [t + timedelta(hours=1, minutes=5) for t in henv.forecast.times]
+    assert henv.dispatcher.run_heat()["sent"] == 1
+
+
+def test_heat_respects_quiet_hours_and_escalates_after_them(henv):
+    henv.heat_sub(quiet_start=12, quiet_end=14)  # 13:00 local is quiet
+    assert henv.dispatcher.run_heat()["sent"] == 0
+    henv.now += timedelta(hours=1)  # 14:00 local, peak (15:00) still ahead
+    assert henv.dispatcher.run_heat()["sent"] == 1
+
+
+def test_heat_skips_stale_expired_and_outside_runs(henv):
+    henv.heat_sub()
+    henv.forecast = FakeRun(_series(2, 50.0), created=T0 - timedelta(hours=14))  # updates stopped
+    assert henv.dispatcher.run_heat()["run_ok"] is False
+    henv.forecast = FakeRun(_series(2, 50.0), times=[t - timedelta(hours=12) for t in HOURS])  # ends before now
+    assert henv.dispatcher.run_heat()["run_ok"] is False
+    henv.forecast = None
+    assert henv.dispatcher.run_heat()["sent"] == 0
+    assert henv.sender.calls == []
+    run = FakeRun(_series(2, 50.0))
+    assert HeatSource.series(run, 40.0, 100.0) is None  # outside the fine grid
+
+
+def test_heat_failed_send_does_not_consume_the_cooldown(henv):
+    henv.heat_sub()
+    henv.sender.error = PushFailed("503")
+    assert henv.dispatcher.run_heat()["failed"] == 1
+    henv.sender.error = None
+    henv.now += timedelta(minutes=5)
+    assert henv.dispatcher.run_heat()["sent"] == 1
+
+
+def test_heat_state_survives_restart_and_resets_when_moved(henv, tmp_path):
+    p, a = _creds()
+    prefs = Prefs(storm=False, heavy_rain=False, cyclone=False, heat=True)
+    henv.store.upsert(FCM, p, a, LAT, LON, "บ้าน", prefs)
+    assert henv.dispatcher.run_heat()["sent"] == 1
+    henv.store.close()
+    henv.store = henv.dispatcher.store = SubscriptionStore(tmp_path / "push")  # restart
+    assert henv.dispatcher.run_heat()["sent"] == 0  # cooldown persisted
+    henv.store.upsert(FCM, p, a, 14.0, 100.6, "ที่ทำงาน", prefs)  # moved: the old spot's state is dropped
+    assert henv.dispatcher.run_heat()["sent"] == 1
+
+
+def test_heat_reads_each_location_once(henv):
+    henv.heat_sub("https://fcm.googleapis.com/a")
+    henv.heat_sub("https://fcm.googleapis.com/b")
+    henv.dispatcher.run_heat()
+    assert henv.forecast.reads == 1 and len(henv.sender.calls) == 2
+
+
+def test_heat_candidate_is_pure():
+    sub = SimpleNamespace(id="abcdefghijkl", lat=LAT, lon=LON, label="", prefs=Prefs(heat=False))
+    o = outlook(HOURS, _series(1, 45.0), T0)
+    assert heat_candidate(sub, o) is None
+    sub.prefs = Prefs(heat=True)
+    assert heat_candidate(sub, None) is None
+    assert heat_candidate(sub, o).tag == "thwx-heat-abcdefgh"
+
+
+def test_old_database_gets_heat_off(tmp_path):
+    import sqlite3
+
+    db = sqlite3.connect(tmp_path / "subscriptions.sqlite")
+    db.execute(store_mod._SCHEMA.replace(",\n    heat INTEGER NOT NULL DEFAULT 0", ""))
+    db.execute(
+        "INSERT INTO subscriptions (id, endpoint, p256dh, auth, lat, lon, created, last_seen) "
+        "VALUES ('x', 'https://fcm.googleapis.com/x', 'p', 'a', 13.75, 100.5, 0, 0)"
+    )
+    db.commit()
+    db.close()
+    sub = SubscriptionStore(tmp_path).all()[0]
+    assert sub.prefs.heat is False and sub.prefs.storm is True
+
+
+def test_heat_worker_stops_before_the_store_closes(tmp_path, monkeypatch):
+    from app.push import service as svc
+
+    monkeypatch.setattr(svc, "HEAT_EVERY_S", 0.01)
+    nowcast = NowcastService(Settings(nowcast_source="off", cyclones_enabled=False, data_dir=tmp_path))
+    service = svc.PushService(Settings(data_dir=tmp_path), nowcast, sender=FakeSender(), latest_run=lambda: None)
+    service.start()
+    deadline = datetime.now() + timedelta(seconds=5)
+    while service.dispatcher.last_heat_run is None and datetime.now() < deadline:
+        pass
+    assert service.dispatcher.last_heat_run is not None
+    thread = service._heat_thread
+    service.close()
+    assert not thread.is_alive()

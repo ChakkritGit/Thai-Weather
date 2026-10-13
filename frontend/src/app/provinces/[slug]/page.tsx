@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { Meta, ProvinceDetail, ProvinceWithDays } from '@/lib/api';
 import { forecastSentence } from '@/lib/forecastText';
-import { findProvince, paths } from '@/lib/paths';
+import { findProvince, paths, provinceSlug } from '@/lib/paths';
+import { pageMeta } from '@/lib/seo';
 import { fromApi, getPrefs } from '@/lib/server';
 import { Warming } from '@/components/Shell';
 import { ProvinceView } from '@/views/ProvinceView';
@@ -26,12 +27,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const day = p.days.find((d) => d.hours >= 12) ?? p.days[0];
   const title = lang === 'th' ? `พยากรณ์อากาศ${p.name_th} ความละเอียด 2 กม.` : `${p.name_en} weather forecast (2 km)`;
   const description = day ? forecastSentence(day, lang) : undefined;
-  return {
-    title,
-    description,
-    alternates: { canonical: paths.province(p) },
-    openGraph: { title, description, url: paths.province(p) },
-  };
+  return pageMeta({ title, description, path: paths.province(p), image: `/og/province/${provinceSlug(p)}` });
 }
 
 export default async function ProvinceRoute({ params }: Params) {

@@ -10,6 +10,7 @@ import { categories, type CategoryLevel } from '../lib/color';
 import { useT } from '../i18n';
 import { Icon } from '../components/Icon';
 import { AlertBadge, TierChip } from '../components/SeverityBadge';
+import { PushSettings } from '../components/PushSettings';
 
 /** Hazard → token category, in table order. */
 const CRITERIA = [
@@ -28,7 +29,15 @@ function threshold(l: CategoryLevel, unit: string): string {
   return l.min !== undefined ? `≥ ${l.min} ${unit}` : `≤ ${l.max} ${unit}`;
 }
 
-export function AlertsPage({ run, alerts }: { run: RunMeta; alerts: AlertEntry[] }) {
+export function AlertsPage({
+  run,
+  alerts,
+  pushPoint = null,
+}: {
+  run: RunMeta;
+  alerts: AlertEntry[];
+  pushPoint?: { lat: number; lon: number } | null;
+}) {
   const { t, lang, pick } = useT();
   const th = lang === 'th';
   const [minSev, setMinSev] = useState(1);
@@ -112,6 +121,8 @@ export function AlertsPage({ run, alerts }: { run: RunMeta; alerts: AlertEntry[]
             </span>
           </p>
         )}
+
+        <PushSettings initial={pushPoint} />
 
         <section className="card card-pad" style={{ display: 'grid', gap: 12 }}>
           <h2 style={{ fontSize: 'var(--font-size-md)' }}>{th ? 'ระดับการแจ้งเตือนและเกณฑ์ที่ใช้' : 'Alert tiers and thresholds'}</h2>

@@ -57,6 +57,7 @@ class Prefs:
     cyclone: bool = True
     quiet_start: int = 22  # local (Asia/Bangkok) hour; quiet when start <= hour < end (wraps midnight)
     quiet_end: int = 6
+    heat: bool = False  # opt-in: subscriptions made before heat alerts existed stay off
 
 
 @dataclass
@@ -95,9 +96,13 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     quiet_start INTEGER NOT NULL DEFAULT 22,
     quiet_end INTEGER NOT NULL DEFAULT 6,
     last_sent TEXT NOT NULL DEFAULT '{}',
-    last_test REAL NOT NULL DEFAULT 0
+    last_test REAL NOT NULL DEFAULT 0,
+    heat INTEGER NOT NULL DEFAULT 0
 )
 """
+
+# columns added after the first release: (name, definition) – existing rows get the default
+_MIGRATIONS = (("heat", "INTEGER NOT NULL DEFAULT 0"),)
 
 
 def _row(r: sqlite3.Row) -> Subscription:
@@ -109,7 +114,14 @@ def _row(r: sqlite3.Row) -> Subscription:
         lat=r["lat"],
         lon=r["lon"],
         label=r["label"],
-        prefs=Prefs(bool(r["storm"]), bool(r["heavy_rain"]), bool(r["cyclone"]), r["quiet_start"], r["quiet_end"]),
+        prefs=Prefs(
+            bool(r["storm"]),
+            bool(r["heavy_rain"]),
+            bool(r["cyclone"]),
+            r["quiet_start"],
+            r["quiet_end"],
+            bool(r["heat"]),
+        ),
         created=r["created"],
         last_seen=r["last_seen"],
         last_sent=json.loads(r["last_sent"] or "{}"),
@@ -130,6 +142,10 @@ class SubscriptionStore:
         self._db.row_factory = sqlite3.Row
         with self._lock:
             self._db.execute(_SCHEMA)
+            have = {r["name"] for r in self._db.execute("PRAGMA table_info(subscriptions)")}
+            for name, definition in _MIGRATIONS:
+                if name not in have:
+                    self._db.execute(f"ALTER TABLE subscriptions ADD COLUMN {name} {definition}")
             self._db.commit()
 
     def close(self) -> None:
@@ -163,10 +179,10 @@ class SubscriptionStore:
                     raise PushError("subscription belongs to different credentials", 403)
                 self._db.execute(
                     "UPDATE subscriptions SET p256dh=?, lat=?, lon=?, label=?, last_seen=?, storm=?, heavy_rain=?,"
-                    " cyclone=?, quiet_start=?, quiet_end=?, last_sent=CASE WHEN lat!=? OR lon!=? THEN '{}' ELSE last_sent END"
-                    " WHERE id=?",
+                    " cyclone=?, quiet_start=?, quiet_end=?, heat=?,"
+                    " last_sent=CASE WHEN lat!=? OR lon!=? THEN '{}' ELSE last_sent END WHERE id=?",
                     (p256dh, lat, lon, label, now, prefs.storm, prefs.heavy_rain, prefs.cyclone, prefs.quiet_start,
-                     prefs.quiet_end, lat, lon, r["id"]),
+                     prefs.quiet_end, prefs.heat, lat, lon, r["id"]),
                 )  # fmt: skip
                 self._db.commit()
                 sub_id = r["id"]
@@ -176,9 +192,9 @@ class SubscriptionStore:
                 sub_id = secrets.token_urlsafe(16)
                 self._db.execute(
                     "INSERT INTO subscriptions (id, endpoint, p256dh, auth, lat, lon, label, created, last_seen, storm,"
-                    " heavy_rain, cyclone, quiet_start, quiet_end) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " heavy_rain, cyclone, quiet_start, quiet_end, heat) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (sub_id, endpoint, p256dh, auth, lat, lon, label, now, now, prefs.storm, prefs.heavy_rain,
-                     prefs.cyclone, prefs.quiet_start, prefs.quiet_end),
+                     prefs.cyclone, prefs.quiet_start, prefs.quiet_end, prefs.heat),
                 )  # fmt: skip
                 self._db.commit()
             row = self._db.execute("SELECT * FROM subscriptions WHERE id = ?", (sub_id,)).fetchone()

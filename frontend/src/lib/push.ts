@@ -67,9 +67,23 @@ export interface PushPrefs {
   cyclone: boolean;
   quiet_start: number;
   quiet_end: number;
+  /** forecast heat index (2.2 km grid); opt-in, so older subscriptions read as false */
+  heat: boolean;
 }
 
-export const DEFAULT_PREFS: PushPrefs = { storm: true, heavy_rain: true, cyclone: true, quiet_start: 22, quiet_end: 6 };
+export const DEFAULT_PREFS: PushPrefs = { storm: true, heavy_rain: true, cyclone: true, quiet_start: 22, quiet_end: 6, heat: false };
+
+/** At least one alert type is switched on (any single one – heat alone included – is enough). */
+export const anyAlert = (p: PushPrefs) => p.storm || p.heavy_rain || p.cyclone || p.heat;
+
+/** `?lat=…&lon=…` from a link → a point, or null when missing / not a valid coordinate. */
+export function parsePoint(lat: unknown, lon: unknown): { lat: number; lon: number } | null {
+  if (typeof lat !== 'string' || typeof lon !== 'string' || !lat.trim() || !lon.trim()) return null;
+  const y = Number(lat);
+  const x = Number(lon);
+  if (!Number.isFinite(y) || !Number.isFinite(x) || Math.abs(y) > 90 || Math.abs(x) > 180) return null;
+  return { lat: y, lon: x };
+}
 
 /** "22:00–06:00", or null when quiet hours are off (start === end). */
 export function quietLabel(p: Pick<PushPrefs, 'quiet_start' | 'quiet_end'>): string | null {

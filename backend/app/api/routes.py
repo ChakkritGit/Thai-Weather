@@ -380,6 +380,55 @@ def nowcast_layer(request: Request, lead: int = Query(0, ge=0, le=60)) -> Respon
     return _binary(snap.layers[lead], f"nowcast-{frame}-{lead}", request, extra)
 
 
+def _frame_id(t: datetime) -> str:
+    return str(int(t.timestamp()))
+
+
+@router.get("/nowcast/frames")
+def nowcast_frames(request: Request) -> dict:
+    """Observed radar frames of the last ~hour for playback, oldest first (ids are stable unix times).
+
+    Listed from the same snapshot that ``/nowcast/frame/{id}`` serves, so an id stays valid until the
+    frame ages out (then 404).  ``stale`` is true when the newest frame is too old to call "latest".
+    """
+    service = request.app.state.nowcast
+    snap = service.snapshot()
+    out: dict = {"frames": [], "latest": None, "stale": False, "age_min": None, "attribution": ATTRIBUTION}
+    if not service.radar_enabled:
+        out["reason"] = "disabled"
+        return out
+    if not snap.history:
+        out["reason"] = "no_data"
+        return out
+    newest = snap.history[-1][0]
+    age = (datetime.now(UTC) - newest).total_seconds() / 60.0
+    out.update(
+        frames=[{"id": _frame_id(t), "time": t.isoformat()} for t, _ in snap.history],
+        latest=_frame_id(newest),
+        age_min=round(age),
+        stale=age > STALE_AFTER_MIN,
+    )
+    return out
+
+
+@router.get("/nowcast/frame/{frame_id}")
+def nowcast_frame(frame_id: str, request: Request) -> Response:
+    """One observed radar frame as uint8 (same encoding as ``/nowcast/layer``); 404 once it aged out."""
+    snap = request.app.state.nowcast.snapshot()
+    for t, codes in snap.history:
+        if _frame_id(t) == frame_id:
+            extra = {
+                "Cache-Control": "public, max-age=3600, immutable",  # a frame id never changes content
+                "X-Frame-Time": t.isoformat(),
+                "X-Lead": "0",
+                "X-Enc-Min": str(RADAR_ENCODING.min),
+                "X-Enc-Max": str(RADAR_ENCODING.max),
+                "Access-Control-Expose-Headers": "X-Grid-NY, X-Grid-NX, X-Frame-Time, X-Lead, X-Enc-Min, X-Enc-Max",
+            }
+            return _binary(codes, f"radar-{frame_id}", request, extra)
+    raise HTTPException(404, detail="radar frame not available")
+
+
 @router.get("/nowcast/status")
 def nowcast_status(request: Request) -> dict:
     return {**request.app.state.nowcast.status, "leads": list(LEADS), "stale_after_min": STALE_AFTER_MIN}
@@ -419,6 +468,7 @@ class PushPrefs(BaseModel):
     cyclone: bool = True
     quiet_start: int = Field(22, ge=0, le=23)  # local (Asia/Bangkok) hours; start == end disables quiet hours
     quiet_end: int = Field(6, ge=0, le=23)
+    heat: bool = False  # forecast heat index (opt-in)
 
 
 class PushSubscribe(BaseModel):
@@ -462,7 +512,7 @@ def push_subscribe(body: PushSubscribe, request: Request) -> dict:
             body.lat,
             body.lon,
             body.label,
-            Prefs(p.storm, p.heavy_rain, p.cyclone, p.quiet_start, p.quiet_end),
+            Prefs(p.storm, p.heavy_rain, p.cyclone, p.quiet_start, p.quiet_end, p.heat),
         )
     except PushError as exc:
         raise HTTPException(exc.status, detail=str(exc)) from None
@@ -500,7 +550,7 @@ def push_test(body: PushSubscription, request: Request) -> dict:
         )
     payload = {
         "title": "ทดสอบการแจ้งเตือน",
-        "body": with_label(stored.label, "ฟ้าละเอียดจะแจ้งเตือนเมื่อพายุฝนฟ้าคะนองหรือฝนหนักใกล้ถึงตำแหน่งนี้"),
+        "body": with_label(stored.label, "ฟ้าละเอียดจะแจ้งเตือนตามประเภทที่คุณเลือกไว้สำหรับตำแหน่งนี้"),
         "lang": "th",
         "url": f"/?lat={stored.lat:.2f}&lon={stored.lon:.2f}",
         "tag": f"thwx-test-{stored.id[:8]}",

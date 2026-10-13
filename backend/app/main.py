@@ -35,9 +35,11 @@ async def lifespan(app: FastAPI):
     app.state.refresher = refresher
     nowcast = NowcastService(settings)
     app.state.nowcast = nowcast
-    app.state.push = PushService(settings, nowcast) if settings.push_enabled else None
+    app.state.push = PushService(settings, nowcast, latest_run=store.latest) if settings.push_enabled else None
     refresher.start()
     nowcast.start()  # no-op when both radar and cyclones are disabled
+    if app.state.push is not None:
+        app.state.push.start()
     yield
     nowcast.stop()
     if app.state.push is not None:

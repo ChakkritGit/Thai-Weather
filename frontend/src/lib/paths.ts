@@ -18,6 +18,9 @@ export const paths = {
   provinces: '/provinces',
   province: (p: Pick<ProvinceInfo, 'name_en'>) => `/provinces/${provinceSlug(p)}`,
   alerts: '/alerts',
+  /** push-alert settings for a point (the alerts page reads lat/lon, the hash scrolls to the form) */
+  alertSettings: (lat?: number, lon?: number) =>
+    lat === undefined || lon === undefined ? '/alerts#notifications' : `/alerts?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}#notifications`,
   method: '/method',
   design: '/design',
 };

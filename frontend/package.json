@@ -11,6 +11,7 @@
     "tokens": "node ../design-system/scripts/build-tokens.mjs"
   },
   "dependencies": {
+    "harfbuzzjs": "1.6.2",
     "maplibre-gl": "4.7.1",
     "next": "15.5.26",
     "react": "19.2.8",

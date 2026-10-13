@@ -135,6 +135,10 @@ export function WeatherMap(props: Props) {
       attributionControl: false,
     });
     map.touchZoomRotate.disableRotation();
+    // iOS Safari: cancel its own pinch gesture over the map, otherwise it may zoom the page instead of the map
+    const el = container.current!;
+    const stopPageZoom = (e: Event) => e.preventDefault();
+    for (const type of ['gesturestart', 'gesturechange', 'gestureend']) el.addEventListener(type, stopPageZoom, { passive: false });
     map.addControl(
       new maplibregl.AttributionControl({
         compact: true,
@@ -255,6 +259,7 @@ export function WeatherMap(props: Props) {
     onMap?.(map);
 
     return () => {
+      for (const type of ['gesturestart', 'gesturechange', 'gestureend']) el.removeEventListener(type, stopPageZoom);
       onMap?.(null);
       cityMarkers.current = [];
       map.remove();

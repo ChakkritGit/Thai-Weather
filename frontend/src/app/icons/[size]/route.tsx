@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { IconGlyph, type IconMode } from '@/lib/iconGlyph';
 
-/** PWA / notification icons, rendered once at build time: /icons/192, /icons/512, /icons/maskable-512, /icons/badge-96. */
+/** PWA / notification icons, rendered once at build time: /icons/192, /icons/512, /icons/maskable-512, /icons/badge-96, /icons/apple-180. */
 export const dynamic = 'force-static';
 
 const SPECS: Record<string, { px: number; mode: IconMode }> = {
@@ -9,6 +9,8 @@ const SPECS: Record<string, { px: number; mode: IconMode }> = {
   '512': { px: 512, mode: 'any' },
   'maskable-512': { px: 512, mode: 'maskable' },
   'badge-96': { px: 96, mode: 'badge' },
+  // apple-touch-icon: full-bleed, iOS rounds the corners itself
+  'apple-180': { px: 180, mode: 'apple' },
 };
 
 export function generateStaticParams() {

@@ -1,3 +1,5 @@
+import type { RadarFrameList } from './radarHistory';
+
 export interface GridDesc {
   lat0: number;
   lat1: number;
@@ -276,6 +278,17 @@ async function getRadar(lead: number): Promise<RadarFrame | null> {
   };
 }
 
+/** One observed radar frame of the playback history by its stable id; null once it aged out (404). */
+async function getRadarFrame(id: string, frameTime: string): Promise<RadarFrame | null> {
+  try {
+    const g = await getGrid(`/api/v1/nowcast/frame/${encodeURIComponent(id)}`);
+    return { ...g, frameTime };
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
 export const api = {
   meta: () => getJson<Meta>('/api/v1/meta'),
   layer: (runId: string, layer: LayerId, index: number, res: 'fine' | 'coarse', daily: boolean) =>
@@ -289,5 +302,7 @@ export const api = {
     getJson<{ run_id: string; demo: boolean; alerts: AlertEntry[] }>(`/api/v1/alerts?min_severity=${minSeverity}`),
   nowcast: (lat: number, lon: number) => getJson<Nowcast>(`/api/v1/nowcast?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
   nowcastLayer: (lead = 0) => getRadar(lead),
+  radarFrames: () => getJson<RadarFrameList>('/api/v1/nowcast/frames'),
+  radarFrame: (id: string, frameTime: string) => getRadarFrame(id, frameTime),
   geoUrl: (name: 'provinces' | 'countries') => `${BASE}/api/v1/geo/${name}`,
 };

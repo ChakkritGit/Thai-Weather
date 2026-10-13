@@ -11,11 +11,16 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   eslint: { ignoreDuringBuilds: true },
+  // loads its WebAssembly with top-level await: keep it out of the server bundle (lib/ogText.ts)
+  serverExternalPackages: ['harfbuzzjs'],
   async rewrites() {
     return [
       { source: '/api/v1/:path*', destination: `${API}/api/v1/:path*` },
       { source: '/docs', destination: `${API}/docs` },
       { source: '/openapi.json', destination: `${API}/openapi.json` },
+      // iOS probes these fixed paths (e.g. bookmarks, older versions) when no <link> is found
+      { source: '/apple-touch-icon.png', destination: '/icons/apple-180' },
+      { source: '/apple-touch-icon-precomposed.png', destination: '/icons/apple-180' },
     ];
   },
 };

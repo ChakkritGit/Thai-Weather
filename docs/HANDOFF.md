@@ -42,7 +42,7 @@ docker compose up --build                     # web http://localhost:3000 · API
 3. **Province names** come from our ISO-code table (`core/provinces_meta.py`) because Natural Earth's Thai names contain errors.
 4. **Rain-coverage terms** (`rainCoverage` in `weather.json`) should be confirmed against TMD's current glossary.
 5. **Map bundle** – MapLibre (~800 KB) is lazy-loaded only on `/`; other pages ship ~115 KB of JS.
-6. Province pages show province means; a per-province 22 km comparison is not yet shown. Open Graph uses one static image (`public/og.png`); per-province OG images need a Thai font for `next/og`.
+6. Province pages show province means; a per-province 22 km comparison is not yet shown. Open Graph images are generated (`/og`, `/og/province/[slug]`, `/og/point`); Thai text is shaped with HarfBuzz (`lib/ogText.ts`) because `next/og` drops tone marks on upper vowels.
 
 ## Roadmap (suggested order)
 

@@ -87,3 +87,32 @@ describe('subscription helpers', () => {
     expect(parseStored('{"id":1}')).toBeNull();
   });
 });
+
+describe('alert settings helpers', () => {
+  it('heat is opt-in and any single alert type is enough', async () => {
+    const { anyAlert } = await import('./push');
+    expect(DEFAULT_PREFS.heat).toBe(false);
+    const none = { ...DEFAULT_PREFS, storm: false, heavy_rain: false, cyclone: false, heat: false };
+    expect(anyAlert(none)).toBe(false);
+    expect(anyAlert({ ...none, heat: true })).toBe(true);
+  });
+
+  it('older stored subscriptions read heat as off', () => {
+    const raw = JSON.stringify({ id: 'a', lat: 13.75, lon: 100.5, label: '', prefs: { storm: true, heavy_rain: true, cyclone: true, quiet_start: 22, quiet_end: 6 } });
+    expect(parseStored(raw)?.prefs.heat).toBe(false);
+  });
+
+  it('parses a point from the query string', async () => {
+    const { parsePoint } = await import('./push');
+    expect(parsePoint('13.756', '100.502')).toEqual({ lat: 13.756, lon: 100.502 });
+    for (const [a, b] of [[undefined, '100'], ['', '100'], ['abc', '100'], ['95', '100'], ['13', '200'], ['13', 'Infinity']] as const) {
+      expect(parsePoint(a, b)).toBeNull();
+    }
+  });
+
+  it('links the map to the alert settings for a point', async () => {
+    const { paths } = await import('./paths');
+    expect(paths.alertSettings(13.7563, 100.50178)).toBe('/alerts?lat=13.756&lon=100.502#notifications');
+    expect(paths.alertSettings()).toBe('/alerts#notifications');
+  });
+});

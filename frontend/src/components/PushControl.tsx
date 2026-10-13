@@ -3,8 +3,8 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import '@/design/push.css';
 import { api } from '../lib/api';
-import { DEFAULT_PREFS, quietLabel, roundCoord, type PushPrefs } from '../lib/push';
-import { usePush, type PushError } from '../lib/usePush';
+import { anyAlert, DEFAULT_PREFS, quietLabel, roundCoord, type PushPrefs } from '../lib/push';
+import type { PushController, PushError } from '../lib/usePush';
 import { useT } from '../i18n';
 import type { DictKey } from '../i18n/dict';
 
@@ -20,7 +20,7 @@ const ERRORS: Record<PushError, DictKey> = {
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
 
-function Bell() {
+export function Bell() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9Zm4 9.5a2 2 0 0 0 4 0" />
@@ -29,12 +29,13 @@ function Bell() {
 }
 
 /**
- * "Alert me when a storm / heavy rain / cyclone is about to reach this spot" – Web Push opt-in.
+ * "Alert me when a storm / heavy rain / cyclone / dangerous heat is due at this spot" – Web Push opt-in.
  * One subscription per device: it is tied to one saved location, which can be moved here.
+ * The controller is passed in so the alerts page shares one `usePush` with its location picker.
+ * Nothing is saved (and no permission asked) until the user submits the form.
  */
-export function PushControl({ lat, lon }: { lat: number; lon: number }) {
+export function PushControl({ lat, lon, push }: { lat: number; lon: number; push: PushController }) {
   const { t, lang, pick } = useT();
-  const push = usePush();
   const { stored, support, busy, error } = push;
   const uid = useId();
 
@@ -161,7 +162,7 @@ export function PushControl({ lat, lon }: { lat: number; lon: number }) {
 
   const quietOn = prefs.quiet_start !== prefs.quiet_end;
   const set = (p: Partial<PushPrefs>) => setPrefs((cur) => ({ ...cur, ...p }));
-  const nothing = !prefs.storm && !prefs.heavy_rain && !prefs.cyclone;
+  const nothing = !anyAlert(prefs);
 
   return (
     <form className="push-box push-form" onSubmit={submit}>
@@ -188,6 +189,9 @@ export function PushControl({ lat, lon }: { lat: number; lon: number }) {
         </label>
         <label className="push-check">
           <input type="checkbox" checked={prefs.cyclone} onChange={(e) => set({ cyclone: e.target.checked })} /> {t('pushCyclone')}
+        </label>
+        <label className="push-check">
+          <input type="checkbox" checked={prefs.heat} onChange={(e) => set({ heat: e.target.checked })} /> {t('pushHeat')}
         </label>
       </fieldset>
       <div className="push-field">

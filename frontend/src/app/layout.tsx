@@ -9,6 +9,8 @@ import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { translate } from '@/i18n/dict';
 import type { AlertEntry, Meta } from '@/lib/api';
 import { fromApi, getPrefs, siteUrl } from '@/lib/server';
+import { SITE_NAME } from '@/lib/seo';
+import { SPLASH_SPECS } from '@/lib/splash';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -16,9 +18,18 @@ export const metadata: Metadata = {
   description:
     'พยากรณ์อากาศความละเอียด 2 กม. สำหรับประเทศไทย ละเอียดกว่าโมเดลโลก (~25–28 กม.) กว่า 100 เท่า — ฝน โอกาสฝน ดัชนีความร้อน พายุฝนฟ้าคะนอง รายจังหวัด',
   applicationName: 'ฟ้าละเอียด – Thai Weather HD',
-  openGraph: { type: 'website', siteName: 'ฟ้าละเอียด · Thai Weather HD', locale: 'th_TH', images: ['/og.png'] },
-  icons: { icon: '/favicon.svg' },
-  appleWebApp: { capable: true, title: 'ฟ้าละเอียด', statusBarStyle: 'default' },
+  openGraph: { type: 'website', siteName: SITE_NAME, locale: 'th_TH', url: '/', images: [{ url: '/og', width: 1200, height: 630 }] },
+  twitter: { card: 'summary_large_image', images: ['/og'] },
+  // an explicit `icons` replaces Next's file-based apple-icon, so the touch icon is listed here too
+  icons: { icon: '/favicon.svg', apple: [{ url: '/icons/apple-180', sizes: '180x180', type: 'image/png' }] },
+  appleWebApp: {
+    capable: true,
+    title: 'ฟ้าละเอียด',
+    statusBarStyle: 'default',
+    startupImage: SPLASH_SPECS.map((s) => ({ url: `/splash/${s.id}`, media: s.media })),
+  },
+  // iOS still reads the legacy tag for standalone launch + startup images
+  other: { 'apple-mobile-web-app-capable': 'yes' },
   alternates: { canonical: '/' },
 };
 

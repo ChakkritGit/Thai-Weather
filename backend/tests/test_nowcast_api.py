@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings, get_settings
 from app.core.grid import FINE_GRID
 from app.nowcast.cyclones import Cyclone, parse_geometry
-from app.nowcast.service import LEADS, STALE_AFTER_MIN, NowcastService
+from app.nowcast.service import HISTORY_FRAMES, LEADS, STALE_AFTER_MIN, NowcastService
 
 G = FINE_GRID
 LAT, LON = 13.75, 100.5
@@ -148,7 +148,7 @@ class StubRadar:
 
     def __init__(self) -> None:
         t0 = datetime(2026, 10, 9, 6, tzinfo=UTC)
-        self.listing = [(t0 + timedelta(minutes=10 * k), f"/v2/radar/{k}") for k in range(5)]
+        self.listing = [(t0 + timedelta(minutes=10 * k), f"/v2/radar/{k}") for k in range(13)]  # 2 h, like RainViewer
         self.available = 3
         self.fetched: list[str] = []
         self.fail = False
@@ -195,9 +195,26 @@ def test_service_missed_frames_reset_the_buffer():
     radar.available = 2
     service._radar = radar
     service.poll_radar()
-    radar.available = 5  # 3 newer frames appeared; the last known one fell out of the window
+    radar.available = 13  # an outage: the last known frame is now older than the playback window
     service.poll_radar()
-    assert [t for t, _ in service._frames] == [t for t, _ in radar.listing[2:5]]
+    assert [t for t, _ in service._frames] == [t for t, _ in radar.listing[13 - HISTORY_FRAMES : 13]]
+
+
+def test_service_keeps_an_hour_of_history_and_fetches_each_frame_once():
+    service = _service()
+    radar = StubRadar()
+    radar.available = 13
+    service._radar = radar
+    service.poll_radar()
+    assert len(radar.fetched) == HISTORY_FRAMES == 7  # only the last 60 min of the 2 h listing
+    snap = service.snapshot()
+    assert [t for t, _ in snap.history] == [t for t, _ in radar.listing[6:13]]
+    assert snap.frame_time == radar.listing[12][0] and all(c.dtype == np.uint8 for _, c in snap.history)
+    radar.listing.append((radar.listing[-1][0] + timedelta(minutes=10), "/v2/radar/13"))
+    radar.available = 14
+    service.poll_radar()
+    assert radar.fetched[7:] == ["/v2/radar/13"]  # one new tile set, the oldest frame ages out
+    assert [t for t, _ in service.snapshot().history] == [t for t, _ in radar.listing[7:14]]
 
 
 def test_cyclone_failure_keeps_previous_list():
@@ -214,3 +231,54 @@ def test_start_does_nothing_when_disabled():
     service = NowcastService(Settings(nowcast_source="off", cyclones_enabled=False))
     service.start()
     assert service._thread is None and service.enabled is False
+
+
+# ---------------------------------------------------------------- playback history
+def _history(newest_age_min: float, n: int = 7) -> list[tuple[datetime, np.ndarray]]:
+    newest = datetime.now(UTC) - timedelta(minutes=newest_age_min)
+    return [(newest - timedelta(minutes=10 * k), _blob(IX - 30 - 4 * k)) for k in reversed(range(n))]
+
+
+def test_frames_list_and_bytes_come_from_one_snapshot(swap):
+    service = _service()
+    frames = _history(3)
+    service.ingest(frames)
+    c = swap(service)
+    d = c.get("/api/v1/nowcast/frames").json()
+    ids = [f["id"] for f in d["frames"]]
+    assert len(ids) == 7 and ids == sorted(ids) and d["latest"] == ids[-1]
+    assert d["stale"] is False and d["age_min"] == 3 and d["frames"][0]["time"] == frames[0][0].isoformat()
+    r = c.get(f"/api/v1/nowcast/frame/{ids[0]}")
+    assert r.status_code == 200 and len(r.content) == G.ny * G.nx
+    assert r.headers["x-frame-time"] == frames[0][0].isoformat() and "immutable" in r.headers["cache-control"]
+    assert c.get(f"/api/v1/nowcast/frame/{ids[0]}", headers={"If-None-Match": r.headers["etag"]}).status_code == 304
+    oldest_codes = r.content
+
+    # a new frame arrives: ids stay stable, the oldest ages out
+    newer = frames[-1][0] + timedelta(minutes=10)
+    service.ingest([*frames, (newer, _blob(IX))])
+    d2 = c.get("/api/v1/nowcast/frames").json()
+    ids2 = [f["id"] for f in d2["frames"]]
+    assert ids2[:-1] == ids[1:] and ids2[-1] == str(int(newer.timestamp()))
+    assert c.get(f"/api/v1/nowcast/frame/{ids[0]}").status_code == 404
+    assert c.get(f"/api/v1/nowcast/frame/{ids[1]}").content != oldest_codes  # a different frame
+    assert c.get("/api/v1/nowcast/frame/not-an-id").status_code == 404
+
+
+def test_frames_are_observed_not_advected(swap):
+    service = _service()
+    service.ingest(_history(2))
+    c = swap(service)
+    latest = c.get("/api/v1/nowcast/frames").json()["latest"]
+    observed = c.get(f"/api/v1/nowcast/frame/{latest}").content
+    assert observed == c.get("/api/v1/nowcast/layer?lead=0").content  # lead 0 is the observed frame
+
+
+def test_frames_report_stale_and_disabled(swap, client):
+    assert client.get("/api/v1/nowcast/frames").json()["reason"] == "disabled"
+    service = _service()
+    c = swap(service)
+    assert c.get("/api/v1/nowcast/frames").json()["reason"] == "no_data"
+    service.ingest(_history(STALE_AFTER_MIN + 10))
+    d = c.get("/api/v1/nowcast/frames").json()
+    assert d["stale"] is True and len(d["frames"]) == 7  # still listed, flagged as not current

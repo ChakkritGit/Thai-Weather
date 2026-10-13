@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import type { Meta, ProvinceWithDays } from '@/lib/api';
 import { fromApi } from '@/lib/server';
 import { Warming } from '@/components/Shell';
 import { ProvincesView } from '@/views/ProvincesView';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: 'พยากรณ์อากาศรายจังหวัด 77 จังหวัด',
-  description: 'พยากรณ์อากาศ 2 วัน ทุกจังหวัดของประเทศไทย จากกริดความละเอียด 2 กม. — ร้อยละพื้นที่ฝนตก ปริมาณฝน อุณหภูมิ ดัชนีความร้อน และการเตือนภัย',
-  alternates: { canonical: '/provinces' },
-};
+  description:
+    'พยากรณ์อากาศ 2 วัน ทุกจังหวัดของประเทศไทย จากกริดความละเอียด 2 กม. — ร้อยละพื้นที่ฝนตก ปริมาณฝน อุณหภูมิ ดัชนีความร้อน และการเตือนภัย',
+  path: '/provinces',
+});
 
 export default async function ProvincesRoute() {
   const [meta, data] = await Promise.all([

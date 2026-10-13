@@ -33,3 +33,17 @@
 .push-msg { margin: 0; font-size: var(--font-size-xs); }
 .push-msg[data-kind='error'] { color: var(--color-severity-3-fg); }
 .push-msg[data-kind='ok'] { color: var(--color-fg-muted); }
+
+/* settings section on the alerts page (components/PushSettings.tsx) */
+.push-settings { display: grid; gap: var(--space-3); scroll-margin-top: var(--space-4); }
+.push-settings-title { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-md); }
+.push-settings-title svg { width: var(--size-iconMd); height: var(--size-iconMd); color: var(--color-accent-default); }
+.push-settings-lead { margin: 0; font-size: var(--font-size-sm); }
+.push-place { display: grid; gap: var(--space-2); font-size: var(--font-size-sm); }
+.push-place-text { display: grid; gap: 2px; }
+.push-place .btn svg { width: var(--size-iconSm); height: var(--size-iconSm); }
+
+/* link from the map's point panel to the settings */
+.push-link { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; color: inherit; text-decoration: none; }
+.push-link:hover { border-color: var(--color-border-strong); background: var(--color-bg-surface); }
+.push-link-cta { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-accent-default); font-weight: var(--font-weight-semibold); }

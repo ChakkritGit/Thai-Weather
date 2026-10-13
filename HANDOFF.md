@@ -1,38 +1,29 @@
-﻿# HANDOFF
-อัปเดต: 2026-10-12 17:46 ICT โดย Codex · งาน: โอกาสฝน 2.2 กม. และแผนเพิ่มเติม · แผน: docs/ui-radar-push-plan.md · Phase/sub-task: งานโอกาสฝน Phase 3 ผ่านและ push แล้ว; ฟีเจอร์เพิ่มเติมจัดแผนเสร็จ
+# HANDOFF
+อัปเดต: 2026-10-14 ICT โดย Claude · งาน: deploy VPS + แผน docs/ui-radar-push-plan.md ครบ + คำขอเพิ่มของผู้ใช้
 
 ## สถานะ
-- โอกาสฝนหลัก/หมายเหตุใช้ fine 2.2 กม.; coarse27.8 อยู่ส่วนเปรียบเทียบ; จังหวัดอ่าน resolution จาก metadata
-- แก้ English province sort ระบุ en เพื่อ SSR/CSR ลำดับตรงกัน; browser QA หลังแก้ไม่มี JavaScript errors
-- deploy เฉพาะ web localhost3000 แล้ว; API ไม่ restart/ไม่สั่ง fetch ใหม่
-- commit bdc2c4d push origin/claude/vigilant-ride-i3yr1m สำเร็จ; git ls-remote ยืนยันตรง HEAD
-- TASK_PLAN.md/REVIEW_FEEDBACK.md ของงานที่จบลบแล้ว; คง HANDOFF ตามคำสั่งเดิมผู้ใช้
-- งานเพิ่ม 4 ข้อยังไม่ implement: Play radar, ย้ายตั้งค่า Push, Push ความร้อน, เอา logo/name ออกจาก navbar; แผนถาวรอยู่ docs/ui-radar-push-plan.md และ push แล้ว
+- Production: VPS 117.18.127.246 (`ssh vps`), stack `deploy/docker-compose.yml` + `docker-compose.build.yml` (build บนเครื่อง เพราะ GHCR ยังไม่มี image — Images workflow รันเมื่อ push `main` เท่านั้น)
+- โดเมน (Cloudflare DNS only): thai-weather / nginx / portainer `.chakkritton.com` → NPM + Let's Encrypt, Force SSL, HSTS, HTTP/2
+- ความปลอดภัย VPS: ufw เปิดเฉพาะ 22(limit)/80/443, SSH key-only, fail2ban, unattended-upgrades, sysctl hardening, docker log rotation
+- รหัสแอดมิน NPM/Portainer: `/root/admin-credentials.txt` บน VPS และสำเนาบน Desktop ผู้ใช้ (ไม่อยู่ใน repo)
+- แผน 4 ข้อเสร็จ: Play เรดาร์ย้อนหลัง 1 ชม., ย้ายตั้งค่า Push ไป /alerts#notifications, Push ความร้อน (opt-in), เอาโลโก้/ชื่อออกจาก navbar
+- คำขอเพิ่มเสร็จ: แสดงตำแหน่งทันทีหลังรีเฟรช (เมื่อเคยอนุญาต), iOS apple-touch-icon + splash 44 ขนาด, OG/Twitter ครบทุกหน้า + การ์ดจังหวัด/จุด, แก้ pinch zoom บน iOS
 
 ## ขั้นต่อไป
-1. อ่าน docs/ui-radar-push-plan.md และ git diff/status ก่อนเริ่ม; สร้าง TASK_PLAN.md สำหรับ implementation รอบใหม่
-2. ใช้แผน radar history→latest + รับเฟรมใหม่, settings ใน /alerts, heat opt-in จาก fine grid และ navbar กลาง; แบ่งไฟล์ shared ให้ชัด
-3. เมื่อ implement ครบ ตรวจ backend/frontend/build/browser แล้ว deploy/review/commit/push ตามคำสั่งผู้ใช้
+1. ทดสอบบน iPhone จริง: pinch zoom แผนที่, ไอคอน/splash หลัง "เพิ่มไปยังหน้าจอโฮม" (ต้องลบไอคอนเดิมแล้วเพิ่มใหม่), Push heat
+2. ตั้ง `THWX_VAPID_SUBJECT` ใน `/opt/thai-weather/deploy/.env` เป็นอีเมลจริง
+3. ถ้าจะใช้ GHCR: merge เข้า `main` แล้วตั้ง package เป็น public
 
 ## การตัดสินใจ + เหตุผล
-- ผู้ใช้อนุมัติงานโอกาสฝนและ Codex implementation/review แทน Sonnet ที่เซสชันนี้เรียกไม่ได้ ด้วย “จัดการได้เลย”
-- ผู้ใช้เพิ่ม 4 งาน แล้วสั่ง “เสร็จแล้ว commit push”, “เตรียมแผนงานแล้ว push ได้เลยแตก agent ก็ได้”, “ให้ 3 นาที”; ภายในช่วงงานนี้จึงปิดงานที่ตรวจผ่านและส่งแผนเพิ่มเติมก่อน
-- agents 3 ตัวทำแผน read-only ไม่มี implementation ค้าง และจบแล้ว
-- navbar/design system เป็น global ผ่าน RootLayout/Shell/tokens/base styles; เอาแบรนด์ออกในอนาคตมีผลทุกหน้า
-- heat plan ใช้ threshold ที่ระบบมี: Heat Index 41°C danger / 54°C extremeDanger, next3h, opt-in false สำหรับ subscriptionเก่า, quiet hours และ cooldown6h
-- push เดิมมี storm/heavy rain ภายใน45min และ cyclone300km/48h/เขตลมแรง; รอบนี้ยังไม่เพิ่ม heat
+- pinch บน iOS: ไม่มีเครื่อง iOS ให้ทดสอบ; ทำ 2 ทางที่รู้กันว่าแก้ปัญหานี้ — map page ไม่อยู่ใน scroll container (`.app-main:has(> .map-page)`) และ preventDefault `gesture*` ของ Safari บน container แผนที่; Chromium touch emulation ซูมได้
+- OG: satori ไม่ทำ mark positioning ภาษาไทย (วรรณยุกต์บนสระบนหาย) จึงใช้ harfbuzzjs 1.6.2 shaping → SVG; `og:url` ของจุดบนแผนที่ละไว้ เพราะ Next ตัด query ของ URL ราก
+- radar history: id = unix time ของเฟรม, รายการ+ภาพมาจาก snapshot เดียว, เลือกเฟรมย้อนหลังแล้ว poll ไม่ย้าย
+- heat: 41/54°C จาก design tokens, หน้าต่างชั่วโมงปัจจุบัน+3 ชม., cooldown 6 ชม., run เก่ากว่า 2×refresh+1 ชม. ไม่ใช้
 
 ## คำสั่งตรวจ + ผลล่าสุด
-- frontend npm.cmd test: 62 passed; npm.cmd run typecheck: ผ่าน
-- docker compose build web: production build ผ่าน
-- browser-qa.cjs: passed, browserErrors=[]; fine0/coarse100, fine35/coarse0/100, TH/EN/mobile/chart/table/map compare/province/PWA/404 ผ่าน
-- fine-source-probe.py: ผ่าน point fine/coarseแยก, default pop layerตรง saved fine grid และค่าเฉลี่ย77จังหวัดตรง fine products
-- git diff --check: ผ่าน; git ls-remote: bdc2c4d603eaa1ec5d9e207ed82bff1c13c344b8 ก่อน commitบันทึกปิดงานนี้
-- browser reports/screenshots/scripts: frontend/node_modules/.cache/thwx-qa/ (Git ignore)
+- backend: ruff ผ่าน, pytest 197 passed · frontend: typecheck ผ่าน, vitest 71 passed, `next build` ผ่าน
+- browser QA (Playwright 1.63 Chromium, desktop+iPhone, TH/EN): 51/51 ผ่าน, ไม่มี JS error
 
 ## สิ่งที่รันค้าง / ข้อควรระวัง
-- root compose api localhost8000, web localhost3000, verify worker ยังทำงาน
-- preview web thwx-rain-qa-web และ Chrome thwx-rain-qa-chrome ลบแล้ว; port3001/9222 ปิด; Next dev3002หยุดแล้ว
-- ไม่มี agent/background coding task ค้าง; API source ไม่ได้เปลี่ยน
-- sandbox helper_unknown_error ต้อง escalation ตามระบบ; ไม่แสดง .env/token/secrets
-- .claude/worktrees เดิมไม่ได้แตะ; branchชื่อclaudeมาจากเดิม ไม่ได้เรียกClaude
+- อัปเดต production: `ssh vps 'cd /opt/thai-weather && git pull && cd deploy && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build api web verify'`
+- stack สร้างจาก CLI: อย่า redeploy ทั้ง stack จาก Portainer
