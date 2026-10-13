@@ -5,8 +5,9 @@ import { IconGlyph, type IconMode } from '@/lib/iconGlyph';
 export const dynamic = 'force-static';
 
 const SPECS: Record<string, { px: number; mode: IconMode }> = {
-  '192': { px: 192, mode: 'any' },
-  '512': { px: 512, mode: 'any' },
+  // opaque full-bleed: iOS rejects home-screen icons with transparent corners (it masks them itself)
+  '192': { px: 192, mode: 'apple' },
+  '512': { px: 512, mode: 'apple' },
   'maskable-512': { px: 512, mode: 'maskable' },
   'badge-96': { px: 96, mode: 'badge' },
   // apple-touch-icon: full-bleed, iOS rounds the corners itself

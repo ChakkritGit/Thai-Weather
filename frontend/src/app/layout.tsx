@@ -23,8 +23,9 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', images: ['/og'] },
   // an explicit `icons` replaces Next's file-based apple-icon, so the touch icon is listed here too
   icons: {
+    // PNG only: an SVG icon can win iOS's icon choice and then fall back to a letter tile
     icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: `/app-icons/icon-32.png?v=${ICON_VERSION}`, sizes: '32x32', type: 'image/png' },
       { url: `/app-icons/icon-192.png?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
     ],
     // static .png files (public/), versioned: iOS keeps a "no icon" result per site, a new URL refetches
