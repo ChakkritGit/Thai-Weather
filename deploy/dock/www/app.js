@@ -28,6 +28,8 @@ function h(tag, attrs = {}, ...children) {
     if (v === false || v === null || v === undefined) continue;
     if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else if (k === 'class') el.setAttribute('class', v);
+    // through the CSSOM: a style="" attribute would be blocked by the page's CSP (style-src 'self')
+    else if (k === 'style') for (const decl of String(v).split(';')) { const [p, ...rest] = decl.split(':'); if (p.trim()) el.style.setProperty(p.trim(), rest.join(':').trim()); }
     else el.setAttribute(k, v === true ? '' : v);
   }
   for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c instanceof Node ? c : String(c));
