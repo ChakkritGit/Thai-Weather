@@ -146,6 +146,22 @@ button {
 .brand-mark .tile { fill: var(--color-accent-default); }
 .brand-mark .glyph { fill: var(--color-fg-onAccent); }
 .brand-mark .glyph-soft { fill: var(--color-fg-onAccent); opacity: 0.55; }
+.clock {
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.clock-time { color: var(--color-fg-default); font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; }
+@media (max-width: 860px) {
+  .clock-day { display: none; }
+}
+
 .nav {
   grid-column: 2;
   display: flex;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LangProvider, useT, type DictKey, type Lang } from '../i18n';
@@ -40,12 +40,51 @@ export function SkipLink() {
   );
 }
 
+/**
+ * Live clock in Thailand time: weekday, date, month, year (Buddhist era in Thai), hours and minutes.
+ * Rendered only in the browser (no server time baked into the page) and ticks on the minute.
+ */
+function Clock() {
+  const { lang } = useT();
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    let timer = 0;
+    const tick = () => {
+      const d = new Date();
+      setNow(d);
+      timer = window.setTimeout(tick, 60_000 - (d.getSeconds() * 1000 + d.getMilliseconds()) + 50);
+    };
+    tick();
+    const wake = () => document.visibilityState === 'visible' && setNow(new Date());
+    document.addEventListener('visibilitychange', wake);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', wake);
+    };
+  }, []);
+  const locale = lang === 'th' ? 'th-TH' : 'en-GB';
+  const tz = 'Asia/Bangkok';
+  if (!now) return <span className="clock" aria-hidden="true" />;
+  const day = new Intl.DateTimeFormat(locale, { timeZone: tz, weekday: 'short' }).format(now);
+  const date = new Intl.DateTimeFormat(locale, { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric' }).format(now);
+  const time = new Intl.DateTimeFormat(locale, { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+  const full = new Intl.DateTimeFormat(locale, { timeZone: tz, dateStyle: 'full', timeStyle: 'short' }).format(now);
+  return (
+    <time className="clock" dateTime={now.toISOString()} title={full} aria-label={full}>
+      <span className="clock-day">{day}</span>
+      <span className="clock-date">{date}</span>
+      <span className="clock-time num">{time}</span>
+    </time>
+  );
+}
+
 export function Header({ alertCount }: { alertCount: number }) {
   const { t, lang, setLang } = useT();
   const { theme, toggle } = useTheme();
   const active = useActive();
   return (
     <header className="header">
+      <Clock />
       <nav className="nav" aria-label="main">
         {NAV.map((n) => (
           <Link key={n.href} href={n.href} aria-current={active(n.href) ? 'page' : undefined}>
