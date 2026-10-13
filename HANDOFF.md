@@ -21,7 +21,7 @@
 - Dock (docker.chakkritton.com): UI มินิมอลบน Portainer API, คอนเทนเนอร์ `dock` ใน deploy/docker-compose.yml, ไฟล์ deploy/dock (ดู deploy/README.md §3b); Portainer เต็มแทรก viewport ผ่าน NPM advanced config
 - คำถามย้าย Vercel/Workers/Supabase → VPS: ผู้ใช้ให้พักไว้ก่อน (ประเมินแล้ว: Next.js ง่าย, Durable Objects ปานกลาง-ยาก, Workers AI/Supabase แนะนำคงไว้)
 
-- Security fixes (14 ต.ค.): Next 15.5.27 + security headers/CSP, ซ่อน /docs, rate limit ล็อกอินแอดมิน 6/นาที/IP, Cloudflare proxied + Full (strict), DOCKER-USER ให้ 80/443 รับเฉพาะ Cloudflare, default site 444, SSH algorithms สมัยใหม่ — รายละเอียด deploy/README.md §4b; ค้าง: L1/L2 (ผู้ใช้ทำ), L4 maplibre 6, L5 NPM caps
+- Security fixes (14 ต.ค.): Next 15.5.27 + security headers/CSP, ซ่อน /docs, rate limit ล็อกอินแอดมิน 6/นาที/IP, Cloudflare proxied + Full (strict), DOCKER-USER ให้ 80/443 รับเฉพาะ Cloudflare, default site 444, SSH algorithms สมัยใหม่ — รายละเอียด deploy/README.md §4b; L2 ย้ายรหัสแอดมินเข้า macOS Keychain + ลบไฟล์แล้ว, L4 maplibre-gl 6.11.2 (worker เสิร์ฟจาก public/maplibre ผ่าน scripts/copy-maplibre-worker.mjs) + override postcss 8.5.28 ใน Next 15.5.27 → npm audit prod = 0; ค้าง: L1 รหัส root (ผู้ใช้เปลี่ยนเอง), L5 NPM caps, Next 16 (ไม่จำเป็นด้านความปลอดภัยแล้ว)
 
 ## การตัดสินใจ + เหตุผล
 - pinch บน iOS: ไม่มีเครื่อง iOS ให้ทดสอบ; ทำ 2 ทางที่รู้กันว่าแก้ปัญหานี้ — map page ไม่อยู่ใน scroll container (`.app-main:has(> .map-page)`) และ preventDefault `gesture*` ของ Safari บน container แผนที่; Chromium touch emulation ซูมได้

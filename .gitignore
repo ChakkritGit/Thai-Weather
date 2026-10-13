@@ -23,3 +23,6 @@ frontend/dist/
 next-env.d.ts
 frontend/out/
 .claude/worktrees/
+
+# MapLibre worker copied at build time (scripts/copy-maplibre-worker.mjs)
+frontend/public/maplibre/

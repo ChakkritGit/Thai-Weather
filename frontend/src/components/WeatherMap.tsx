@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import maplibregl, { type CanvasSource, type GeoJSONSource, type ImageSource, type Map as MLMap } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import type { CanvasSource, GeoJSONSource, ImageSource, Map as MLMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { api, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
 import { buildRadarLut, decode, hexToRgb } from '../lib/color';
@@ -120,6 +121,8 @@ export function WeatherMap(props: Props) {
 
   // ---------------------------------------------------------------- init
   useEffect(() => {
+    // the worker module is served from public/ (scripts/copy-maplibre-worker.mjs), same origin
+    maplibregl.setWorkerUrl(`/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`);
     const map = new maplibregl.Map({
       container: container.current!,
       style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': token('--color-map-ocean') } }] },

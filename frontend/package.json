@@ -8,11 +8,13 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "tokens": "node ../design-system/scripts/build-tokens.mjs"
+    "tokens": "node ../design-system/scripts/build-tokens.mjs",
+    "predev": "node scripts/copy-maplibre-worker.mjs",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs"
   },
   "dependencies": {
     "harfbuzzjs": "1.6.2",
-    "maplibre-gl": "4.7.1",
+    "maplibre-gl": "6.11.2",
     "next": "15.5.27",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -23,5 +25,10 @@
     "@types/react-dom": "19.2.3",
     "typescript": "5.6.3",
     "vitest": "2.1.4"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.28"
+    }
   }
 }
