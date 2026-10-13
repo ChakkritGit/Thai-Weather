@@ -75,10 +75,19 @@ ssh -L 8181:127.0.0.1:81 root@<VPS_IP>
 เปิด `https://portainer.chakkritton.com` แล้วสร้าง admin **ภายใน 5 นาทีหลัง container เริ่ม**
 (ถ้าเลยเวลา: `docker restart portainer`) → เลือก environment แบบ **Local / Docker**
 
+## 3b. Dock — หน้าจัดการ Docker แบบมินิมอล (มือถือ)
+
+`https://docker.chakkritton.com` — หน้าเว็บเล็ก ๆ (`deploy/dock/www`, ไม่มี dependency, CSP เข้ม) ที่ใช้ API ของ Portainer:
+ล็อกอินด้วยบัญชี Portainer, ดูคอนเทนเนอร์ตามโปรเจกต์พร้อม CPU/RAM, เริ่ม/หยุด/รีสตาร์ท (แตะยืนยันสองครั้ง), log, อิมเมจ, วอลุ่ม
+- คอนเทนเนอร์ `dock` (nginx อ่านอย่างเดียว) ไม่มี Docker socket — ส่งต่อเฉพาะ path ของ Portainer API ที่หน้าใช้ (`deploy/dock/nginx.conf`)
+- หยุด `portainer`, `nginx-proxy-manager`, `dock` จากหน้านี้ไม่ได้ (จะเข้าหน้าไม่ได้) แต่รีสตาร์ทได้
+- Proxy host ใน NPM: `docker.chakkritton.com` → `dock:80` (SSL, Force SSL, HSTS) · แก้ไฟล์แล้วแค่ `git pull` (เมานต์ไว้)
+- งานที่ไม่มีในหน้านี้ใช้ Portainer เต็มที่ `portainer.chakkritton.com` (NPM แทรก viewport ให้แสดงบนมือถือได้)
+
 ## 4. ป้องกันหน้าแอดมิน (แนะนำ)
 
 ใน NPM → **Access Lists** → สร้างรายการ (Basic Auth และ/หรืออนุญาตเฉพาะ IP ของคุณ)
-แล้วผูกกับ proxy host `nginx.` และ `portainer.` — เว็บหลักไม่ต้องผูก
+แล้วผูกกับ proxy host `nginx.`, `portainer.` และ `docker.` — เว็บหลักไม่ต้องผูก
 
 ## 5. Image ของแอป
 

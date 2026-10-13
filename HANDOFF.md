@@ -18,6 +18,9 @@
 
 - รอบ 3: โอกาสฝนชั่วโมงปัจจุบันปรับด้วยเรดาร์ (docs/NOWCAST.md §4b); Play เดียวคุมทั้งเรดาร์+พยากรณ์ (เรดาร์ย้อนหลัง→ล่าสุด→ชั่วโมงถัดไป, เรดาร์โชว์เฉพาะชั่วโมงปัจจุบัน); ไอคอนเป็นไฟล์ static .png ใน public (apple-touch-icon.png, app-icons/) ICON_VERSION=3 — ยังต้องยืนยันบน iPhone
 
+- Dock (docker.chakkritton.com): UI มินิมอลบน Portainer API, คอนเทนเนอร์ `dock` ใน deploy/docker-compose.yml, ไฟล์ deploy/dock (ดู deploy/README.md §3b); Portainer เต็มแทรก viewport ผ่าน NPM advanced config
+- คำถามย้าย Vercel/Workers/Supabase → VPS: ผู้ใช้ให้พักไว้ก่อน (ประเมินแล้ว: Next.js ง่าย, Durable Objects ปานกลาง-ยาก, Workers AI/Supabase แนะนำคงไว้)
+
 ## การตัดสินใจ + เหตุผล
 - pinch บน iOS: ไม่มีเครื่อง iOS ให้ทดสอบ; ทำ 2 ทางที่รู้กันว่าแก้ปัญหานี้ — map page ไม่อยู่ใน scroll container (`.app-main:has(> .map-page)`) และ preventDefault `gesture*` ของ Safari บน container แผนที่; Chromium touch emulation ซูมได้
 - OG: satori ไม่ทำ mark positioning ภาษาไทย (วรรณยุกต์บนสระบนหาย) จึงใช้ harfbuzzjs 1.6.2 shaping → SVG; `og:url` ของจุดบนแผนที่ละไว้ เพราะ Next ตัด query ของ URL ราก

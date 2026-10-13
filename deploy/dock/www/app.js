@@ -98,6 +98,21 @@ function ago(seconds) {
   if (s < 86400) return `${Math.floor(s / 3600)} ชั่วโมงที่แล้ว`;
   return `${Math.floor(s / 86400)} วันที่แล้ว`;
 }
+/** Docker's English status ("Up 3 minutes (healthy)", "Exited (0) 2 hours ago") in Thai, without the health part */
+function statusText(status = '') {
+  const units = [[/seconds?/, 'วินาที'], [/minutes?/, 'นาที'], [/hours?/, 'ชั่วโมง'], [/days?/, 'วัน'], [/weeks?/, 'สัปดาห์'], [/months?/, 'เดือน'], [/years?/, 'ปี']];
+  const dur = (d) => {
+    d = d.replace(/^About an? /i, '~1 ').replace(/^Less than a second/i, '<1 second');
+    for (const [re, th] of units) d = d.replace(re, th);
+    return d.replace(/^an? /i, '1 ');
+  };
+  const s = status.replace(/\s*\((healthy|unhealthy|health: starting)\)/, '');
+  let m = /^Up (.+)$/.exec(s);
+  if (m) return `ทำงานมา ${dur(m[1])}`;
+  m = /^Exited \((\d+)\) (.+) ago$/.exec(s);
+  if (m) return `หยุดเมื่อ ${dur(m[2])}ที่แล้ว${m[1] !== '0' ? ` (รหัส ${m[1]})` : ''}`;
+  return s;
+}
 const nameOf = (c) => (c.Names?.[0] ?? c.Name ?? c.Id.slice(0, 12)).replace(/^\//, '');
 
 /** running + health → dot class and a Thai word */
@@ -234,7 +249,7 @@ async function containersView(token) {
             h('span', { class: `dot ${st.cls}`, title: st.label }),
             h('span', { class: 'row-main' },
               h('span', { class: 'row-title' }, nameOf(c)),
-              h('span', { class: 'row-sub' }, `${st.label} · ${c.Status}`)),
+              h('span', { class: 'row-sub' }, `${st.label} · ${statusText(c.Status)}`)),
             side,
             icon('chev', 'chev'));
         })))));
@@ -308,9 +323,9 @@ async function containerView(token, id) {
   };
   const actions = h('div', { class: 'actions' },
     running
-      ? confirmButton('หยุด', 'แตะอีกครั้งเพื่อหยุด', () => act('stop', `หยุด ${name} แล้ว`), { danger: true, disabled: guarded })
+      ? confirmButton('หยุด', 'ยืนยันหยุด?', () => act('stop', `หยุด ${name} แล้ว`), { danger: true, disabled: guarded })
       : h('button', { class: 'btn primary', type: 'button', onclick: (e) => { e.currentTarget.disabled = true; act('start', `เริ่ม ${name} แล้ว`).catch(handleError); } }, 'เริ่ม'),
-    running ? confirmButton('รีสตาร์ท', 'แตะอีกครั้งเพื่อรีสตาร์ท', () => act('restart', `รีสตาร์ท ${name} แล้ว`)) : null);
+    running ? confirmButton('รีสตาร์ท', 'ยืนยันรีสตาร์ท?', () => act('restart', `รีสตาร์ท ${name} แล้ว`)) : null);
 
   const statBox = (label, value, sub) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value), sub ? h('small', {}, sub) : null);
   const statsEl = h('div', { class: 'stats' }, statBox('CPU', '…'), statBox('หน่วยความจำ', '…'), statBox('เครือข่าย', '…'));
