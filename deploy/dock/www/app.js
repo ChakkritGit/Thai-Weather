@@ -1,5 +1,6 @@
 // Dock – a minimal Docker dashboard on top of Portainer's API (same origin, /api/* is proxied).
 // No dependencies. All text from the server goes in via textContent, never as HTML.
+import { chart } from './charts.js';
 
 const TOKEN_KEY = 'dock.jwt';
 const LIST_REFRESH_MS = 10_000;
@@ -13,6 +14,12 @@ const app = document.getElementById('app');
 let envId = null;
 let timer = 0;
 let viewToken = 0; // increases on every navigation; async work for an old view is dropped
+let charts = []; // charts of the current view (destroyed on navigation)
+const mkChart = (host, opts) => {
+  const c = chart(host, opts);
+  charts.push(c);
+  return c;
+};
 
 // ------------------------------------------------------------------ tiny DOM helper
 function h(tag, attrs = {}, ...children) {
@@ -35,6 +42,7 @@ const ICONS = {
   layers: 'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',
   disk: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
   ext: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
+  pulse: 'M3 12h4l3-8 4 16 3-8h4',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -162,7 +170,8 @@ async function stats(id) {
 
 // ------------------------------------------------------------------ layout
 const TABS = [
-  ['#/', 'box', 'คอนเทนเนอร์'],
+  ['#/', 'pulse', 'ภาพรวม'],
+  ['#/containers', 'box', 'คอนเทนเนอร์'],
   ['#/images', 'layers', 'อิมเมจ'],
   ['#/volumes', 'disk', 'วอลุ่ม'],
 ];
@@ -261,7 +270,7 @@ async function containersView(token) {
       sides.get(c.Id)?.replaceChildren(h('b', {}, fmtPct(u.cpu)), fmtBytes(u.mem));
     }));
   };
-  shell(topBar('คอนเทนเนอร์', { onRefresh: load }), meta, body, tabs('#/'));
+  shell(topBar('คอนเทนเนอร์', { onRefresh: load }), meta, body, tabs('#/containers'));
   await load();
   if (token !== viewToken) return; // navigated away while loading: do not start a timer for an old view
   timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), LIST_REFRESH_MS);
@@ -364,24 +373,50 @@ async function containerView(token, id) {
       statBox('เครือข่าย', `↓ ${fmtBytes(u.rx)}`, `↑ ${fmtBytes(u.tx)}`));
   };
 
+  // CPU / RAM history of this container from dock-metrics (last hour)
+  const history = h('section', { class: 'group' }, h('h2', { class: 'group-title' }, 'ย้อนหลัง 1 ชั่วโมง'));
+  const histGrid = h('div', { class: 'mini-grid' });
+  history.append(histGrid);
+  let histCharts = null;
+  const loadHistory = async () => {
+    const mx = await metrics('1h').catch(() => null);
+    const c = mx?.containers?.[id.slice(0, 12)];
+    if (token !== viewToken) return;
+    if (!c) { history.hidden = true; return; }
+    history.hidden = false;
+    const cpu = { times: mx.times, series: [{ name: 'CPU', color: 'var(--s1)', values: c.cpu ?? [] }], kind: 'area', format: (v) => fmtPct(v), step: mx.step };
+    const mem = { times: mx.times, series: [{ name: 'หน่วยความจำ', color: 'var(--s2)', values: c.mem ?? [] }], kind: 'area', format: (v) => fmtBytes(v), step: mx.step };
+    if (!histCharts) {
+      const a = h('div', { class: 'card' }, h('h3', { class: 'card-title' }, 'CPU'));
+      const b = h('div', { class: 'card' }, h('h3', { class: 'card-title' }, 'หน่วยความจำ'));
+      histGrid.append(a, b);
+      histCharts = [mkChart(a, { ...cpu, label: `CPU ของ ${name}`, height: 140 }), mkChart(b, { ...mem, label: `หน่วยความจำของ ${name}`, height: 140 })];
+    } else {
+      histCharts[0].update(cpu);
+      histCharts[1].update(mem);
+    }
+  };
+
   shell(
-    topBar(name, { back: '#/', onRefresh: () => Promise.all([loadStats(), loadLogs()]) }),
+    topBar(name, { back: '#/containers', onRefresh: () => Promise.all([loadStats(), loadLogs(), loadHistory()]) }),
     h('p', { class: 'meta' }, h('span', { class: 'pill' }, h('span', { class: `dot ${st.cls}` }), st.label)),
     actions,
     guarded && running ? h('p', { class: 'note' }, 'หยุดไม่ได้จากที่นี่ — ถ้าหยุดจะเข้าหน้านี้ไม่ได้ (รีสตาร์ทได้)') : null,
     statsEl,
+    history,
     h('section', { class: 'group' },
       h('div', { class: 'logs-head' }, h('h2', { class: 'group-title' }, 'Log ล่าสุด'), h('label', { class: 'switch' }, follow, 'อัปเดตอัตโนมัติ')),
       logsEl),
     h('section', { class: 'group' }, h('h2', { class: 'group-title' }, 'ข้อมูล'), info),
-    tabs('#/'));
-  await Promise.all([loadStats(), loadLogs()]);
+    tabs('#/containers'));
+  await Promise.all([loadStats(), loadLogs(), loadHistory()]);
   if (token !== viewToken) return; // navigated away while loading
   let n = 0;
   timer = setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     if (follow.checked) loadLogs().catch(handleError);
     if (++n % 2 === 0) loadStats().catch(handleError);
+    if (n % 4 === 0) loadHistory().catch(handleError);
   }, LOG_REFRESH_MS);
 }
 
@@ -434,6 +469,244 @@ async function volumesView(token) {
   await load();
 }
 
+
+// ------------------------------------------------------------------ overview (host, proxy traffic, containers)
+const metrics = (range) => api(`/metrics?range=${range}`);
+const RANGES = [['1h', '1 ชม.', 10_000], ['24h', '24 ชม.', 60_000], ['7d', '7 วัน', 300_000]];
+const fmtRate = (b, short) => (Number.isFinite(b) ? `${fmtBytes(b)}${short ? '' : '/s'}` : '–');
+const fmtNum = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('th-TH') : '–');
+const lastOf = (col) => (col ? [...col].reverse().find((v) => v !== null && v !== undefined) : undefined);
+const avgOf = (col) => {
+  const v = (col ?? []).filter((x) => x !== null && x !== undefined);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
+};
+const sumOf = (col) => (col ?? []).reduce((a, b) => a + (b ?? 0), 0);
+const maxOf = (col) => Math.max(...(col ?? []).filter((x) => x !== null && x !== undefined), 0);
+function uptimeText(sec) {
+  const d = Math.floor(sec / 86400);
+  const hrs = Math.floor((sec % 86400) / 3600);
+  const min = Math.floor((sec % 3600) / 60);
+  return d ? `${d} วัน ${hrs} ชม.` : hrs ? `${hrs} ชม. ${min} นาที` : `${min} นาที`;
+}
+const SERIES = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'];
+let overviewRange = (() => {
+  try { return localStorage.getItem('dock.range') || '1h'; } catch { return '1h'; }
+})();
+
+function tile(label, value, sub, pct, tone) {
+  return h('div', { class: 'tile' },
+    h('span', { class: 'tile-label' }, label),
+    h('span', { class: 'tile-value' }, value),
+    sub ? h('span', { class: 'tile-sub' }, sub) : null,
+    Number.isFinite(pct) ? h('span', { class: 'meter', role: 'meter', 'aria-valuenow': Math.round(pct), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': label },
+      h('span', { class: `meter-fill${tone ? ` ${tone}` : ''}`, style: `width:${Math.min(100, Math.max(0, pct)).toFixed(1)}%` })) : null);
+}
+const pctTone = (p) => (p >= 90 ? 'bad' : p >= 75 ? 'warn' : '');
+const card = (title, sub, ...children) =>
+  h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { class: 'card-title' }, title), sub ? h('span', { class: 'card-sub' }, sub) : null), ...children);
+
+async function overviewView(token) {
+  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'ช่วงเวลา' },
+    RANGES.map(([r, label]) => h('button', {
+      type: 'button', 'aria-pressed': r === overviewRange ? 'true' : 'false',
+      onclick: () => {
+        overviewRange = r;
+        try { localStorage.setItem('dock.range', r); } catch { /* ignore */ }
+        route();
+      },
+    }, label)));
+  const live = h('span', { class: 'live' }, h('span', { class: 'dot ok' }), 'สด');
+  const hostLine = h('p', { class: 'meta' }, ' ');
+  const hostTiles = h('div', { class: 'tiles' }, skeleton(4));
+  const chartsGrid = h('div', { class: 'grid' });
+  const ngTiles = h('div', { class: 'tiles' });
+  const ngGrid = h('div', { class: 'grid' });
+  const ngTables = h('div', { class: 'grid' });
+  const ctrGrid = h('div', { class: 'grid grid-3' });
+  const ctrMem = h('div', { class: 'grid' });
+  const body = h('div', { class: 'overview' },
+    h('div', { class: 'filters' }, seg, live),
+    hostLine, hostTiles, chartsGrid,
+    h('h2', { class: 'section-title' }, 'ทราฟฟิกเว็บ (Nginx Proxy Manager)'), ngTiles, ngGrid, ngTables,
+    h('h2', { class: 'section-title' }, 'คอนเทนเนอร์'), ctrMem, ctrGrid);
+  shell(topBar('ภาพรวม', { onRefresh: () => load() }), body, tabs('#/'));
+  app.querySelector('.shell').classList.add('wide');
+
+  const C = {}; // chart handles, created on first data
+  const ctrCards = new Map();
+  const load = async () => {
+    body.classList.add('loading');
+    const [mx, list] = await Promise.all([metrics(overviewRange), docker('/containers/json?all=1')]);
+    if (token !== viewToken) return;
+    body.classList.remove('loading');
+    const { times, step, host: hs, snapshot: sn } = mx;
+    const T = { times, step };
+
+    // ---- host line + tiles
+    hostLine.replaceChildren(h('b', {}, sn.hostname), ` · ${sn.os} · เคอร์เนล ${sn.kernel} · เปิดเครื่องมา ${uptimeText(sn.uptime_s)} · ${sn.cpus} CPU · โปรเซส ${String(sn.procs).split('/')[1] ?? '–'}`);
+    const cpuNow = (lastOf(hs.cpu_user) ?? 0) + (lastOf(hs.cpu_system) ?? 0) + (lastOf(hs.cpu_iowait) ?? 0);
+    const cpuAvg = avgOf((hs.cpu_user ?? []).map((v, i) => (v === null ? null : v + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))));
+    const memUsed = sn.mem_total - sn.mem_available;
+    const memPct = (memUsed / sn.mem_total) * 100;
+    const diskPct = (sn.disk_used / sn.disk_total) * 100;
+    const swapUsed = sn.swap_total - sn.swap_free;
+    hostTiles.replaceChildren(
+      tile('CPU ตอนนี้', fmtPct(cpuNow), `เฉลี่ยช่วงนี้ ${fmtPct(cpuAvg)} · สูงสุด ${fmtPct(maxOf((hs.cpu_user ?? []).map((v, i) => (v ?? 0) + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))))}`, cpuNow, pctTone(cpuNow)),
+      tile('หน่วยความจำ', fmtBytes(memUsed), `จาก ${fmtBytes(sn.mem_total)} · ${fmtPct(memPct)}`, memPct, pctTone(memPct)),
+      tile('ดิสก์', fmtBytes(sn.disk_used), `ว่าง ${fmtBytes(sn.disk_free)} จาก ${fmtBytes(sn.disk_total)}`, diskPct, pctTone(diskPct)),
+      tile('Load (1 / 5 / 15 นาที)', sn.load.map((v) => v.toFixed(2)).join(' / '), `${sn.cpus} CPU = รับได้เต็ม ${sn.cpus}.00`, (sn.load[0] / sn.cpus) * 100, pctTone((sn.load[0] / sn.cpus) * 100)),
+      tile('เครือข่ายตอนนี้', `↓ ${fmtRate(lastOf(hs.net_rx))}`, `↑ ${fmtRate(lastOf(hs.net_tx))}`),
+      tile('Swap', fmtBytes(swapUsed), `จาก ${fmtBytes(sn.swap_total)}`, sn.swap_total ? (swapUsed / sn.swap_total) * 100 : NaN, ''),
+    );
+
+    // ---- host charts
+    const hostCharts = [
+      ['cpu', 'CPU', '% ของทุกคอร์', { ...T, kind: 'stack', max: 100, format: (v) => fmtPct(v),
+        series: [
+          { name: 'ผู้ใช้ (user)', color: SERIES[0], values: hs.cpu_user ?? [] },
+          { name: 'ระบบ (system)', color: SERIES[1], values: hs.cpu_system ?? [] },
+          { name: 'รอดิสก์ (iowait)', color: SERIES[2], values: hs.cpu_iowait ?? [] },
+        ] }],
+      ['mem', 'หน่วยความจำ', `ทั้งหมด ${fmtBytes(sn.mem_total)}`, { ...T, kind: 'stack', format: (v) => fmtBytes(v), ref: { value: sn.mem_total, label: 'ทั้งหมด' },
+        series: [
+          { name: 'ใช้งาน', color: SERIES[0], values: hs.mem_used ?? [] },
+          { name: 'แคช (คืนได้)', color: SERIES[2], values: hs.mem_cache ?? [] },
+        ] }],
+      ['net', 'เครือข่าย', 'ไบต์ต่อวินาที', { ...T, kind: 'line', format: (v, axis) => fmtRate(v, axis),
+        series: [
+          { name: 'รับ ↓', color: SERIES[0], values: hs.net_rx ?? [] },
+          { name: 'ส่ง ↑', color: SERIES[1], values: hs.net_tx ?? [] },
+        ] }],
+      ['disk', 'ดิสก์ I/O', 'ไบต์ต่อวินาที', { ...T, kind: 'line', format: (v, axis) => fmtRate(v, axis),
+        series: [
+          { name: 'อ่าน', color: SERIES[0], values: hs.disk_rd ?? [] },
+          { name: 'เขียน', color: SERIES[1], values: hs.disk_wr ?? [] },
+        ] }],
+      ['load', 'Load average (1 นาที)', `เส้นอ้างอิง = ${sn.cpus} CPU`, { ...T, kind: 'area', format: (v) => v.toFixed(2), ref: { value: sn.cpus, label: `${sn.cpus} CPU` },
+        series: [{ name: 'Load', color: SERIES[0], values: hs.load1 ?? [] }] }],
+      ['swap', 'Swap ที่ใช้', `ทั้งหมด ${fmtBytes(sn.swap_total)}`, { ...T, kind: 'area', format: (v) => fmtBytes(v),
+        series: [{ name: 'Swap', color: SERIES[6], values: hs.swap_used ?? [] }] }],
+    ];
+    for (const [key, title, sub, opts] of hostCharts) {
+      if (!C[key]) {
+        const c = card(title, sub);
+        chartsGrid.append(c);
+        C[key] = mkChart(c, { ...opts, label: title });
+      } else C[key].update(opts);
+    }
+
+    // ---- proxy traffic
+    const ng = mx.nginx ?? {};
+    const hosts = Object.keys(ng).filter((k) => k !== 'all').sort((a, b) => sumOf(ng[b].req) - sumOf(ng[a].req));
+    const allReq = hosts.reduce((s2, k) => s2 + sumOf(ng[k].req), 0);
+    const cls = (c) => sumOf(ng.all?.[c]);
+    const errors = cls('s4') + cls('s5');
+    const bytes = hosts.reduce((s2, k) => s2 + sumOf(ng[k].bytes), 0);
+    const spanMin = (times.length * step) / 60;
+    ngTiles.replaceChildren(
+      tile('คำขอทั้งหมด', fmtNum(allReq), `เฉลี่ย ${(allReq / spanMin).toFixed(1)} ต่อนาที`),
+      tile('ผู้เข้าชม (IP ไม่ซ้ำ)', fmtNum(mx.top?.unique_clients), 'นับจาก log ของ proxy'),
+      tile('ข้อผิดพลาด 4xx / 5xx', `${fmtNum(cls('s4'))} / ${fmtNum(cls('s5'))}`, allReq ? `${((errors / allReq) * 100).toFixed(1)}% ของคำขอ` : '–', allReq ? (errors / allReq) * 100 : NaN, errors / Math.max(1, allReq) > 0.05 ? 'warn' : ''),
+      tile('ข้อมูลที่ส่งออก', fmtBytes(bytes), 'body ของ response'),
+    );
+    const short = (hn) => hn.replace(/\.chakkritton\.com$/, '');
+    const reqOpts = { ...T, kind: 'columns', format: (v) => fmtNum(v),
+      series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].req ?? [] })) };
+    const statusOpts = { ...T, kind: 'columns', format: (v) => fmtNum(v),
+      series: [
+        { name: '2xx สำเร็จ', color: 'var(--good)', values: ng.all?.s2 ?? [] },
+        { name: '3xx เปลี่ยนเส้นทาง', color: 'var(--neutral)', values: ng.all?.s3 ?? [] },
+        { name: '4xx คำขอผิด', color: 'var(--warning)', values: ng.all?.s4 ?? [] },
+        { name: '5xx เซิร์ฟเวอร์ผิดพลาด', color: 'var(--critical)', values: ng.all?.s5 ?? [] },
+      ] };
+    const bwOpts = { ...T, kind: 'stack', format: (v) => fmtBytes(v),
+      series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].bytes ?? [] })) };
+    for (const [key, title, sub, opts] of [
+      ['req', 'คำขอตามเว็บไซต์', 'จำนวนต่อช่วง', reqOpts],
+      ['status', 'สถานะ HTTP', 'ทุกเว็บไซต์', statusOpts],
+      ['bw', 'ข้อมูลที่ส่งออกตามเว็บไซต์', 'ไบต์ต่อช่วง', bwOpts],
+    ]) {
+      if (!C[key]) {
+        const c = card(title, sub);
+        ngGrid.append(c);
+        C[key] = mkChart(c, { ...opts, label: title });
+      } else C[key].update(opts);
+    }
+    // per-site table + top paths
+    const siteRows = hosts.map((k) => {
+      const req = sumOf(ng[k].req);
+      const err = sumOf(ng[k].s4) + sumOf(ng[k].s5);
+      return h('tr', {},
+        h('td', {}, short(k)),
+        h('td', { class: 'num' }, fmtNum(req)),
+        h('td', { class: 'num' }, req ? `${((err / req) * 100).toFixed(1)}%` : '–'),
+        h('td', { class: 'num' }, fmtBytes(sumOf(ng[k].bytes))),
+        h('td', { class: 'bar-cell' }, h('span', { class: 'share', style: `width:${allReq ? ((req / allReq) * 100).toFixed(1) : 0}%` })));
+    });
+    const pathRows = (mx.top?.paths ?? []).map((p) => h('tr', {},
+      h('td', {}, short(p.host)),
+      h('td', { class: 'mono' }, `${p.method} ${p.path}`),
+      h('td', { class: 'num' }, fmtNum(p.count))));
+    ngTables.replaceChildren(
+      card('สรุปตามเว็บไซต์', null, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+        h('tr', {}, h('th', {}, 'เว็บไซต์'), h('th', { class: 'num' }, 'คำขอ'), h('th', { class: 'num' }, 'ผิดพลาด'), h('th', { class: 'num' }, 'ส่งออก'), h('th', {}, 'สัดส่วน')),
+        siteRows))),
+      card('หน้าที่ถูกเรียกมากที่สุด', 'ไม่รวมไฟล์ static', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+        h('tr', {}, h('th', {}, 'เว็บไซต์'), h('th', {}, 'คำขอ'), h('th', { class: 'num' }, 'ครั้ง')),
+        pathRows.length ? pathRows : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล'))))));
+
+    // ---- containers: memory stack + small multiples
+    const names = new Map(list.map((c) => [c.Id.slice(0, 12), { name: nameOf(c), c }]));
+    const ids = Object.keys(mx.containers ?? {}).filter((id) => names.has(id)).sort((a, b) => names.get(a).name.localeCompare(names.get(b).name));
+    const color = (i) => SERIES[i % SERIES.length];
+    const memOpts = { ...T, kind: 'stack', format: (v) => fmtBytes(v), ref: { value: sn.mem_total, label: 'RAM ทั้งเครื่อง' },
+      series: ids.map((id, i) => ({ name: names.get(id).name, color: color(i), values: mx.containers[id].mem ?? [] })) };
+    const cpuOpts = { ...T, kind: 'line', format: (v) => fmtPct(v),
+      series: ids.map((id, i) => ({ name: names.get(id).name, color: color(i), values: mx.containers[id].cpu ?? [] })) };
+    for (const [key, title, sub, opts] of [
+      ['cmem', 'หน่วยความจำต่อคอนเทนเนอร์', 'ซ้อนกัน = รวมทั้งหมด', memOpts],
+      ['ccpu', 'CPU ต่อคอนเทนเนอร์', '% ของทุกคอร์', cpuOpts],
+    ]) {
+      if (!C[key]) {
+        const c = card(title, sub);
+        ctrMem.append(c);
+        C[key] = mkChart(c, { ...opts, label: title });
+      } else C[key].update(opts);
+    }
+    ids.forEach((id, i) => {
+      const { name, c } = names.get(id);
+      const d = mx.containers[id];
+      const st = stateOf(c);
+      const stats2 = h('div', { class: 'mini-stats' },
+        h('span', {}, h('b', {}, fmtPct(lastOf(d.cpu))), 'CPU'),
+        h('span', {}, h('b', {}, fmtBytes(lastOf(d.mem))), 'RAM'),
+        h('span', {}, h('b', {}, `${fmtRate(lastOf(d.rx), true)}`), '↓ เน็ต'),
+        h('span', {}, h('b', {}, `${fmtRate(lastOf(d.wr), true)}`), 'เขียนดิสก์'));
+      const cpuO = { ...T, kind: 'area', compact: true, format: (v) => fmtPct(v), series: [{ name: 'CPU', color: color(i), values: d.cpu ?? [] }] };
+      const memO = { ...T, kind: 'area', compact: true, format: (v) => fmtBytes(v), series: [{ name: 'RAM', color: color(i), values: d.mem ?? [] }] };
+      let e = ctrCards.get(id);
+      if (!e) {
+        const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, h('span', { class: `dot ${st.cls}` }), h('span', { class: 'row-title' }, name), icon('chev', 'chev'));
+        const stWrap = h('div', {}, stats2);
+        const cpuBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'CPU'));
+        const memBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'RAM'));
+        const el2 = h('section', { class: 'card mini' }, head, stWrap, cpuBox, memBox);
+        ctrGrid.append(el2);
+        e = { stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: `CPU ของ ${name}` }), mem: mkChart(memBox, { ...memO, label: `RAM ของ ${name}` }) };
+        ctrCards.set(id, e);
+      } else {
+        e.stWrap.replaceChildren(stats2);
+        e.cpu.update(cpuO);
+        e.mem.update(memO);
+      }
+    });
+  };
+  await load();
+  if (token !== viewToken) return;
+  const every = RANGES.find(([r]) => r === overviewRange)[2];
+  timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), every);
+}
+
 // ------------------------------------------------------------------ routing
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); } catch { /* token may already be gone */ }
@@ -450,6 +723,8 @@ function handleError(e) {
 
 async function route() {
   clearInterval(timer);
+  charts.forEach((c) => c.destroy());
+  charts = [];
   const token = ++viewToken;
   if (!localStorage.getItem(TOKEN_KEY)) return loginView();
   const hash = location.hash || '#/';
@@ -457,9 +732,10 @@ async function route() {
     await ensureEnv();
     const m = /^#\/c\/([0-9a-f]{12,64})$/.exec(hash);
     if (m) await containerView(token, m[1]);
+    else if (hash === '#/containers') await containersView(token);
     else if (hash === '#/images') await imagesView(token);
     else if (hash === '#/volumes') await volumesView(token);
-    else await containersView(token);
+    else await overviewView(token);
   } catch (e) {
     if (token === viewToken) handleError(e);
   }
