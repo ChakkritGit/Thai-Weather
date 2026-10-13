@@ -609,13 +609,14 @@ button {
   scroll-snap-type: x proximity;
   scroll-padding-inline: var(--space-3);
   scrollbar-width: none;
-  pointer-events: none;
+  /* must stay hit-testable: iOS WebKit will not scroll a container with pointer-events: none */
+  touch-action: pan-x;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
 }
 .map-layers[data-fade-start='true'] { --fade-l: 28px; }
 .map-layers[data-fade-end='true'] { --fade-r: 36px; }
-.map-layers > * { pointer-events: auto; scroll-snap-align: start; flex: none; }
+.map-layers > * { scroll-snap-align: start; flex: none; }
 .map-layers::-webkit-scrollbar { display: none; }
 .map-layers .chip {
   height: 34px;

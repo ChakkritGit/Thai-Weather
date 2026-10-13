@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { ICON_VERSION } from '@/lib/iconGlyph';
 
 /** Web app manifest (served at /manifest.webmanifest, linked automatically by Next). */
 export default function manifest(): MetadataRoute.Manifest {
@@ -16,9 +17,10 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#006ea6', // brand blue, same as the viewport themeColor
     categories: ['weather'],
     icons: [
-      { src: '/icons/192', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icons/512', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/icons/maskable-512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: `/icons/192?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: `/icons/512?v=${ICON_VERSION}`, sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: `/icons/maskable-512?v=${ICON_VERSION}`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: `/icons/apple-180?v=${ICON_VERSION}`, sizes: '180x180', type: 'image/png', purpose: 'any' },
     ],
   };
 }

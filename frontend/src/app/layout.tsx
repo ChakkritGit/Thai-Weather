@@ -9,6 +9,7 @@ import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { translate } from '@/i18n/dict';
 import type { AlertEntry, Meta } from '@/lib/api';
 import { fromApi, getPrefs, siteUrl } from '@/lib/server';
+import { ICON_VERSION } from '@/lib/iconGlyph';
 import { SITE_NAME } from '@/lib/seo';
 import { SPLASH_SPECS } from '@/lib/splash';
 
@@ -21,7 +22,14 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', siteName: SITE_NAME, locale: 'th_TH', url: '/', images: [{ url: '/og', width: 1200, height: 630 }] },
   twitter: { card: 'summary_large_image', images: ['/og'] },
   // an explicit `icons` replaces Next's file-based apple-icon, so the touch icon is listed here too
-  icons: { icon: '/favicon.svg', apple: [{ url: '/icons/apple-180', sizes: '180x180', type: 'image/png' }] },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: `/icons/192?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
+    ],
+    // versioned: iOS keeps a "no icon" result per site, a new URL makes it fetch again
+    apple: [{ url: `/icons/apple-180?v=${ICON_VERSION}`, sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: {
     capable: true,
     title: 'ฟ้าละเอียด',

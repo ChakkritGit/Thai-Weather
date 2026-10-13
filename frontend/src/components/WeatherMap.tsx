@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import maplibregl, { type GeoJSONSource, type ImageSource, type Map as MLMap } from 'maplibre-gl';
+import maplibregl, { type CanvasSource, type GeoJSONSource, type ImageSource, type Map as MLMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { api, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
 import { buildRadarLut, decode, hexToRgb } from '../lib/color';
@@ -108,6 +108,7 @@ export function WeatherMap(props: Props) {
   const [ready, setReady] = useState(false);
   const rasterRef = useRef<Raster | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const radarCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const currentRef = useRef<{ data: GridData; grid: GridDesc; layer: LayerMeta } | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const cityMarkers = useRef<maplibregl.Marker[]>([]);
@@ -153,6 +154,10 @@ export function WeatherMap(props: Props) {
     canvas.width = raster.width;
     canvas.height = raster.height;
     canvasRef.current = canvas;
+    const radarCanvas = document.createElement('canvas');
+    radarCanvas.width = raster.width;
+    radarCanvas.height = raster.height;
+    radarCanvasRef.current = radarCanvas;
     const coords = imageCoordinates(fineBounds);
     const blank =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
@@ -162,7 +167,9 @@ export function WeatherMap(props: Props) {
       map.addSource('provinces', { type: 'geojson', data: api.geoUrl('provinces'), promoteId: 'id' });
       map.addSource('hillshade', { type: 'image', url: blank, coordinates: coords });
       map.addSource('weather', { type: 'image', url: blank, coordinates: coords });
-      map.addSource('radar', { type: 'image', url: blank, coordinates: coords });
+      // a canvas source: playback redraws it in place. An image source would drop its texture on every
+      // updateImage(), which shows as a blank flash between radar frames.
+      map.addSource('radar', { type: 'canvas', canvas: radarCanvas, coordinates: coords, animate: false });
       map.addSource('grid', { type: 'geojson', data: gridLineCollection(run.coarse_grid, fineBounds) });
       if (res === 'fine') map.addSource('fine-grid', { type: 'geojson', data: gridLineCollection(run.fine_grid, fineBounds) });
       map.addSource('wind', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -361,12 +368,15 @@ export function WeatherMap(props: Props) {
       map.setLayoutProperty('radar', 'visibility', 'none');
       return;
     }
-    const c = document.createElement('canvas');
-    c.width = rasterRef.current.width;
-    c.height = rasterRef.current.height;
+    const c = radarCanvasRef.current!;
+    const ctx = c.getContext('2d')!;
+    ctx.clearRect(0, 0, c.width, c.height);
     radarLut ??= buildRadarLut();
-    renderGrid(c.getContext('2d')!, rasterRef.current, frame.codes, g, radarLut, { edgeFadeDeg: 0.4, edgeBounds: fineBounds });
-    (map.getSource('radar') as ImageSource).updateImage({ url: c.toDataURL(), coordinates: imageCoordinates(fineBounds) });
+    renderGrid(ctx, rasterRef.current, frame.codes, g, radarLut, { edgeFadeDeg: 0.4, edgeBounds: fineBounds });
+    // a paused canvas source only re-uploads its texture while playing: play for one rendered frame
+    const src = map.getSource('radar') as CanvasSource;
+    src.play();
+    map.once('render', () => src.pause());
     map.setLayoutProperty('radar', 'visibility', 'visible');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, props.radar, run.run_id]);

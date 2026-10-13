@@ -14,6 +14,8 @@
 2. ตั้ง `THWX_VAPID_SUBJECT` ใน `/opt/thai-weather/deploy/.env` เป็นอีเมลจริง
 3. ถ้าจะใช้ GHCR: merge เข้า `main` แล้วตั้ง package เป็น public
 
+- รอบแก้จาก iPhone (2026-10-14): แถบชั้นข้อมูลเลื่อนได้ (เลิก pointer-events:none), เรดาร์ไม่กระพริบ (canvas source แทน updateImage), ไอคอนมี ?v= ให้ iOS โหลดใหม่ + favicon PNG/.ico, robots/sitemap/การ์ด OG เรนเดอร์ตอน request (เดิมได้ localhost จากตอน build)
+
 ## การตัดสินใจ + เหตุผล
 - pinch บน iOS: ไม่มีเครื่อง iOS ให้ทดสอบ; ทำ 2 ทางที่รู้กันว่าแก้ปัญหานี้ — map page ไม่อยู่ใน scroll container (`.app-main:has(> .map-page)`) และ preventDefault `gesture*` ของ Safari บน container แผนที่; Chromium touch emulation ซูมได้
 - OG: satori ไม่ทำ mark positioning ภาษาไทย (วรรณยุกต์บนสระบนหาย) จึงใช้ harfbuzzjs 1.6.2 shaping → SVG; `og:url` ของจุดบนแผนที่ละไว้ เพราะ Next ตัด query ของ URL ราก

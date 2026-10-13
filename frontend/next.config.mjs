@@ -21,6 +21,7 @@ const nextConfig = {
       // iOS probes these fixed paths (e.g. bookmarks, older versions) when no <link> is found
       { source: '/apple-touch-icon.png', destination: '/icons/apple-180' },
       { source: '/apple-touch-icon-precomposed.png', destination: '/icons/apple-180' },
+      { source: '/favicon.ico', destination: '/icons/192' },
     ];
   },
 };
