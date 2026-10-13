@@ -26,6 +26,11 @@ services:
     image: jc21/nginx-proxy-manager:latest
     container_name: nginx-proxy-manager
     restart: unless-stopped
+    # L5: keep only the capabilities its init (s6), openresty and certbot use; no privilege escalation
+    cap_drop: [MKNOD, NET_RAW, SYS_CHROOT, AUDIT_WRITE, SETFCAP]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 512
+    mem_limit: 768m
     ports:
       - "80:80"
       - "443:443"
@@ -42,6 +47,12 @@ services:
     image: portainer/portainer-ce:lts
     container_name: portainer
     restart: unless-stopped
+    # L5: Portainer talks to the Docker socket as root (that socket is the real power); the process itself
+    # needs no Linux capabilities and cannot gain new privileges
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
+    mem_limit: 512m
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
