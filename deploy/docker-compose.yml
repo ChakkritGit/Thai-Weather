@@ -64,6 +64,35 @@ services:
       - ./dock/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - proxy
+      - dock
+
+  # Host / container / proxy-traffic history for Dock's overview (deploy/dock/metrics/collector.py).
+  # Read-only host views, no Docker socket, no capabilities; reachable only from `dock` (behind Portainer login).
+  dock-metrics:
+    image: python:3.12-alpine
+    container_name: dock-metrics
+    restart: unless-stopped
+    command: ["python", "-u", "/app/collector.py"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 128m
+    volumes:
+      - ./dock/metrics/collector.py:/app/collector.py:ro
+      - /proc:/host/proc:ro
+      - /sys/fs/cgroup:/host/cgroup:ro
+      - /etc/hostname:/host/hostname:ro
+      - /etc/os-release:/host/os-release:ro
+      - type: volume
+        source: npm-data
+        target: /npm-logs
+        read_only: true
+        volume:
+          subpath: logs
+      - dock-metrics:/data
+    networks:
+      - dock
 
   api:
     image: ghcr.io/chakkritgit/thai-weather-api:${THWX_IMAGE_TAG:-latest}
@@ -133,10 +162,14 @@ services:
 networks:
   proxy:
     name: proxy
+  dock:
+    name: dock-internal
+    internal: true   # no internet access, only dock <-> dock-metrics
   internal:
     name: thai-weather-internal
 
 volumes:
+  dock-metrics:
   npm-data:
   npm-letsencrypt:
   portainer-data:
