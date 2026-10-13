@@ -115,12 +115,19 @@ function stateOf(c) {
   return { cls: '', label: state ?? '–' };
 }
 
-/** CPU % (of all cores) and memory without page cache, from a one-shot stats sample */
-function usage(s) {
-  const cpuDelta = (s.cpu_stats?.cpu_usage?.total_usage ?? 0) - (s.precpu_stats?.cpu_usage?.total_usage ?? 0);
-  const sysDelta = (s.cpu_stats?.system_cpu_usage ?? 0) - (s.precpu_stats?.system_cpu_usage ?? 0);
+/**
+ * Usage from one-shot samples (≈40 ms each instead of Docker's 2 s sampling window).
+ * CPU % (of all cores) comes from the difference to the previous sample of the same container,
+ * so it needs two samples; memory excludes reclaimable page cache.
+ */
+const lastCpu = new Map(); // container id -> { total, system }
+function usage(id, s) {
+  const total = s.cpu_stats?.cpu_usage?.total_usage ?? 0;
+  const system = s.cpu_stats?.system_cpu_usage ?? 0;
   const cpus = s.cpu_stats?.online_cpus || s.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
-  const cpu = sysDelta > 0 && cpuDelta >= 0 ? (cpuDelta / sysDelta) * cpus * 100 : NaN;
+  const prev = lastCpu.get(id);
+  lastCpu.set(id, { total, system });
+  const cpu = prev && system > prev.system && total >= prev.total ? ((total - prev.total) / (system - prev.system)) * cpus * 100 : NaN;
   const ms = s.memory_stats ?? {};
   const cache = ms.stats?.inactive_file ?? ms.stats?.cache ?? 0;
   const mem = ms.usage !== undefined ? ms.usage - cache : NaN;
@@ -128,7 +135,15 @@ function usage(s) {
   for (const n of Object.values(s.networks ?? {})) { rx += n.rx_bytes ?? 0; tx += n.tx_bytes ?? 0; }
   return { cpu, mem, limit: ms.limit, rx, tx };
 }
-const stats = (id) => docker(`/containers/${id}/stats?stream=false`).then(usage).catch(() => null);
+const sample = (id) =>
+  docker(`/containers/${id}/stats?stream=false&one-shot=true`).then((s) => usage(id, s)).catch(() => null);
+/** a fresh reading; takes a second sample 1 s later when there is no earlier one to compare with */
+async function stats(id) {
+  const first = await sample(id);
+  if (!first || Number.isFinite(first.cpu)) return first;
+  await new Promise((r) => setTimeout(r, 1000));
+  return (await sample(id)) ?? first;
+}
 
 // ------------------------------------------------------------------ layout
 const TABS = [
@@ -233,6 +248,7 @@ async function containersView(token) {
   };
   shell(topBar('คอนเทนเนอร์', { onRefresh: load }), meta, body, tabs('#/'));
   await load();
+  if (token !== viewToken) return; // navigated away while loading: do not start a timer for an old view
   timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), LIST_REFRESH_MS);
 }
 
@@ -345,11 +361,12 @@ async function containerView(token, id) {
     h('section', { class: 'group' }, h('h2', { class: 'group-title' }, 'ข้อมูล'), info),
     tabs('#/'));
   await Promise.all([loadStats(), loadLogs()]);
+  if (token !== viewToken) return; // navigated away while loading
   let n = 0;
   timer = setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     if (follow.checked) loadLogs().catch(handleError);
-    if (++n % 3 === 0) loadStats().catch(handleError);
+    if (++n % 2 === 0) loadStats().catch(handleError);
   }, LOG_REFRESH_MS);
 }
 
