@@ -40,13 +40,18 @@ export const dict = {
   rain: { th: 'ฝน', en: 'Rain' },
   chanceOfRain: { th: 'โอกาสฝน', en: 'Chance of rain' },
   modelForecastTitle: { th: 'พยากรณ์จากแบบจำลอง', en: 'Model forecast' },
-  radarRainModelZero: {
-    th: 'เรดาร์ตรวจพบฝนขณะนี้ ค่า 0% ที่แสดงมาจากผลพยากรณ์กริดละเอียด {km} กม. ซึ่งยังไม่ได้คาดฝนนี้ การปรับละเอียดจากโมเดลต้นทางยังอาจพลาดกลุ่มฝนขนาดเล็ก',
-    en: 'Radar detects rain here now. The displayed 0% comes from the downscaled {km} km forecast, which did not predict this rain. Downscaling can still miss small rain cells.',
+  radarPopSource: { th: 'เรดาร์ + ฟ้าละเอียด {km} กม.', en: 'Radar + {km} km model' },
+  radarPopNow: {
+    th: 'เรดาร์ตรวจพบ{cls}ที่จุดนี้ขณะนี้ จึงปรับโอกาสฝนชั่วโมงนี้ขึ้น (แบบจำลอง {model}%)',
+    en: 'Radar shows {cls} here now, so this hour’s chance is raised (model {model}%).',
   },
-  radarRainModelNote: {
-    th: 'เรดาร์ตรวจพบฝนขณะนี้ โอกาสฝนนี้มาจากผลพยากรณ์กริดละเอียด {km} กม. การปรับละเอียดจากโมเดลต้นทางยังอาจพลาดกลุ่มฝนขนาดเล็ก',
-    en: 'Radar detects rain here now. This rain chance comes from the downscaled {km} km forecast. Downscaling can still miss small rain cells.',
+  radarPopArriving: {
+    th: 'เรดาร์พบ{cls}น่าจะถึงจุดนี้ในอีกราว {min} นาที จึงปรับโอกาสฝนชั่วโมงนี้ขึ้น (แบบจำลอง {model}%)',
+    en: 'Radar shows {cls} likely to arrive in about {min} min, so this hour’s chance is raised (model {model}%).',
+  },
+  radarPopClear: {
+    th: 'เรดาร์ไม่พบฝนที่จุดนี้และไม่มีกลุ่มฝนเคลื่อนเข้ามาใน 1 ชม. จึงปรับโอกาสฝนลง (แบบจำลอง {model}%) — ฝนก่อตัวใหม่ยังเกิดได้',
+    en: 'Radar shows no rain here and none moving in within the hour, so the chance is lowered (model {model}%). New showers can still form.',
   },
   wind: { th: 'ลม', en: 'Wind' },
   humidity: { th: 'ความชื้น', en: 'Humidity' },

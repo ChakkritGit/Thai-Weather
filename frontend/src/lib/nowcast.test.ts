@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildRadarLut } from './color';
-import { cycloneSentence, isCurrentForecastStep, isFreshRadar, nowcastForPoint, nowcastSentence, radarAgeMinutes, radarModelRainNote, type NowcastSnapshot } from './nowcastText';
+import { cycloneSentence, isCurrentForecastStep, isFreshRadar, nowcastForPoint, nowcastSentence, radarAgeMinutes, radarRainChance, rainClassPhrase, type NowcastSnapshot } from './nowcastText';
 import type { Nowcast, NowcastCyclone, NowcastEta } from './api';
 import { translate } from '../i18n/dict';
 
@@ -133,31 +133,48 @@ describe('radar and model comparison', () => {
     receivedAtMs: nowMs,
     ...over,
   });
-  const note = (over: Partial<Parameters<typeof radarModelRainNote>[0]> = {}) =>
-    radarModelRainNote({ snapshot: snapshot(), ...point, times, step: 1, modelPop: 0, nowMs, ...over });
+  const pop = (over: Partial<Parameters<typeof radarRainChance>[0]> = {}) =>
+    radarRainChance({ snapshot: snapshot(), ...point, times, step: 1, modelPop: 0, nowMs, ...over });
+  const note = pop;
 
-  it('uses the displayed rounded model value without changing its forecast', () => {
-    expect(note()).toBe('model-zero');
-    expect(note({ modelPop: 0.49 })).toBe('model-zero');
-    expect(note({ modelPop: 0.5 })).toBe('rain-now');
-    expect(note({ modelPop: 37 })).toBe('rain-now');
-    for (const modelPop of [NaN, Infinity, -1, 101]) expect(note({ modelPop })).toBeNull();
+  it('raises the current hour when the radar sees rain at the spot', () => {
+    expect(pop()).toEqual({ value: 90, model: 0, basis: 'rain-now', cls: 'moderate' });
+    expect(pop({ snapshot: snapshot({ data: nc({ now: { class: 'light', max_dbz: 20 } }) }) })?.value).toBe(80);
+    expect(pop({ snapshot: snapshot({ data: nc({ now: { class: 'severe', max_dbz: 58 } }) }) })?.value).toBe(95);
+    expect(pop({ modelPop: 97 })?.value).toBe(97); // never lowers a higher model value while it rains
     const n = snapshot();
     const original = JSON.stringify(n);
-    note({ snapshot: n, modelPop: 0.49 });
+    pop({ snapshot: n });
     expect(JSON.stringify(n)).toBe(original);
   });
 
-  it('counts ETA zero as present rain, while excluding approaching and nearby cells', () => {
+  it('counts ETA zero as rain now and raises for rain arriving within the hour, sooner = higher', () => {
     for (const key of ['eta_rain', 'eta_storm'] as const) {
-      expect(note({ snapshot: snapshot({ data: nc({ [key]: eta(0, [0, 0], 'heavy') }) }) })).toBe('model-zero');
-      expect(note({ snapshot: snapshot({ data: nc({ [key]: eta(15, [10, 20], 'heavy') }) }) })).toBeNull();
+      expect(pop({ snapshot: snapshot({ data: nc({ [key]: eta(0, [0, 0], 'heavy') }) }) })?.basis).toBe('rain-now');
     }
-    expect(note({ snapshot: snapshot({ data: nc() }) })).toBeNull();
-    expect(note({ snapshot: snapshot({ data: nc({ eta_rain: eta(0, [0, 0], 'none') }) }) })).toBeNull();
-    expect(note({ snapshot: snapshot({ data: nc({
+    const at = (min: number) => pop({ snapshot: snapshot({ data: nc({ eta_rain: eta(min, [min - 5, min + 5], 'moderate') }) }) });
+    expect(at(10)).toEqual({ value: 86, model: 0, basis: 'arriving', cls: 'moderate', minutes: 10 });
+    expect(at(30)!.value).toBeGreaterThan(at(50)!.value);
+    expect(at(55)!.value).toBeGreaterThanOrEqual(40);
+    expect(at(75)?.basis).toBe('clear'); // beyond the hour
+    // the sooner of rain / storm arrivals wins
+    const both = pop({ snapshot: snapshot({ data: nc({ eta_rain: eta(40, [35, 45], 'light'), eta_storm: eta(20, [15, 25], 'thunderstorm') }) }) });
+    expect(both).toMatchObject({ basis: 'arriving', cls: 'thunderstorm', minutes: 20 });
+  });
+
+  it('lowers the model halfway towards 5% when the radar is clear and nothing moves in', () => {
+    const clear = (modelPop: number) => pop({ snapshot: snapshot({ data: nc() }), modelPop });
+    expect(clear(60)).toEqual({ value: 33, model: 60, basis: 'clear' });
+    expect(clear(4)!.value).toBe(4); // already low: unchanged
+    expect(clear(0)!.value).toBe(0);
+    // a nearby cell that is not forecast to arrive does not count as rain here
+    expect(pop({ snapshot: snapshot({ data: nc({
       nearest: { distance_km: 10, bearing_deg: 90, class: 'heavy', max_dbz: 43, approaching: true, closing_kmh: 25 },
-    }) }) })).toBeNull();
+    }) }), modelPop: 20 })?.basis).toBe('clear');
+  });
+
+  it('rejects invalid model values', () => {
+    for (const modelPop of [NaN, Infinity, -1, 101]) expect(pop({ modelPop })).toBeNull();
   });
 
   it('excludes unavailable responses and snapshots retained after a failed refresh', () => {
@@ -214,14 +231,16 @@ describe('radar and model comparison', () => {
     expect(note({ nowMs: Date.parse('2026-10-09T06:31:00Z') })).toBeNull();
   });
 
-  it('explains the actual model resolution in both languages, without a zero claim for positive values', () => {
+  it('words the adjustment in both languages with the model value', () => {
     for (const lang of ['th', 'en'] as const) {
       const { t } = translate(lang);
-      expect(t('radarRainModelZero', { km: '2.2' })).toContain('2.2');
-      expect(t('radarRainModelZero', { km: '2.2' })).toContain('0%');
-      expect(t('radarRainModelNote', { km: '2.2' })).toContain('2.2');
-      expect(t('radarRainModelNote', { km: '2.2' })).not.toContain('0%');
+      expect(t('radarPopSource', { km: '2.2' })).toContain('2.2');
+      expect(t('radarPopNow', { cls: rainClassPhrase('light', lang), model: 0 })).toContain('0%');
+      expect(t('radarPopArriving', { cls: rainClassPhrase('heavy', lang), min: 15, model: 10 })).toContain('15');
+      expect(t('radarPopClear', { model: 60 })).toContain('60%');
     }
+    expect(rainClassPhrase('light', 'th')).toBe('ฝนเล็กน้อย');
+    expect(rainClassPhrase('heavy', 'en')).toBe('heavy rain');
     expect(translate('th').t('nowcastTitle')).toBe('ตอนนี้ (เรดาร์)');
     expect(translate('en').t('modelForecastTitle')).toBe('Model forecast');
   });

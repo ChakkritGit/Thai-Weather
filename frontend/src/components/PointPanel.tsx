@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, type PointForecast } from '../lib/api';
 import { categorise } from '../lib/color';
 import { compass, fmtDay, fmtKm, fmtNum, fmtStep } from '../lib/format';
-import { radarModelRainNote } from '../lib/nowcastText';
+import { radarRainChance, rainClassPhrase } from '../lib/nowcastText';
 import { useNowcast } from '../lib/useNowcast';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
@@ -80,7 +80,16 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
     coarse: t('modelCoarse', { km: coarseKmText }),
     comparison: t('modelComparison', { km: coarseKmText }),
   };
-  const rainNote = radarModelRainNote({ snapshot, lat: point.lat, lon: point.lon, times: data.times, step: i, modelPop: f.pop[i], nowMs });
+  // current hour only: the radar nowcast adjusts the model's rain chance (see radarRainChance)
+  const radarPop = radarRainChance({ snapshot, lat: point.lat, lon: point.lon, times: data.times, step: i, modelPop: f.pop[i], nowMs });
+  const popAdjusted = !!radarPop && radarPop.value !== radarPop.model;
+  const popNote = !radarPop || !popAdjusted
+    ? undefined
+    : radarPop.basis === 'rain-now'
+      ? t('radarPopNow', { cls: rainClassPhrase(radarPop.cls!, lang), model: radarPop.model })
+      : radarPop.basis === 'arriving'
+        ? t('radarPopArriving', { cls: rainClassPhrase(radarPop.cls!, lang), min: radarPop.minutes!, model: radarPop.model })
+        : t('radarPopClear', { model: radarPop.model });
 
   const parts = [
     { key: 'lapse', label: t('lapse'), v: comps.lapse[i] },
@@ -122,10 +131,10 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         <div className="now-grid">
           <Stat
             label={t('chanceOfRain')}
-            value={fmtNum(f.pop[i], 0)}
+            value={fmtNum(popAdjusted ? radarPop!.value : f.pop[i], 0)}
             unit="%"
-            sub={labels.fine}
-            note={rainNote ? t(rainNote === 'model-zero' ? 'radarRainModelZero' : 'radarRainModelNote', { km: fineKmText }) : undefined}
+            sub={popAdjusted ? t('radarPopSource', { km: fineKmText }) : labels.fine}
+            note={popNote}
           />
           <Stat label={t('rain')} value={fmtNum(f.rain[i], 1)} unit={lang === 'th' ? 'มม./ชม.' : 'mm/h'} sub={`${labels.comparison} ${fmtNum(c.rain[i], 1)}`} />
           <Stat label={t('wind')} value={fmtNum(f.wind[i], 1)} unit="m/s" sub={`${lang === 'th' ? 'จากทิศ' : 'from'} ${compass(f.wind_dir[i], lang)}`} />

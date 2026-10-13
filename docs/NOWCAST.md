@@ -80,6 +80,20 @@ These are radar-based estimates; the UI says "likely" ("น่าจะ") and is
 older than 30 min), `no_coverage` (point outside radar coverage). Cyclones are reported regardless of radar state. The last
 good state is kept when an upstream request fails.
 
+## 4b. Rain chance adjusted by radar / โอกาสฝนที่ปรับด้วยเรดาร์
+
+ช่อง "โอกาสฝน" ของจุดที่เลือก **เฉพาะชั่วโมงปัจจุบัน** และเมื่อภาพเรดาร์ยังสด (`frontend/src/lib/nowcastText.ts` → `radarRainChance`):
+
+| เรดาร์ | ค่าที่แสดง |
+|---|---|
+| มีฝนที่จุดนี้ขณะนี้ (หรือ ETA = 0) | อย่างน้อย 80% (ฝนเล็กน้อย) / 90% (ปานกลาง) / 95% (หนักขึ้นไป) |
+| ฝนน่าจะถึงภายใน 60 นาที | อย่างน้อย 95 − 0.9×นาที (จำกัด 40–90%) |
+| ไม่มีฝนและไม่มีกลุ่มฝนเคลื่อนเข้ามาใน 1 ชม. | ดึงค่าแบบจำลองลงครึ่งทางไปที่ 5% (ไม่ลดค่าที่ ≤ 5%) — ฝนก่อตัวใหม่ยังเกิดได้ |
+
+ค่าที่ถูกปรับมีป้าย "เรดาร์ + ฟ้าละเอียด 2.2 กม." และหมายเหตุบอกค่าแบบจำลองเดิม; ชั่วโมงอื่น กราฟ ตาราง และชั้นแผนที่ยังเป็นค่าแบบจำลอง
+
+The point panel's rain chance for the **current hour** blends in the fresh radar nowcast: rain at the spot raises it to ≥ 80/90/95 % by intensity, rain arriving within 60 min to ≥ 95 − 0.9·minutes (40–90 %), and a clear radar with nothing moving in pulls the model halfway towards 5 %. Other hours, the chart and the map layer stay model-only.
+
 ## 5. Limitations / ข้อจำกัด
 
 - **Advection only - no growth or decay.** New cells are not predicted and dying cells keep their intensity; skill drops

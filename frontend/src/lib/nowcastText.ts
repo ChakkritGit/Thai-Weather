@@ -1,5 +1,5 @@
 import type { Nowcast, NowcastCyclone, NowcastEta, RainClass } from './api';
-import { compass, fmtNum, nearestStep } from './format';
+import { compass, nearestStep } from './format';
 import type { Lang } from '../i18n/dict';
 
 /**
@@ -76,8 +76,34 @@ export function isCurrentForecastStep(times: string[], step: number, nowMs: numb
     && Math.abs(selectedMs - nowMs) <= CURRENT_STEP_WINDOW_MS;
 }
 
-/** A note about present radar rain belongs only beside a current, valid model value. */
-export function radarModelRainNote({
+/** How the radar adjusted the current hour's rain chance. */
+export type RadarPopBasis = 'rain-now' | 'arriving' | 'clear';
+
+export interface RadarRainChance {
+  /** the chance to show for the current hour, 0–100 */
+  value: number;
+  /** the 2.2 km model value it started from */
+  model: number;
+  basis: RadarPopBasis;
+  /** rain class seen now / arriving */
+  cls?: RainClass;
+  /** minutes until it arrives ("arriving") */
+  minutes?: number;
+}
+
+/** Rain at the spot now: the hour is (almost) certainly wet; radar can still over-read light echoes. */
+const POP_RAINING: Record<RainClass, number> = { none: 0, light: 80, moderate: 90, heavy: 95, thunderstorm: 95, severe: 95 };
+const ARRIVAL_WINDOW_MIN = 60;
+/** No echo here and none moving in: new cells can still form, so pull towards a low value, not to zero. */
+const POP_CLEAR = 5;
+const CLEAR_WEIGHT = 0.5;
+
+/**
+ * Rain chance for the current hour, adjusted with the radar nowcast (fresh frame + current step only).
+ * Observed rain beats the model: raining now or arriving within the hour raises the chance; a clear
+ * radar with nothing approaching lowers it halfway towards 5%. Other hours stay pure model.
+ */
+export function radarRainChance({
   snapshot, lat, lon, times, step, modelPop, nowMs,
 }: {
   snapshot: NowcastSnapshot;
@@ -87,7 +113,7 @@ export function radarModelRainNote({
   step: number;
   modelPop: number;
   nowMs: number;
-}): 'model-zero' | 'rain-now' | null {
+}): RadarRainChance | null {
   const current = nowcastForPoint(snapshot, lat, lon);
   if (
     current.status !== 'ready' ||
@@ -95,8 +121,25 @@ export function radarModelRainNote({
     !isCurrentForecastStep(times, step, nowMs) ||
     !Number.isFinite(modelPop) || modelPop < 0 || modelPop > 100
   ) return null;
-  if (presentRainClass(current.data!) === 'none') return null;
-  return fmtNum(modelPop, 0) === '0' ? 'model-zero' : 'rain-now';
+  const n = current.data!;
+  const model = Math.round(modelPop);
+  const here = presentRainClass(n);
+  if (here !== 'none') return { value: Math.max(model, POP_RAINING[here]), model, basis: 'rain-now', cls: here };
+  const isRain = (cls: RainClass | undefined) => cls !== undefined && cls !== 'none' && cls in SEVERITY;
+  const eta = [n.eta_rain, n.eta_storm]
+    .filter((e): e is NowcastEta => !!e && isRain(e.class) && e.minutes > 0 && e.minutes <= ARRIVAL_WINDOW_MIN)
+    .sort((a, b) => a.minutes - b.minutes)[0];
+  if (eta) {
+    const arriving = Math.min(90, Math.max(40, Math.round(95 - eta.minutes * 0.9)));
+    return { value: Math.max(model, arriving), model, basis: 'arriving', cls: eta.class, minutes: eta.minutes };
+  }
+  const value = model <= POP_CLEAR ? model : Math.round(model + (POP_CLEAR - model) * CLEAR_WEIGHT);
+  return { value, model, basis: 'clear' };
+}
+
+/** Rain class as a phrase inside a sentence ("ฝนเล็กน้อย" / "light rain"). */
+export function rainClassPhrase(cls: RainClass, lang: Lang): string {
+  return lang === 'th' ? TH_CLASS[cls] : EN_CLASS[cls].toLowerCase();
 }
 
 const TH_CLASS: Record<RainClass, string> = {
