@@ -6,6 +6,10 @@ services:
     image: thai-weather-api:local
     build:
       context: ../backend
+  verify:
+    # same image as api (built above); no build section so it is built only once
+    image: thai-weather-api:local
+    pull_policy: never
   web:
     image: thai-weather-web:local
     build:
