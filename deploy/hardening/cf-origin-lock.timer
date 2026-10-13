@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh the Cloudflare ranges allowed to the web ports
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

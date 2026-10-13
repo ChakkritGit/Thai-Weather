@@ -27,7 +27,7 @@
 | Image | GitHub Actions สร้าง image ให้อัตโนมัติเมื่อ push เข้า `main` (ดูข้อ 5) |
 
 > ถ้าใช้ DNS ของ Cloudflare: ตอนขอ SSL ครั้งแรกให้ตั้งเมฆเป็น **DNS only (สีเทา)** ก่อน
-> ได้ใบรับรองแล้วค่อยเปิด Proxied (สีส้ม) ได้ โดยตั้ง SSL/TLS mode เป็น **Full (strict)**
+> ได้ใบรับรองแล้วค่อยเปิด Proxied (สีส้ม) ได้ โดยตั้ง SSL/TLS mode เป็น **Full (strict)** — ระบบปัจจุบันเปิดเมฆส้มแล้ว (ดู §4b)
 
 ## 1. ติดตั้งบน VPS (ครั้งเดียว)
 
@@ -88,6 +88,19 @@ ssh -L 8181:127.0.0.1:81 root@<VPS_IP>
 
 ใน NPM → **Access Lists** → สร้างรายการ (Basic Auth และ/หรืออนุญาตเฉพาะ IP ของคุณ)
 แล้วผูกกับ proxy host `nginx.`, `portainer.` และ `docker.` — เว็บหลักไม่ต้องผูก
+
+## 4b. Hardening ที่ใช้อยู่ (จากรายงานทดสอบความปลอดภัย 14 ต.ค. 2026)
+
+| ส่วน | ตั้งค่าอย่างไร |
+|---|---|
+| Cloudflare | ทั้ง 4 โดเมน **Proxied (เมฆส้ม)**, SSL/TLS = **Full (strict)** |
+| Origin lock | `deploy/hardening/cf-origin-lock.sh` (+ `.service`, `.timer` ใน `/etc/systemd/system/`) — chain `DOCKER-USER` ให้ 80/443 รับเฉพาะช่วง IP ของ Cloudflare (อัปเดตรายสัปดาห์) — ถ้าปิดเมฆส้มต้อง `systemctl stop cf-origin-lock` ก่อน ไม่งั้นเว็บเข้าไม่ได้ |
+| Rate limit ล็อกอิน | `deploy/hardening/npm-http_top.conf` → `/data/nginx/custom/http_top.conf` ของ NPM; Advanced ของ proxy host `portainer.`/`docker.` = `location = /api/auth { limit_req zone=login burst=5 nodelay; … include conf.d/include/proxy.conf; }`, `nginx.` = เดียวกันที่ `/api/tokens` |
+| IP จริงหลัง Cloudflare | Advanced ทุก host: `real_ip_header CF-Connecting-IP;` (ช่วง IP ของ CF อยู่ใน `ip_ranges.conf` ของ NPM แล้ว) |
+| Header หน้าแอดมิน | `nginx.`: `more_set_headers` X-Frame-Options DENY, nosniff, Referrer-Policy, CSP frame-ancestors · `portainer.`: Referrer-Policy (+ viewport สำหรับมือถือ) |
+| Default site | NPM Settings → Default Site = **No Response (444)** |
+| SSH | `/etc/ssh/sshd_config.d/00-hardening.conf`: key-only, Kex/Ciphers/MACs สมัยใหม่, `AllowTcpForwarding local` (tunnel `-L` ไป NPM :81 ยังใช้ได้) |
+| เว็บหลัก | security headers + CSP ใน `frontend/next.config.mjs`; `/docs` ไม่เปิดสาธารณะ |
 
 ## 5. Image ของแอป
 
