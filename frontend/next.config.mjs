@@ -38,7 +38,6 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
-  eslint: { ignoreDuringBuilds: true },
   // loads its WebAssembly with top-level await: keep it out of the server bundle (lib/ogText.ts)
   serverExternalPackages: ['harfbuzzjs'],
   async headers() {
