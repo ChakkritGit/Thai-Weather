@@ -43,6 +43,7 @@ test('rooms are isolated and the health probe answers', async () => {
   pa.destroy(); pc.destroy()
   const r = await fetch(`http://127.0.0.1:${server.server!.port}/__health`)
   expect(r.status).toBe(200)
+  expect((await r.text()).trim()).toBe('ok') // the status page compares the body exactly
 })
 
 test('garbage bytes close only that socket', async () => {

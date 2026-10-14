@@ -94,7 +94,7 @@ function roomName(path: string): string | null {
 export const app = new Elysia()
   // the status page's probe: no socket needed. (No catch-all GET: it would take the WebSocket
   // upgrade requests, which are GETs too, away from the ws route.)
-  .get('/__health', () => new Response(`ok — ${rooms.size} open\n`, { headers: { 'content-type': 'text/plain' } }))
+  .get('/__health', () => new Response('ok\n', { headers: { 'content-type': 'text/plain', 'x-open-rooms': String(rooms.size) } }))
   .ws('/*', {
     open(ws) {
       const name = roomName(new URL(ws.data.request.url).pathname)
