@@ -10,7 +10,8 @@ COPY src/*.ts ./src/
 COPY --from=drivemusic party/index.ts ./src/vendor/drive-music/party/index.ts
 COPY --from=drivemusic src/lib/party.ts ./src/vendor/drive-music/src/lib/party.ts
 COPY --from=portfolio status/src/checks.ts status/src/state.ts status/src/page.ts status/src/types.ts ./src/vendor/status/
-RUN rm -f src/*.test.ts && mkdir -p /data && chown bun:bun /data
+# readable whatever mode the checkouts had on the host (vendored files come from other repos)
+RUN rm -f src/*.test.ts && chmod -R a+rX /app && mkdir -p /data && chown bun:bun /data
 USER bun
 ENV NODE_ENV=production
 VOLUME /data
