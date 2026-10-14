@@ -12,6 +12,7 @@ import { fromApi, getPrefs, siteUrl } from '@/lib/server';
 import { ICON_VERSION } from '@/lib/iconGlyph';
 import { SITE_NAME } from '@/lib/seo';
 import { SPLASH_SPECS } from '@/lib/splash';
+import { DockAnalytics } from '@/components/DockAnalytics';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <ServiceWorkerRegister />
+        <DockAnalytics />
         <Providers lang={lang} theme={theme}>
           <div className="app">
             <SkipLink />

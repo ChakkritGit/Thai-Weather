@@ -1,0 +1,9 @@
+[Unit]
+Description=Deploy pushed commits of the self-hosted apps (deploy/apps/autodeploy.sh)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/thai-weather/deploy/apps/autodeploy.sh
+Nice=10

@@ -90,6 +90,26 @@ test('phone controls the laptop: output grant, command routing, report, devices 
   phone.ws.close()
 })
 
+test('Spotify-style: device kinds in the room, and a phone sets the laptop volume', async () => {
+  const laptop = await connect('acct-3', 'mac')
+  laptop.ws.send(JSON.stringify({ type: 'hello', protocol: 2, name: 'Mac · Chrome', kind: 'computer', commands: true }))
+  await laptop.next((m) => m.type === 'welcome')
+  laptop.ws.send(JSON.stringify({ type: 'output', id: 'mac', seed, adoptLocal: true }))
+  await laptop.next((m) => m.type === 'room' && m.outputId === 'mac')
+  const phone = await connect('acct-3', 'iph')
+  phone.ws.send(JSON.stringify({ type: 'hello', protocol: 2, name: 'iPhone · Safari', kind: 'phone', commands: true }))
+  const room = await phone.next((m) => m.type === 'room' && m.devices.length === 2)
+  expect(room.devices.find((d: any) => d.id === 'iph').kind).toBe('phone')
+  phone.ws.send(JSON.stringify({ type: 'hello', protocol: 2, name: 'x', kind: 'toaster', commands: true })) // unknown kinds are dropped
+  expect((await phone.next((m) => m.type === 'room' && m.devices.some((d: any) => d.name === 'x'))).devices.find((d: any) => d.id === 'iph').kind).toBeUndefined()
+  phone.ws.send(JSON.stringify({ type: 'command', command: { type: 'volume', value: 0.35 } }))
+  const cmd = await laptop.next((m) => m.type === 'player-command')
+  expect(cmd.command).toEqual({ type: 'volume', value: 0.35 })
+  laptop.ws.send(JSON.stringify({ type: 'report', outputGeneration: cmd.outputGeneration, commandRevision: cmd.revision, playback: { ...seed, volume: 0.35 } }))
+  expect((await phone.next((m) => m.type === 'room' && m.playback?.volume === 0.35)).outputId).toBe('mac')
+  laptop.ws.close(); phone.ws.close()
+})
+
 test('accounts are isolated', async () => {
   const other = await connect('acct-2', 'tv')
   expect((await other.next((m) => m.type === 'room')).playback).toBeNull()

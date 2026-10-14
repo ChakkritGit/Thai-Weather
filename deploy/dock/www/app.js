@@ -45,6 +45,7 @@ const ICONS = {
   disk: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
   ext: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   pulse: 'M3 12h4l3-8 4 16 3-8h4',
+  chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -176,6 +177,7 @@ const TABS = [
   ['#/containers', 'box', 'คอนเทนเนอร์'],
   ['#/images', 'layers', 'อิมเมจ'],
   ['#/volumes', 'disk', 'วอลุ่ม'],
+  ['#/web', 'chart', 'สถิติเว็บ'],
 ];
 function tabs(current) {
   return h('nav', { class: 'tabs', 'aria-label': 'เมนู' },
@@ -709,6 +711,112 @@ async function overviewView(token) {
   timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), every);
 }
 
+// ------------------------------------------------------------------ web analytics
+// Page views + Web Vitals from the sites themselves (the analytics service; replaces Vercel Analytics).
+const WEB_RANGES = [[7, '7 วัน'], [30, '30 วัน'], [90, '90 วัน']];
+let webDays = (() => { try { return Number(localStorage.getItem('dock.webDays')) || 7; } catch { return 7; } })();
+let webHost = (() => { try { return localStorage.getItem('dock.webHost') || ''; } catch { return ''; } })();
+const siteName = (hn) => (hn === 'chakkritton.com' ? 'portfolio' : hn.replace(/\.chakkritton\.com$/, ''));
+/** Google's "good / needs improvement" limits for the 75th percentile */
+const VITALS = [
+  ['LCP', 'Largest Contentful Paint', 2500, 4000, (v) => `${(v / 1000).toFixed(2)} วิ`],
+  ['INP', 'Interaction to Next Paint', 200, 500, (v) => `${Math.round(v)} ms`],
+  ['CLS', 'Cumulative Layout Shift', 0.1, 0.25, (v) => v.toFixed(3)],
+  ['FCP', 'First Contentful Paint', 1800, 3000, (v) => `${(v / 1000).toFixed(2)} วิ`],
+  ['TTFB', 'Time to First Byte', 800, 1800, (v) => `${Math.round(v)} ms`],
+];
+const vitalTone = (v, good, poor) => (v === null || v === undefined ? '' : v <= good ? 'ok' : v <= poor ? 'warn' : 'bad');
+const vitalText = (tone) => ({ ok: 'ดี', warn: 'ควรปรับ', bad: 'แย่' })[tone] ?? '–';
+const COUNTRY = new Intl.DisplayNames(['th'], { type: 'region' });
+const countryName = (c) => { try { return COUNTRY.of(c) ?? c; } catch { return c; } };
+
+async function webView(token) {
+  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'ช่วงเวลา' },
+    WEB_RANGES.map(([d, label]) => h('button', {
+      type: 'button', 'aria-pressed': d === webDays ? 'true' : 'false',
+      onclick: () => { webDays = d; try { localStorage.setItem('dock.webDays', String(d)); } catch { /* ignore */ } route(); },
+    }, label)));
+  const sites = h('div', { class: 'segmented scroll', role: 'group', 'aria-label': 'เว็บไซต์' });
+  const tiles = h('div', { class: 'tiles' }, skeleton(4));
+  const chartGrid = h('div', { class: 'grid' });
+  const tables = h('div', { class: 'grid' });
+  const vitalsBox = h('div', {});
+  const body = h('div', { class: 'overview' },
+    h('div', { class: 'filters' }, seg, sites),
+    tiles, chartGrid,
+    h('h2', { class: 'section-title' }, 'ความเร็วที่ผู้ใช้จริงเห็น (Web Vitals, p75)'), vitalsBox,
+    h('h2', { class: 'section-title' }, 'มาจากไหน ดูอะไร'), tables);
+  shell(topBar('สถิติเว็บ', { onRefresh: () => load() }), body, tabs('#/web'));
+  app.querySelector('.shell').classList.add('wide');
+  let views = null;
+
+  const load = async () => {
+    body.classList.add('loading');
+    const st = await api(`/analytics?days=${webDays}${webHost ? `&host=${encodeURIComponent(webHost)}` : ''}`);
+    if (token !== viewToken) return;
+    body.classList.remove('loading');
+    sites.replaceChildren(...[['', 'ทุกเว็บ'], ...st.hosts.map((hn) => [hn, siteName(hn)])].map(([hn, label]) => h('button', {
+      type: 'button', 'aria-pressed': hn === (st.host ?? '') ? 'true' : 'false',
+      onclick: () => { webHost = hn; try { localStorage.setItem('dock.webHost', hn); } catch { /* ignore */ } route(); },
+    }, label)));
+
+    // one point per Bangkok day, empty days included
+    const DAY = 86400;
+    const start = Date.parse(`${st.from}T00:00:00+07:00`) / 1000;
+    const times = Array.from({ length: st.days }, (_, i) => start + i * DAY);
+    const byDay = new Map(st.series.map((r) => [r.day, r]));
+    const dayKey = (t) => new Date((t + 7 * 3600) * 1000).toISOString().slice(0, 10);
+    const pv = times.map((t) => byDay.get(dayKey(t))?.views ?? 0);
+    const uv = times.map((t) => byDay.get(dayKey(t))?.visitors ?? 0);
+    const total = st.totals;
+    const lcp = st.vitals.LCP;
+    const lcpTone = lcp ? vitalTone(lcp.p75, 2500, 4000) : '';
+    tiles.replaceChildren(
+      tile('ผู้เข้าชม', fmtNum(total.visitors), 'นับแยกรายวัน ไม่ใช้คุกกี้'),
+      tile('เพจวิว', fmtNum(total.views), `เฉลี่ย ${fmtNum(total.views / st.days)} ต่อวัน`),
+      tile('หน้าต่อการเข้าชม', total.visitors ? (total.views / total.visitors).toFixed(1) : '–', 'เพจวิว ÷ ผู้เข้าชม'),
+      tile('LCP (p75)', lcp ? VITALS[0][4](lcp.p75) : '–', lcp ? `${vitalText(lcpTone)} · จาก ${fmtNum(lcp.n)} ครั้ง` : 'ยังไม่มีข้อมูล'),
+    );
+    const opts = { times, step: DAY, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
+      series: [{ name: 'เพจวิว', color: SERIES[0], values: pv }, { name: 'ผู้เข้าชม', color: SERIES[1], values: uv }] };
+    if (!views) {
+      const c = card('ผู้เข้าชมและเพจวิวรายวัน', st.host ? siteName(st.host) : 'ทุกเว็บไซต์');
+      chartGrid.append(c);
+      views = mkChart(c, { ...opts, label: 'ผู้เข้าชมและเพจวิวรายวัน' });
+    } else views.update(opts);
+
+    vitalsBox.replaceChildren(card('Web Vitals', 'ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+      h('tr', {}, h('th', {}, 'ตัวชี้วัด'), h('th', { class: 'num' }, 'ทั้งหมด'), h('th', { class: 'num' }, 'มือถือ'), h('th', { class: 'num' }, 'เดสก์ท็อป'), h('th', {}, 'ผล')),
+      VITALS.map(([key, label, good, poor, fmt]) => {
+        const v = st.vitals[key];
+        const tone = v ? vitalTone(v.p75, good, poor) : '';
+        return h('tr', {},
+          h('td', {}, h('b', {}, key), h('span', { class: 'muted' }, ` ${label}`)),
+          h('td', { class: 'num' }, v ? fmt(v.p75) : '–'),
+          h('td', { class: 'num' }, v?.mobile != null ? fmt(v.mobile) : '–'),
+          h('td', { class: 'num' }, v?.desktop != null ? fmt(v.desktop) : '–'),
+          h('td', {}, tone ? h('span', { class: `pill ${tone}` }, h('span', { class: `dot ${tone}` }), vitalText(tone)) : '–'));
+      })))));
+
+    const table = (title, sub, head, rows, render) => card(title, sub, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+      h('tr', {}, h('th', {}, head), h('th', { class: 'num' }, 'ผู้เข้าชม'), h('th', { class: 'num' }, 'เพจวิว')),
+      rows.length ? rows.map((r) => h('tr', {}, h('td', { class: render === 'mono' ? 'mono' : '' }, typeof render === 'function' ? render(r.key) : r.key),
+        h('td', { class: 'num' }, fmtNum(r.visitors)), h('td', { class: 'num' }, fmtNum(r.views))))
+        : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล')))));
+    tables.replaceChildren(
+      ...(st.host ? [] : [table('ตามเว็บไซต์', null, 'เว็บไซต์', st.perHost, siteName)]),
+      table('หน้าที่ถูกเปิดมากที่สุด', null, 'หน้า', st.pages, 'mono'),
+      table('มาจาก', 'เว็บที่ลิงก์มา (ไม่นับการเข้าตรง)', 'แหล่งที่มา', st.referrers),
+      table('ประเทศ', 'จาก Cloudflare', 'ประเทศ', st.countries, countryName),
+      table('อุปกรณ์', null, 'อุปกรณ์', st.devices, (d) => ({ mobile: 'มือถือ', tablet: 'แท็บเล็ต', desktop: 'คอมพิวเตอร์' })[d] ?? d),
+      table('เบราว์เซอร์', null, 'เบราว์เซอร์', st.browsers),
+    );
+  };
+  await load();
+  if (token !== viewToken) return;
+  timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), 60_000);
+}
+
 // ------------------------------------------------------------------ routing
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); } catch { /* token may already be gone */ }
@@ -737,6 +845,7 @@ async function route() {
     else if (hash === '#/containers') await containersView(token);
     else if (hash === '#/images') await imagesView(token);
     else if (hash === '#/volumes') await volumesView(token);
+    else if (hash === '#/web') await webView(token);
     else await overviewView(token);
   } catch (e) {
     if (token === viewToken) handleError(e);

@@ -269,3 +269,9 @@ table.data .mono { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace
 .mini-stats b { color: var(--text); font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-chart { position: relative; margin-top: 6px; }
 .mini-label { position: absolute; top: 0; left: 0; z-index: 1; font-size: 11px; color: var(--muted); pointer-events: none; }
+
+/* web analytics: site chips scroll sideways on a phone */
+.segmented.scroll { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.segmented.scroll::-webkit-scrollbar { display: none; }
+.segmented.scroll button { flex: none; }
+.data .muted { color: var(--faint); font-size: 12px; }
