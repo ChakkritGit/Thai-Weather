@@ -46,6 +46,7 @@ services:
     container_name: apps-portfolio
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/portfolio.env
+    networks: [proxy, apps]
     # Next writes its image / fetch cache under .next/cache
     volumes:
       - portfolio-cache:/app/.next/cache
@@ -135,6 +136,106 @@ services:
       retries: 3
 
 
+  # Portfolio uploads (was a Supabase Storage bucket): public at chakkritton.com/media/, written by the
+  # portfolio server on the internal network with MEDIA_TOKEN.
+  media:
+    <<: *bun
+    container_name: apps-media
+    command: ["bun", "src/media.ts"]
+    pull_policy: never
+    env_file: ${ENVS:-/opt/apps/env}/media.env
+    environment:
+      PORT: "8793"
+      MEDIA_DIR: /data/media
+    volumes:
+      - media-data:/data
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8793/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ---- the apps' own database (moved from Supabase; login stays on Supabase Auth) --------------------
+  db:
+    image: postgres:17.11-alpine3.24
+    container_name: apps-db
+    restart: unless-stopped
+    env_file: ${ENVS:-/opt/apps/env}/db.env
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40", "-c", "log_min_duration_statement=2000"]
+    shm_size: 64m
+    mem_limit: 384m
+    pids_limit: 256
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./db/init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    networks: [apps]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgREST for the expenses database, as Supabase's /rest/v1 was. Only dbgw talks to it.
+  rest:
+    image: postgrest/postgrest:v14.18
+    container_name: apps-rest
+    restart: unless-stopped
+    env_file: ${ENVS:-/opt/apps/env}/rest.env
+    environment:
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_POOL: "5"
+      PGRST_SERVER_PORT: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    networks: [apps]
+
+  # Checks Supabase Auth sessions, then hands requests to PostgREST / the reminders service.
+  dbgw:
+    <<: *bun
+    container_name: apps-dbgw
+    command: ["bun", "src/dbgw.ts"]
+    pull_policy: never
+    env_file: ${ENVS:-/opt/apps/env}/dbgw.env
+    environment:
+      PORT: "8791"
+      REST_URL: http://apps-rest:3000
+      REMINDERS_URL: http://apps-reminders:8792
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8791/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Spent-Cost's morning bill reminders and test pushes (was the push-reminders edge function + pg_cron).
+  reminders:
+    image: apps-reminders:local
+    pull_policy: never
+    container_name: apps-reminders
+    restart: unless-stopped
+    env_file: ${ENVS:-/opt/apps/env}/reminders.env
+    environment:
+      PORT: "8792"
+      DB_URL: http://apps-dbgw:8791
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8792/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   # Page views + Web Vitals: each site posts to /_a (NPM forwards it here); Dock reads /stats.
   analytics:
     <<: *bun
@@ -167,3 +268,5 @@ volumes:
   sync-data:
   status-data:
   analytics-data:
+  db-data:
+  media-data:

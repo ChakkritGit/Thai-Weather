@@ -1,0 +1,7 @@
+[Unit]
+Description=Dump the app databases (deploy/apps/db/backup.sh)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/thai-weather/deploy/apps/db/backup.sh

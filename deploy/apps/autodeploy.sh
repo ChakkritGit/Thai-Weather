@@ -35,9 +35,11 @@ for app in portfolio expenses whiteboard drive-music; do
     continue
   fi
   [ "$app" = drive-music ] && services_dirty=1
+  # the reminders service is built from the expenses repo too
+  if [ "$app" = expenses ]; then deploy reminders reminders || echo "!! reminders build failed"; fi
 done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
-  deploy services rooms sync status analytics
+  deploy services rooms sync status analytics dbgw media
   # dock-metrics (in the main stack) runs the same image
   (cd .. && docker compose up -d --no-deps dock-metrics)
 fi

@@ -47,9 +47,22 @@ location ^~ {path} {{
 """
 
 
+def proxied(path: str, upstream: str, note: str) -> str:
+    """A plain HTTP location; the original URI is passed through untouched."""
+    return f"""# {note}
+location ^~ {path} {{
+  set $upstream_{path.strip('/')} {upstream};
+  proxy_pass http://$upstream_{path.strip('/')};
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  client_max_body_size 1m;
+}}
+"""
+
+
 HOSTS = [
-    (["chakkritton.com", "www.chakkritton.com"], "apps-portfolio", 3000, ""),
-    (["expenses.chakkritton.com"], "apps-expenses", 3000, ""),
+    (["chakkritton.com", "www.chakkritton.com"], "apps-portfolio", 3000, proxied("/media/", "apps-media:8793", "studio uploads (media service)")),
+    (["expenses.chakkritton.com"], "apps-expenses", 3000, proxied("/data/", "apps-dbgw:8791", "the app's data API (database gateway → PostgREST / reminders)")),
     (["whiteboard.chakkritton.com"], "apps-whiteboard", 3000, ws("/rooms/", "apps-rooms:8787", "Yjs rooms (was the whiteboard-rooms Worker)")),
     (["drive-music.chakkritton.com"], "apps-drive-music", 3000, ws("/parties/", "apps-sync:8788", "Party Play sync (was the drive-music-sync Worker)")),
     (["status.chakkritton.com"], "apps-status", 8789, ""),
