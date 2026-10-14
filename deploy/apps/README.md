@@ -31,7 +31,7 @@ journalctl -u apps-autodeploy -n 50                      # what the timer did
 `output: 'standalone'`). The env file is mounted only during `next build`, because `NEXT_PUBLIC_*` values are
 inlined there, and never lands in an image layer.
 
-## Cutover (once)
+## Cutover (done 2026-10-15)
 
 1. Certificate: key + CSR on the VPS (`/root/origin-ca`), signed as a Cloudflare Origin CA cert for
    `chakkritton.com` + `*.chakkritton.com`, then `python3 upload-origin-cert.py < creds`.
@@ -42,8 +42,10 @@ inlined there, and never lands in an image layer.
    `status`: remove the Worker custom domain, then A `117.18.127.246`.
 6. Secrets used by status: set the new `STATUS_SECRET` (from `/opt/apps/env/status.env`) on Supabase
    (`supabase secrets set --project-ref yavhirzrepgpvvapohyz`), and the new `HEALTH_TOKEN` on the `mr-worldwide` Worker.
-7. Retire: disable the `status` Worker's cron; keep `whiteboard-rooms`, `drive-music-sync` and the Vercel
-   projects for a week as a rollback, with Vercel's Git auto-deploy off; then delete them.
+7. Retire the old side (Vercel projects, the three Workers, the KV namespace).
 
-Rollback: point the DNS records back (Vercel CNAMEs / Worker custom domain). Nothing on the old side is
-deleted until the week is over.
+Done on 2026-10-15, and on request the old side was removed the same day (no week of overlap): the Vercel
+projects `web-profile`, `spent-cost`, `whiteboard`, `drive-music` and the domain entry on Vercel, the Workers
+`status`, `whiteboard-rooms`, `drive-music-sync` and the status KV namespace. There is no rollback to them;
+recovery means redeploying from the repos (they still hold the Vercel/Wrangler setup).
+The cert is NPM certificate "Cloudflare Origin CA *.chakkritton.com" (valid to 2041; key in `/root/origin-ca`).
