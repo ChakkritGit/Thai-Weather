@@ -31,6 +31,8 @@ if [ -z "${BUNDLE_PASS:-}" ]; then read -r -s -p "Passphrase: " BUNDLE_PASS; ech
 export BUNDLE_PASS
 WORK=/root/restore-$(date +%Y%m%d-%H%M%S)
 mkdir -p "$WORK/payload" && chmod 700 "$WORK"
+# the decrypted copy holds every secret: removed whatever happens (success, error, wrong passphrase)
+trap 'rm -rf "$WORK"' EXIT
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$HERE/payload.enc" -pass env:BUNDLE_PASS \
   | tar -x -C "$WORK/payload" 2>/dev/null || die "wrong passphrase (or a damaged bundle)"
 P=$WORK/payload
@@ -48,7 +50,7 @@ import json, sys
 for name, r in json.load(open(sys.argv[1]))["repos"].items():
     print(f"repo {name:12} {r['commit'][:10] if r else '(missing)'} {r.get('branch') or '' if r else ''}")
 PY
-if [ $CHECK = 1 ]; then say "Bundle OK — nothing was changed"; rm -rf "$WORK"; exit 0; fi
+if [ $CHECK = 1 ]; then say "Bundle OK — nothing was changed"; exit 0; fi
 
 if [ $YES = 0 ]; then
   echo
@@ -147,7 +149,6 @@ docker ps --format '{{.Names}}\t{{.Status}}' | sort
 for h in thai-weather.chakkritton.com chakkritton.com expenses.chakkritton.com whiteboard.chakkritton.com drive-music.chakkritton.com status.chakkritton.com docker.chakkritton.com; do
   printf '%-32s %s\n' "$h" "$(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "$h:443:127.0.0.1" "https://$h/")"
 done
-rm -rf "$WORK"
 
 cat <<MSG
 

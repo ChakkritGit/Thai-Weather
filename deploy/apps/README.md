@@ -11,8 +11,28 @@
 | `status` | Bun + Elysia, checks every 5 min | status.chakkritton.com | Worker `status` (cron + KV) |
 | `analytics` | Bun + Elysia, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |
 
-Stays on Cloudflare: the AI worker `mr-worldwide` (route `chakkritton.com/api/assistant*`, Workers AI).
-Supabase (database + login) is unchanged for now.
+| `db` | Postgres 17 (`expenses`, `portfolio`) | internal only | Supabase databases |
+| `rest` + `dbgw` | PostgREST behind a Bun + Elysia gateway that checks Supabase Auth sessions | expenses.chakkritton.com/data/ | Supabase `/rest/v1` |
+| `reminders` | Bun + Elysia, Spent-Cost bill reminders (built from the expenses repo) | internal | Edge Function `push-reminders` + pg_cron |
+| `media` | Bun + Elysia, portfolio uploads | chakkritton.com/media/ | Supabase Storage bucket |
+| `backup` | Bun + Elysia, whole-server backup bundles | Dock → สำรอง | – |
+
+Stays elsewhere: the AI worker `mr-worldwide` on Cloudflare (route `chakkritton.com/api/assistant*`,
+Workers AI), and **login for Spent-Cost on Supabase Auth** (project `yavhirzrepgpvvapohyz`, now auth only).
+
+## Database
+
+Roles mirror Supabase's (anon / authenticated / service_role / authenticator), created by `db/init.sh`
+on first start. The expenses schema is `db/schema.sql` in the expenses repo. `dbgw` verifies a Supabase
+session against the project's JWKS and re-signs it for PostgREST, so RLS (`auth.uid()`) works unchanged.
+Nightly dumps: `apps-db-backup.timer` → `/opt/apps/backups/<db>-<date>.dump` (14 days).
+
+## Backups and restore
+
+Dock → สำรอง makes `thai-weather-backup-<date>.zip`: `restore.sh`, `README.txt`, and `payload.enc`
+(AES-256 with the passphrase typed in Dock) with both databases, every Docker volume except caches,
+the env files, the Origin certificate and each repo's commit. `restore.sh --check` verifies a bundle;
+`restore.sh` puts this server, or a fresh Ubuntu 24.04 one, back to it (auto-deploy is left off after).
 
 ## Layout on the VPS
 
