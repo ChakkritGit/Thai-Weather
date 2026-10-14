@@ -1,0 +1,182 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# The apps that moved off Vercel / Cloudflare Workers (deploy/apps/README.md)
+#
+#   portfolio    Next.js   chakkritton.com, www              (repo WebProfile)
+#   expenses     Next.js   expenses.chakkritton.com          (repo Spent-Cost)
+#   whiteboard   Next.js   whiteboard.chakkritton.com        (repo Whiteboard)
+#     rooms      Bun       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
+#   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
+#     sync       Bun       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
+#   status       Bun       status.chakkritton.com            (was the status Worker, checks every 5 min)
+#
+# Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
+# chmod 600) – neither is in git. autodeploy.sh pulls and rebuilds; by hand:
+#   docker compose -f docker-compose.yml build <svc> && docker compose up -d <svc>
+# ─────────────────────────────────────────────────────────────────────────────
+name: apps
+
+x-next: &next
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  pids_limit: 256
+  mem_limit: 384m
+  networks: [proxy]
+  healthcheck:
+    test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 20s
+
+x-bun: &bun
+  image: apps-services:local
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  pids_limit: 128
+  mem_limit: 192m
+
+services:
+  portfolio:
+    <<: *next
+    image: apps-portfolio:local
+    container_name: apps-portfolio
+    build:
+      context: .
+      dockerfile: next.Dockerfile
+      additional_contexts:
+        app: ${REPOS:-/opt/apps/repos}/portfolio
+      secrets: [portfolio_env]
+    env_file: ${ENVS:-/opt/apps/env}/portfolio.env
+    # Next writes its image / fetch cache under .next/cache
+    volumes:
+      - portfolio-cache:/app/.next/cache
+
+  expenses:
+    <<: *next
+    image: apps-expenses:local
+    container_name: apps-expenses
+    build:
+      context: .
+      dockerfile: next.Dockerfile
+      additional_contexts:
+        app: ${REPOS:-/opt/apps/repos}/expenses
+      secrets: [expenses_env]
+    env_file: ${ENVS:-/opt/apps/env}/expenses.env
+    volumes:
+      - expenses-cache:/app/.next/cache
+
+  whiteboard:
+    <<: *next
+    image: apps-whiteboard:local
+    container_name: apps-whiteboard
+    build:
+      context: .
+      dockerfile: next.Dockerfile
+      additional_contexts:
+        app: ${REPOS:-/opt/apps/repos}/whiteboard
+      secrets: [whiteboard_env]
+    env_file: ${ENVS:-/opt/apps/env}/whiteboard.env
+    volumes:
+      - whiteboard-cache:/app/.next/cache
+
+  drive-music:
+    <<: *next
+    image: apps-drive-music:local
+    container_name: apps-drive-music
+    build:
+      context: .
+      dockerfile: next.Dockerfile
+      additional_contexts:
+        app: ${REPOS:-/opt/apps/repos}/drive-music
+      secrets: [drive-music_env]
+    env_file: ${ENVS:-/opt/apps/env}/drive-music.env
+    volumes:
+      - drive-music-cache:/app/.next/cache
+
+  # Built once, used by the three Bun services below.
+  rooms:
+    <<: *bun
+    container_name: apps-rooms
+    build:
+      context: ./services
+      additional_contexts:
+        drivemusic: ${REPOS:-/opt/apps/repos}/drive-music
+        portfolio: ${REPOS:-/opt/apps/repos}/portfolio
+    command: ["bun", "src/rooms.ts"]
+    environment:
+      PORT: "8787"
+      PATH_PREFIX: /rooms
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8787/__health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  sync:
+    <<: *bun
+    container_name: apps-sync
+    command: ["bun", "src/sync.ts"]
+    pull_policy: never
+    depends_on: [rooms]
+    environment:
+      PORT: "8788"
+      SYNC_DB: /data/sync.db
+    env_file: ${ENVS:-/opt/apps/env}/sync.env
+    volumes:
+      - sync-data:/data
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8788/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  status:
+    <<: *bun
+    container_name: apps-status
+    command: ["bun", "src/status.ts"]
+    pull_policy: never
+    depends_on: [rooms]
+    environment:
+      PORT: "8789"
+      STATUS_STATE: /data/status.json
+      ROOMS_URL: http://apps-rooms:8787
+      SYNC_URL: http://apps-sync:8788
+    env_file: ${ENVS:-/opt/apps/env}/status.env
+    volumes:
+      - status-data:/data
+    # needs the internet (it probes the public sites) and the internal services
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8789/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+secrets:
+  portfolio_env:
+    file: ${ENVS:-/opt/apps/env}/portfolio.env
+  expenses_env:
+    file: ${ENVS:-/opt/apps/env}/expenses.env
+  whiteboard_env:
+    file: ${ENVS:-/opt/apps/env}/whiteboard.env
+  drive-music_env:
+    file: ${ENVS:-/opt/apps/env}/drive-music.env
+
+networks:
+  proxy:
+    external: true
+  apps:
+    name: apps-internal
+
+volumes:
+  portfolio-cache:
+  expenses-cache:
+  whiteboard-cache:
+  drive-music-cache:
+  sync-data:
+  status-data:

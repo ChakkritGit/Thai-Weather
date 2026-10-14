@@ -1,0 +1,23 @@
+{
+  "name": "apps-services",
+  "private": true,
+  "type": "module",
+  "description": "Bun + Elysia replacements for the Cloudflare Workers: whiteboard rooms, drive-music sync, status page",
+  "scripts": {
+    "rooms": "bun src/rooms.ts",
+    "sync": "bun src/sync.ts",
+    "status": "bun src/status.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "elysia": "1.4.30",
+    "jose": "6.2.4",
+    "lib0": "0.2.117",
+    "y-protocols": "1.0.7",
+    "yjs": "13.6.32"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "y-websocket": "3.1.0"
+  }
+}
