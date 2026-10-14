@@ -37,7 +37,8 @@ inlined there, and never lands in an image layer.
    `chakkritton.com` + `*.chakkritton.com`, then `python3 upload-origin-cert.py < creds`.
 2. Proxy hosts: `python3 npm-hosts.py < creds` (creates or updates them; adds `/_a` to thai-weather too).
 3. Test from the VPS before DNS: `curl -k --resolve expenses.chakkritton.com:443:127.0.0.1 https://expenses.chakkritton.com/api/health`.
-4. Status state: export KV `state` from the `status` namespace into the `status-data` volume (`/data/status.json`).
+4. Status state: rebuilt from the live status page (services, incidents, the 90 daily bars; the CLI token
+   cannot read KV) into the `status-data` volume as `/data/status.json`.
 5. DNS (all **proxied**): `chakkritton.com`, `www`, `expenses`, `whiteboard`, `drive-music` → A `117.18.127.246`;
    `status`: remove the Worker custom domain, then A `117.18.127.246`.
 6. Secrets used by status: set the new `STATUS_SECRET` (from `/opt/apps/env/status.env`) on Supabase
