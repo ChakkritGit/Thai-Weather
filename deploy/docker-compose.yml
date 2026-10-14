@@ -77,20 +77,23 @@ services:
       - proxy
       - dock
 
-  # Host / container / proxy-traffic history for Dock's overview (deploy/dock/metrics/collector.py).
-  # Read-only host views, no Docker socket, no capabilities; reachable only from `dock` (behind Portainer login).
+  # Host / container / proxy-traffic history for Dock's overview: Bun + Elysia (apps/services/src/metrics.ts,
+  # image built by apps/build.sh services). Read-only host views, no Docker socket, no capabilities; reachable
+  # only from `dock` (behind Portainer login). Root inside, like the Python collector before it: it reads other
+  # containers' /proc/<pid>/net and keeps the history file that one saved.
   dock-metrics:
-    image: python:3.12-alpine
+    image: apps-services:local
+    pull_policy: never
     container_name: dock-metrics
     restart: unless-stopped
-    command: ["python", "-u", "/app/collector.py"]
+    user: "0:0"
+    command: ["bun", "src/metrics.ts"]
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 64
     mem_limit: 128m
     volumes:
-      - ./dock/metrics/collector.py:/app/collector.py:ro
       - /proc:/host/proc:ro
       - /sys/fs/cgroup:/host/cgroup:ro
       - /etc/hostname:/host/hostname:ro

@@ -38,6 +38,8 @@ for app in portfolio expenses whiteboard drive-music; do
 done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
   deploy services rooms sync status analytics
+  # dock-metrics (in the main stack) runs the same image
+  (cd .. && docker compose up -d --no-deps dock-metrics)
 fi
 # keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache
 docker image prune -f >/dev/null
