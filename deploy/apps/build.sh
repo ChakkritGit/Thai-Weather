@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build one app image (or the Bun services image) from the repos in $REPOS.
-#   ./build.sh portfolio|expenses|whiteboard|drive-music|services|reminders
+#   ./build.sh portfolio|expenses|whiteboard|drive-music|services|reminders|backup
 # Not `docker compose build`: Compose's bake path refuses to read the secret file without an extra grant.
 # The app's env file is mounted only during `next build` (NEXT_PUBLIC_* are inlined) and never lands in a layer.
 set -eu
@@ -12,6 +12,8 @@ case "$name" in
   services)
     docker buildx build --load -t apps-services:local \
       --build-context drivemusic="$REPOS/drive-music" services ;;
+  backup)
+    docker buildx build --load -t apps-backup:local -f backup.Dockerfile . ;;
   reminders)
     docker buildx build --load -t apps-reminders:local -f reminders.Dockerfile --build-context app="$REPOS/expenses" . ;;
   portfolio|expenses|whiteboard|drive-music)

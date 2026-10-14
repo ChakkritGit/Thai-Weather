@@ -40,6 +40,7 @@ for app in portfolio expenses whiteboard drive-music; do
 done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
   deploy services rooms sync status analytics dbgw media
+  deploy backup backup
   # dock-metrics (in the main stack) runs the same image
   (cd .. && docker compose up -d --no-deps dock-metrics)
 fi

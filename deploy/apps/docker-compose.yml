@@ -156,6 +156,39 @@ services:
       timeout: 5s
       retries: 3
 
+  # Whole-server backup bundles for Dock's "สำรองข้อมูล" page (restore with the bundle's restore.sh).
+  # Reads everything read-only (root with only the read-any-file capability); writes only the bundles.
+  backup:
+    image: apps-backup:local
+    pull_policy: never
+    container_name: apps-backup
+    restart: unless-stopped
+    user: "0:0"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 512m
+    environment:
+      PORT: "8794"
+    volumes:
+      - /var/lib/docker/volumes:/volumes:ro
+      - /opt/apps/env:/src/env:ro
+      - /opt/thai-weather/deploy/.env:/src/thai-weather.env:ro
+      - /root/origin-ca:/src/origin-ca:ro
+      - /opt/apps/repos:/src/repos:ro
+      - /opt/thai-weather:/src/thai-weather:ro
+      - /opt/apps/backups/bundles:/bundles
+    networks: [proxy, apps]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8794/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   # ---- the apps' own database (moved from Supabase; login stays on Supabase Auth) --------------------
   db:
     image: postgres:17.11-alpine3.24

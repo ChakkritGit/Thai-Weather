@@ -46,6 +46,7 @@ const ICONS = {
   ext: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   pulse: 'M3 12h4l3-8 4 16 3-8h4',
   chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  archive: 'M3 4h18v4H3zM5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -178,6 +179,7 @@ const TABS = [
   ['#/images', 'layers', 'อิมเมจ'],
   ['#/volumes', 'disk', 'วอลุ่ม'],
   ['#/web', 'chart', 'สถิติเว็บ'],
+  ['#/backup', 'archive', 'สำรอง'],
 ];
 function tabs(current) {
   return h('nav', { class: 'tabs', 'aria-label': 'เมนู' },
@@ -818,6 +820,69 @@ async function webView(token) {
   timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), 60_000);
 }
 
+// ------------------------------------------------------------------ backup bundles
+// A zip of the whole server (databases, volumes, settings, code commits), encrypted with a passphrase;
+// its restore.sh puts everything back on this server or a new one (deploy/apps/backup).
+const fmtDate = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+
+async function backupView(token) {
+  const pass1 = h('input', { class: 'field', type: 'password', autocomplete: 'new-password', placeholder: 'รหัสผ่านของไฟล์ (อย่างน้อย 12 ตัว)', minlength: 12 });
+  const pass2 = h('input', { class: 'field', type: 'password', autocomplete: 'new-password', placeholder: 'พิมพ์รหัสผ่านอีกครั้ง' });
+  const status = h('p', { class: 'meta', role: 'status' }, ' ');
+  const create = h('button', { class: 'btn primary', type: 'submit' }, 'สร้างไฟล์สำรอง');
+  const form = h('form', { class: 'backup-form', onsubmit: async (e) => {
+    e.preventDefault();
+    if (pass1.value.length < 12) return toast('รหัสผ่านต้องยาวอย่างน้อย 12 ตัว');
+    if (pass1.value !== pass2.value) return toast('รหัสผ่านสองช่องไม่ตรงกัน');
+    create.disabled = true;
+    try {
+      await api('/backups', { method: 'POST', body: { passphrase: pass1.value } });
+      pass1.value = pass2.value = '';
+      toast('เริ่มสร้างไฟล์สำรองแล้ว');
+      await load();
+    } catch (err) {
+      create.disabled = false;
+      handleError(err);
+    }
+  } }, pass1, pass2, create, status);
+  const list = h('div', { class: 'list' }, skeleton(2));
+  const body = h('div', {},
+    card('สร้างไฟล์สำรองทั้งเซิร์ฟเวอร์', null,
+      h('p', { class: 'backup-text' }, 'รวมฐานข้อมูล ข้อมูลใน Docker volume ทุกตัว ไฟล์ตั้งค่า และ commit ของโค้ด เป็น zip เดียว ข้อมูลข้างในเข้ารหัสด้วยรหัสผ่านนี้ — ลืมรหัสผ่าน = เปิดไฟล์ไม่ได้'),
+      form),
+    h('h2', { class: 'section-title' }, 'ไฟล์ที่มี (เก็บ 5 ไฟล์ล่าสุด)'), list,
+    card('กู้คืน', 'บนเครื่องเดิมหรือ Ubuntu 24.04 เครื่องใหม่',
+      h('pre', { class: 'logs backup-steps' }, 'unzip thai-weather-backup-*.zip -d restore\ncd restore\nsudo bash restore.sh --check   # ตรวจก่อน ไม่เปลี่ยนอะไร\nsudo bash restore.sh           # กู้คืนทั้งหมด')));
+  shell(topBar('สำรองข้อมูล', { onRefresh: () => load() }), body, tabs('#/backup'));
+
+  const load = async () => {
+    const { bundles, job } = await api('/backups');
+    if (token !== viewToken) return;
+    const running = job && !job.done && !job.error;
+    create.disabled = !!running;
+    status.textContent = running ? `กำลังสร้าง ${job.name} — ${job.step}…` : job?.error ? `ครั้งล่าสุดไม่สำเร็จ: ${job.error}` : ' ';
+    list.replaceChildren(...(bundles.length ? bundles.map((b) => h('div', { class: 'row' },
+      h('div', { class: 'row-main' },
+        h('span', { class: 'row-title' }, fmtDate.format(new Date(b.created))),
+        h('span', { class: 'row-sub' }, `${fmtBytes(b.size)} · ${b.name}`)),
+      h('div', { class: 'row-actions' },
+        h('button', { class: 'btn', type: 'button', onclick: async () => {
+          try {
+            const { url } = await api(`/backups/${encodeURIComponent(b.name)}/link`, { method: 'POST' });
+            location.href = url;
+          } catch (err) { handleError(err); }
+        } }, 'ดาวน์โหลด'),
+        confirmButton('ลบ', 'แตะอีกครั้งเพื่อลบ', async () => {
+          await api(`/backups/${encodeURIComponent(b.name)}`, { method: 'DELETE' });
+          await load();
+        }, { danger: true }))))
+      : [h('p', { class: 'empty' }, 'ยังไม่มีไฟล์สำรอง')]));
+    clearInterval(timer);
+    if (running) timer = setInterval(() => load().catch(handleError), 3000);
+  };
+  await load();
+}
+
 // ------------------------------------------------------------------ routing
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); } catch { /* token may already be gone */ }
@@ -847,6 +912,7 @@ async function route() {
     else if (hash === '#/images') await imagesView(token);
     else if (hash === '#/volumes') await volumesView(token);
     else if (hash === '#/web') await webView(token);
+    else if (hash === '#/backup') await backupView(token);
     else await overviewView(token);
   } catch (e) {
     if (token === viewToken) handleError(e);

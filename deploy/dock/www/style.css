@@ -275,3 +275,15 @@ table.data .mono { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace
 .segmented.scroll::-webkit-scrollbar { display: none; }
 .segmented.scroll button { flex: none; }
 .data .muted { color: var(--faint); font-size: 12px; }
+
+/* backup page */
+.backup-form { display: grid; gap: 10px; margin-top: 4px; }
+.backup-form .btn { justify-self: start; }
+.backup-text { margin: 0 0 6px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.row-actions { display: flex; gap: 8px; flex: none; }
+pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
+@media (max-width: 520px) {
+  .row:has(.row-actions) { flex-wrap: wrap; }
+  .row-actions { width: 100%; justify-content: flex-end; }
+  .tabs a { font-size: 11px; padding: 6px 2px; }
+}
