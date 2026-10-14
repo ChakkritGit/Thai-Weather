@@ -777,7 +777,8 @@ async function webView(token) {
       tile('หน้าต่อการเข้าชม', total.visitors ? (total.views / total.visitors).toFixed(1) : '–', 'เพจวิว ÷ ผู้เข้าชม'),
       tile('LCP (p75)', lcp ? VITALS[0][4](lcp.p75) : '–', lcp ? `${vitalText(lcpTone)} · จาก ${fmtNum(lcp.n)} ครั้ง` : 'ยังไม่มีข้อมูล'),
     );
-    const opts = { times, step: DAY, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
+    // whole numbers on the axis even for a quiet week
+    const opts = { times, step: DAY, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), ...(Math.max(...pv) < 4 ? { max: 4 } : {}),
       series: [{ name: 'เพจวิว', color: SERIES[0], values: pv }, { name: 'ผู้เข้าชม', color: SERIES[1], values: uv }] };
     if (!views) {
       const c = card('ผู้เข้าชมและเพจวิวรายวัน', st.host ? siteName(st.host) : 'ทุกเว็บไซต์');
