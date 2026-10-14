@@ -5,40 +5,37 @@ import { fmtHour } from '../lib/format';
 import type { RadarState } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
+import { ScrubRange } from './ScrubRange';
 
 /**
- * Radar box on the map: the observed frame's time (latest / past), Play through the last hour and a
- * frame slider.  Labels always describe the frame on screen, never a selection that is still loading.
+ * Radar strip in the map's bottom stack: the observed frame's time (latest / past) and a frame slider, with
+ * the radar colours as a thin bar underneath. One line, so it does not cover the map; Play is the timeline's
+ * (one playback runs the radar frames, then the forecast). Labels always describe the frame on screen.
  */
 export function RadarControl({
   radar,
   active,
-  playing,
-  onPlaying,
   onSelect,
 }: {
   radar: RadarState;
   /** the timeline is on the current hour, so the radar is on the map */
   active: boolean;
-  playing: boolean;
-  onPlaying: (p: boolean) => void;
   onSelect: (id: string) => void;
 }) {
   const { t, lang } = useT();
   const th = lang === 'th';
   const { frame, frames, selectedId } = radar;
 
-  if (radar.status === 'loading' && !frame) {
-    return (
-      <div className="radar-tag glass" role="status">
-        <span className="muted">{t('loading')}</span>
-      </div>
-    );
-  }
+  const head = (text: React.ReactNode) => (
+    <span className="radar-strip-label">
+      <Icon name="radar" />
+      {text}
+    </span>
+  );
   if (!frame) {
     return (
-      <div className="radar-tag glass" role="status">
-        <span className="muted">{t('radarOff')}</span>
+      <div className="radar-strip glass" role="status">
+        {head(<span className="muted">{radar.status === 'loading' ? t('loading') : t('radarOff')}</span>)}
       </div>
     );
   }
@@ -46,50 +43,36 @@ export function RadarControl({
   const index = Math.max(0, frames.findIndex((f) => f.id === selectedId));
   const time = `${fmtHour(frame.frameTime, lang)}${th ? ' น.' : ''}`;
   return (
-    <div className="radar-tag glass" role="group" aria-label={t('radar')} data-active={active ? undefined : 'false'}>
-      <div className="radar-head">
-        {frames.length > 1 && (
-          <button
-            type="button"
-            className="radar-play"
-            onClick={() => onPlaying(!playing)}
-            aria-label={playing ? t('radarPause') : t('radarPlay')}
-            title={playing ? t('radarPause') : t('radarPlay')}
-          >
-            <Icon name={playing ? 'pause' : 'play'} />
-          </button>
-        )}
-        <span aria-live={playing ? 'off' : 'polite'}>
-          <b>
+    <div className="radar-strip glass" role="group" aria-label={t('radar')} data-active={active ? undefined : 'false'}>
+      <div className="radar-strip-row">
+        {head(
+          <b aria-live="polite">
             {radar.isLatest ? t('radarLatest') : t('radarPast')} {time}
-          </b>
-          {radar.pending && <span className="spinner radar-spinner" aria-label={t('loading')} />}
-        </span>
+            {radar.pending && <span className="spinner radar-spinner" aria-label={t('loading')} />}
+          </b>,
+        )}
+        {active && frames.length > 1 ? (
+          <ScrubRange
+            className="range radar-range"
+            max={frames.length - 1}
+            value={index}
+            onChange={(i) => onSelect(frames[i].id)}
+            aria-label={t('radarFrames')}
+            aria-valuetext={`${fmtHour(frames[index].time, lang)}${th ? ' น.' : ''}`}
+          />
+        ) : (
+          !active && <span className="radar-strip-note">{t('radarNowOnly')}</span>
+        )}
       </div>
-      {frames.length > 1 && (
-        <input
-          className="range radar-range"
-          type="range"
-          min={0}
-          max={frames.length - 1}
-          value={index}
-          onChange={(e) => onSelect(frames[Number(e.target.value)].id)}
-          aria-label={t('radarFrames')}
-          aria-valuetext={`${fmtHour(frames[index].time, lang)}${th ? ' น.' : ''}`}
-        />
+      {(radar.stale || radar.refreshError) && (
+        <p className="radar-note">{radar.stale ? t('radarStale') : t('radarRefreshFailed')}</p>
       )}
-      {!active && <p className="radar-note radar-note--muted">{t('radarFutureHidden')}</p>}
-      {radar.stale && <p className="radar-note">{t('radarStale')}</p>}
-      {radar.refreshError && <p className="radar-note">{t('radarRefreshFailed')}</p>}
-      <div className="radar-tag-bar" style={{ background: cssGradient(radarScale, 12, 70) }} aria-hidden="true" />
-      <div className="radar-tag-scale muted" aria-hidden="true">
-        {[20, 40, 60].map((v) => (
-          <span key={v} style={{ left: `${((v - 12) / 58) * 100}%` }}>
-            {v}
-          </span>
-        ))}
+      <div className="radar-strip-scale" title={`${th ? 'ภาพตรวจวัดจริง' : 'Observed'} · RainViewer`}>
+        <span>{th ? 'เบา' : 'Light'}</span>
+        <i style={{ background: cssGradient(radarScale, 12, 70) }} aria-hidden="true" />
+        <span>{th ? 'หนัก' : 'Heavy'}</span>
+        <span className="muted radar-credit">RainViewer</span>
       </div>
-      <span className="muted radar-credit">{th ? 'ภาพตรวจวัดจริง' : 'Observed'} · RainViewer</span>
     </div>
   );
 }

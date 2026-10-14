@@ -546,7 +546,6 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
               <Icon name="locate" />
             </button>
           )}
-          {radarOn && <RadarControl radar={radar} active={atNow} playing={playing} onPlaying={togglePlay} onSelect={onRadarSelect} />}
         </div>
 
         {canLocate && !selected && !compare && <LocateCta variant="float" status={locateStatus} onLocate={() => locate()} />}
@@ -558,6 +557,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         )}
 
         <div className="map-bottom">
+          {radarOn && <RadarControl radar={radar} active={atNow} onSelect={onRadarSelect} />}
           <Legend layer={layer} />
           <Timeline
             run={run}

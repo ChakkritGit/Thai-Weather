@@ -803,6 +803,7 @@ button {
   cursor: pointer;
 }
 .range:focus-visible { outline: none; }
+.timeline .range { touch-action: none; }
 .range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: var(--radius-full);
@@ -1160,7 +1161,11 @@ button {
   .compare-slot { top: 56px; }
   .map-tools[data-cta='true'] .btn--locate { display: none; }
   .map-loading { top: 100px; }
-  .legend { width: 100%; }
+  .legend { width: 100%; padding: 6px var(--space-3) 2px; }
+  .radar-strip { width: 100%; }
+  .legend-title { margin-bottom: 2px; }
+  .legend-bar { height: 6px; }
+  .legend-ticks { height: 14px; margin-top: 1px; }
   .map-bottom { left: var(--space-2); right: var(--space-2); bottom: calc(var(--space-2) + env(safe-area-inset-bottom)); gap: var(--space-1); }
   .timeline { padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2); gap: var(--space-2); }
   .timeline-play { width: 40px; height: 40px; }
@@ -1401,33 +1406,23 @@ button {
 .nowcast-meta { margin: 0; font-size: var(--font-size-xs); line-height: 1.5; }
 .nowcast-meta a { color: inherit; text-decoration: underline; }
 
-/* ---------------------------------------------------------- radar overlay */
-.radar-tag {
-  padding: var(--space-1) var(--space-3);
+/* ---------------------------------------------------------- radar strip (bottom stack, one line) */
+.radar-strip {
+  justify-self: start;
+  width: min(100%, 460px);
+  padding: var(--space-1) var(--space-3) 6px;
   font-size: var(--font-size-xs);
-  min-width: 150px;
-  max-width: 220px;
+  display: grid;
+  gap: 2px;
 }
-.radar-tag-bar { height: 6px; margin-top: var(--space-1); border-radius: var(--radius-full); background-color: var(--color-bg-muted); }
-.radar-tag-scale { position: relative; height: 14px; font-size: var(--font-size-2xs); font-variant-numeric: tabular-nums; }
-.radar-tag-scale span { position: absolute; transform: translateX(-50%); }
-.radar-head { display: flex; align-items: center; gap: var(--space-2); }
-.radar-play {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: var(--color-accent-default);
-  color: var(--color-fg-onAccent);
-  cursor: pointer;
-}
-.radar-play svg { width: 14px; height: 14px; }
+.radar-strip-row { display: flex; align-items: center; gap: var(--space-3); min-height: 32px; }
+.radar-strip-label { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; }
+.radar-strip-label svg { width: 16px; height: 16px; color: var(--color-accent-fg); }
+.radar-strip .radar-range { flex: 1; min-width: 0; touch-action: none; }
+.radar-strip-note { color: var(--color-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radar-strip[data-active='false'] .radar-strip-label b { color: var(--color-fg-muted); }
+.radar-strip-scale { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-2xs); color: var(--color-fg-muted); }
+.radar-strip-scale i { flex: 1; height: 4px; border-radius: var(--radius-full); background-color: var(--color-bg-muted); }
 .radar-spinner { display: inline-block; width: 12px; height: 12px; margin-left: var(--space-1); vertical-align: middle; }
-.radar-range { width: 100%; margin: var(--space-1) 0 0; }
-.radar-note { margin: var(--space-1) 0 0; color: var(--color-severity-3-fg); line-height: 1.3; }
-.radar-credit { display: block; font-size: var(--font-size-2xs); }
-.radar-note--muted { color: var(--color-fg-muted); }
-.radar-tag[data-active='false'] .radar-head b { color: var(--color-fg-muted); }
+.radar-note { margin: 0; color: var(--color-severity-3-fg); line-height: 1.3; }
+.radar-credit { margin-left: var(--space-2); }

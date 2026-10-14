@@ -4,6 +4,7 @@ import type { RunMeta } from '../lib/api';
 import { fmtDay, fmtStep, nearestStep, thaiDate, thaiHour } from '../lib/format';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
+import { ScrubRange } from './ScrubRange';
 
 interface Props {
   run: RunMeta;
@@ -60,16 +61,7 @@ export function Timeline({ run, daily, index, onChange, playing, onPlaying, labe
             <span className="now-chip">{t('now')}</span>
           )}
         </div>
-        <input
-          className="range"
-          type="range"
-          min={0}
-          max={n - 1}
-          value={index}
-          onChange={(e) => onChange(Number(e.target.value))}
-          aria-label={t('time')}
-          aria-valuetext={fmtStep(run.times[index], lang)}
-        />
+        <ScrubRange max={n - 1} value={index} onChange={onChange} aria-label={t('time')} aria-valuetext={fmtStep(run.times[index], lang)} />
         <div className="timeline-days" aria-hidden="true">
           {dayStarts.map((i) => (
             <span key={i} style={{ left: `calc(${(i / (n - 1)) * 100}% )` }}>
