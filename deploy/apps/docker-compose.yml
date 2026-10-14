@@ -10,8 +10,8 @@
 #   status       Bun       status.chakkritton.com            (was the status Worker, checks every 5 min)
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
-# chmod 600) – neither is in git. autodeploy.sh pulls and rebuilds; by hand:
-#   docker compose -f docker-compose.yml build <svc> && docker compose up -d <svc>
+# chmod 600) – neither is in git. Images are built by build.sh (autodeploy.sh calls it after a pull):
+#   ./build.sh portfolio && docker compose up -d portfolio      # or ./build.sh services
 # ─────────────────────────────────────────────────────────────────────────────
 name: apps
 
@@ -43,14 +43,7 @@ services:
     <<: *next
     image: apps-portfolio:local
     container_name: apps-portfolio
-    build:
-      context: .
-      dockerfile: next.Dockerfile
-      additional_contexts:
-        app: ${REPOS:-/opt/apps/repos}/portfolio
-      secrets:
-        - source: portfolio_env
-          target: env  # the id next.Dockerfile mounts
+    pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/portfolio.env
     # Next writes its image / fetch cache under .next/cache
     volumes:
@@ -60,14 +53,7 @@ services:
     <<: *next
     image: apps-expenses:local
     container_name: apps-expenses
-    build:
-      context: .
-      dockerfile: next.Dockerfile
-      additional_contexts:
-        app: ${REPOS:-/opt/apps/repos}/expenses
-      secrets:
-        - source: expenses_env
-          target: env  # the id next.Dockerfile mounts
+    pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/expenses.env
     volumes:
       - expenses-cache:/app/.next/cache
@@ -76,14 +62,7 @@ services:
     <<: *next
     image: apps-whiteboard:local
     container_name: apps-whiteboard
-    build:
-      context: .
-      dockerfile: next.Dockerfile
-      additional_contexts:
-        app: ${REPOS:-/opt/apps/repos}/whiteboard
-      secrets:
-        - source: whiteboard_env
-          target: env  # the id next.Dockerfile mounts
+    pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/whiteboard.env
     volumes:
       - whiteboard-cache:/app/.next/cache
@@ -92,14 +71,7 @@ services:
     <<: *next
     image: apps-drive-music:local
     container_name: apps-drive-music
-    build:
-      context: .
-      dockerfile: next.Dockerfile
-      additional_contexts:
-        app: ${REPOS:-/opt/apps/repos}/drive-music
-      secrets:
-        - source: drive-music_env
-          target: env  # the id next.Dockerfile mounts
+    pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/drive-music.env
     volumes:
       - drive-music-cache:/app/.next/cache
@@ -108,11 +80,7 @@ services:
   rooms:
     <<: *bun
     container_name: apps-rooms
-    build:
-      context: ./services
-      additional_contexts:
-        drivemusic: ${REPOS:-/opt/apps/repos}/drive-music
-        portfolio: ${REPOS:-/opt/apps/repos}/portfolio
+    pull_policy: never
     command: ["bun", "src/rooms.ts"]
     environment:
       PORT: "8787"
@@ -165,15 +133,6 @@ services:
       timeout: 5s
       retries: 3
 
-secrets:
-  portfolio_env:
-    file: ${ENVS:-/opt/apps/env}/portfolio.env
-  expenses_env:
-    file: ${ENVS:-/opt/apps/env}/expenses.env
-  whiteboard_env:
-    file: ${ENVS:-/opt/apps/env}/whiteboard.env
-  drive-music_env:
-    file: ${ENVS:-/opt/apps/env}/drive-music.env
 
 networks:
   proxy:
