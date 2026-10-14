@@ -1,17 +1,16 @@
 /**
  * status.chakkritton.com – replaces the `status` Worker (5-minute cron + KV).
  *
- * Runs the Worker's own checks / state machine / page (vendored by scripts/vendor-status.sh). What was
- * Cloudflare-specific is swapped here: the KV value is a JSON file (written atomically), the cron is a
- * timer aligned to every fifth minute, and the ROOMS / MUSIC_SYNC service bindings are plain fetches to
- * the rooms and sync containers on the internal network.
+ * The checks, the up/down state machine and the page are in ./status (moved here from the portfolio repo,
+ * where they ran as a Worker). The state is a JSON file (written atomically), the run is a timer aligned to
+ * every fifth minute, and rooms / sync are probed on the internal network.
  */
 import { Elysia } from 'elysia'
 import { rename, readFile, writeFile } from 'node:fs/promises'
-import { CHECKS, runChecks } from './vendor/status/checks'
-import { handle } from './vendor/status/page'
-import { apply, emptyState } from './vendor/status/state'
-import type { State } from './vendor/status/types'
+import { CHECKS, runChecks } from './status/checks'
+import { handle } from './status/page'
+import { apply, emptyState } from './status/state'
+import type { State } from './status/types'
 
 const PORT = Number(process.env.PORT ?? 8789)
 const STATE_FILE = process.env.STATUS_STATE ?? '/data/status.json'
@@ -19,7 +18,7 @@ const ROOMS_URL = process.env.ROOMS_URL ?? 'http://apps-rooms:8787'
 const SYNC_URL = process.env.SYNC_URL ?? 'http://apps-sync:8788'
 const STEP = 5 * 60_000
 
-/** A service binding stand-in: same request path, sent to an internal base URL. */
+/** An internal service: the same request path, sent to its base URL on the Docker network. */
 const binding = (base: string) => ({
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     const u = new URL(typeof input === 'string' || input instanceof URL ? input : input.url)
@@ -54,7 +53,7 @@ async function save(file = STATE_FILE) {
 
 /** One scheduled run, as the Worker's `scheduled` handler did it. */
 export async function tick(scheduledTime: number, e: typeof env = env, file = STATE_FILE) {
-  const results = await runChecks(e as never, scheduledTime)
+  const results = await runChecks(e, scheduledTime)
   const out = apply(state, results, Date.now())
   state = out.state
   await save(file)

@@ -1,0 +1,85 @@
+// Run: bun test src/status/page.test.ts   (from deploy/apps/services/)
+import { test } from 'bun:test'
+import assert from 'node:assert/strict'
+import { CHECKS } from './checks'
+import { handle, render } from './page'
+import { bangkokDay, emptyState } from './state'
+import type { State } from './types'
+
+const NOW = Date.UTC(2026, 9, 2, 5, 0, 0)
+const svc = (status: 'up' | 'down', ms = 120) => ({ status, fails: 0, since: NOW - 3600_000, ms, checkedAt: NOW })
+const allUp = (): State => ({
+  ...emptyState(),
+  lastRun: NOW,
+  services: Object.fromEntries(CHECKS.map((c) => [c.id, svc('up')])),
+})
+
+test('an empty state renders and says it has never checked', () => {
+  const html = render(emptyState(), NOW)
+  assert.match(html, /ยังไม่มีข้อมูล/)
+  assert.match(html, /ไม่มีเหตุขัดข้องใน 7 วันที่ผ่านมา/)
+})
+
+test('all up says everything is normal, with the Bangkok check time', () => {
+  const html = render(allUp(), NOW)
+  assert.match(html, /ทุกระบบปกติ/)
+  assert.match(html, /อัปเดตล่าสุด 12:00/)
+})
+
+test('one down names it, and an open incident reads "ยังไม่กลับมา"', () => {
+  const s = allUp()
+  s.services.rooms = svc('down')
+  s.incidents = [{ id: 'rooms', start: NOW - 600_000 }]
+  const html = render(s, NOW)
+  assert.match(html, /มีบางระบบล่ม/)
+  assert.match(html, /มีบางระบบล่ม: ห้อง Whiteboard/)
+  assert.match(html, /ยังไม่กลับมา/)
+})
+
+test('a 95/100 day is an amber bar whose tooltip data says 95% and how many checks failed', () => {
+  const s = allUp()
+  s.days.portfolio = { [bangkokDay(NOW)]: [95, 100] }
+  const html = render(s, NOW)
+  assert.match(html, /class="bar warn" tabindex="0" data-d="[^"]+" data-u="95%" data-n="ล่มราว 25 นาที"/)
+})
+
+test('an incident inside a day shows as minutes down in that bar', () => {
+  const s = allUp()
+  s.days.rooms = { [bangkokDay(NOW)]: [90, 100] }
+  s.incidents = [{ id: 'rooms', start: NOW - 30 * 60_000, end: NOW - 10 * 60_000 }]
+  assert.match(render(s, NOW), /data-n="ล่มราว 20 นาที"/)
+})
+
+test('the banner says slow, not normal, when something is slow', () => {
+  const s = allUp()
+  s.services.expenses = { ...svc('up'), status: 'slow' }
+  assert.match(render(s, NOW), /บางระบบตอบช้า: Spent-Cost/)
+})
+
+test('a name with markup is escaped', () => {
+  const html = render(allUp(), NOW, [{ id: 'portfolio', group: 'portfolio', name: '<script>alert(1)</script>' }])
+  assert.ok(!html.includes('<script>alert(1)'))
+  assert.match(html, /&#60;script&#62;/)
+})
+
+test('routes: json, page, and 404', async () => {
+  const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW)
+  const j = (await get('/api/status').json()) as { services: unknown[]; incidents: unknown[]; lastRun: number }
+  assert.equal(j.services.length, 10)
+  assert.equal(get('/api/status').headers.get('Cache-Control'), 'public, max-age=60')
+  assert.equal(get('/').status, 200)
+  assert.equal(get('/nope').status, 404)
+  assert.equal(get('/status').status, 404)
+  assert.equal(get('/favicon.svg').headers.get('Content-Type'), 'image/svg+xml')
+})
+
+test('shows failure categories and measured latency', async () => {
+  const s = allUp()
+  s.services.reminders = { ...svc('down', 20_000), reason: 'timeout' }
+  assert.match(render(s, NOW), /ตรวจสถานะเกินเวลาที่กำหนด/)
+  assert.match(render(s, NOW), /20000 ms/)
+  s.services.reminders = { ...svc('down'), reason: 'heartbeat-stale' }
+  assert.match(render(s, NOW), /งานส่งบิลยังไม่มีรอบสำเร็จภายใน 26 ชั่วโมง/)
+  const j = await handle(new Request('https://status.chakkritton.com/api/status'), s, NOW).json() as { services: { id: string; reason: string }[] }
+  assert.equal(j.services.find((service) => service.id === 'reminders')?.reason, 'heartbeat-stale')
+})

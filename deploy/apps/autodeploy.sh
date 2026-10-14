@@ -1,7 +1,7 @@
 #!/bin/sh
 # Auto-deploy on push: every 2 minutes (apps-autodeploy.timer) fetch each app repo's main branch and,
 # when it moved, rebuild that app's image and restart it. The Bun services image is rebuilt too when
-# a repo it vendors code from changed (drive-music → sync, portfolio → status).
+# drive-music changed (the sync service runs its room logic).
 # Log: journalctl -u apps-autodeploy   ·   by hand: /opt/thai-weather/deploy/apps/autodeploy.sh [--force <app>]
 set -eu
 cd "$(dirname "$0")"
@@ -34,7 +34,7 @@ for app in portfolio expenses whiteboard drive-music; do
     git -C "$dir" reset -q --hard "$old"
     continue
   fi
-  case "$app" in drive-music|portfolio) services_dirty=1 ;; esac
+  [ "$app" = drive-music ] && services_dirty=1
 done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
   deploy services rooms sync status analytics

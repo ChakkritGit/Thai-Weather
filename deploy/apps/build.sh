@@ -11,7 +11,7 @@ name=${1:?app name}
 case "$name" in
   services)
     docker buildx build --load -t apps-services:local \
-      --build-context drivemusic="$REPOS/drive-music" --build-context portfolio="$REPOS/portfolio" services ;;
+      --build-context drivemusic="$REPOS/drive-music" services ;;
   portfolio|expenses|whiteboard|drive-music)
     docker buildx build --load -t "apps-$name:local" -f next.Dockerfile \
       --build-context app="$REPOS/$name" --secret id=env,src="$ENVS/$name.env" . ;;
