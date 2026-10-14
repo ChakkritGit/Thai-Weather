@@ -48,7 +48,9 @@ services:
       dockerfile: next.Dockerfile
       additional_contexts:
         app: ${REPOS:-/opt/apps/repos}/portfolio
-      secrets: [portfolio_env]
+      secrets:
+        - source: portfolio_env
+          target: env  # the id next.Dockerfile mounts
     env_file: ${ENVS:-/opt/apps/env}/portfolio.env
     # Next writes its image / fetch cache under .next/cache
     volumes:
@@ -63,7 +65,9 @@ services:
       dockerfile: next.Dockerfile
       additional_contexts:
         app: ${REPOS:-/opt/apps/repos}/expenses
-      secrets: [expenses_env]
+      secrets:
+        - source: expenses_env
+          target: env  # the id next.Dockerfile mounts
     env_file: ${ENVS:-/opt/apps/env}/expenses.env
     volumes:
       - expenses-cache:/app/.next/cache
@@ -77,7 +81,9 @@ services:
       dockerfile: next.Dockerfile
       additional_contexts:
         app: ${REPOS:-/opt/apps/repos}/whiteboard
-      secrets: [whiteboard_env]
+      secrets:
+        - source: whiteboard_env
+          target: env  # the id next.Dockerfile mounts
     env_file: ${ENVS:-/opt/apps/env}/whiteboard.env
     volumes:
       - whiteboard-cache:/app/.next/cache
@@ -91,7 +97,9 @@ services:
       dockerfile: next.Dockerfile
       additional_contexts:
         app: ${REPOS:-/opt/apps/repos}/drive-music
-      secrets: [drive-music_env]
+      secrets:
+        - source: drive-music_env
+          target: env  # the id next.Dockerfile mounts
     env_file: ${ENVS:-/opt/apps/env}/drive-music.env
     volumes:
       - drive-music-cache:/app/.next/cache
