@@ -15,6 +15,7 @@ BASE = {
     "heat_max": 37.0,
     "rain_p95": 10.0,
     "storm_max": 40.0,
+    "storm_p95": 30.0,
     "wind_max": 4.0,
 }
 
@@ -42,7 +43,9 @@ def test_ordinary_thai_day_raises_no_alert():
     # DoH "extreme caution" (32-41 C) is informational, not an alert
     assert sev(heat_max=32.0) == {} and sev(heat_max=40.9) == {}
     assert sev(rain_p95=60.0) == {}  # TMD "heavy rain" alone is routine in the rainy season
-    assert sev(storm_max=65.0) == {}
+    assert sev(storm_p95=65.0) == {}
+    # one hot cell in one hour (storm_max) no longer flags a whole province; the area p95 must reach it
+    assert sev(storm_max=95.0) == {}
 
 
 @pytest.mark.parametrize(
@@ -53,7 +56,7 @@ def test_ordinary_thai_day_raises_no_alert():
         ({"heat_max": 54.0}, {"heat": 3}),
         ({"rain_p95": 95.0}, {"rain": 1}),
         ({"rain_p95": 150.0}, {"rain": 2}),
-        ({"storm_max": 80.0}, {"storm": 1}),
+        ({"storm_p95": 80.0}, {"storm": 1}),
         ({"wind_max": 11.0}, {"wind": 1}),
         ({"wind_max": 18.0}, {"wind": 2}),
         ({"wind_max": 25.0}, {"wind": 3}),
@@ -91,7 +94,7 @@ def test_ordinary_day_alerts_at_most_a_quarter_of_provinces():
             "tmin": float(rng.normal(23.2, 1.4)),
             "heat_max": float(np.clip(rng.normal(36.5, 1.6), 30, 41.5)),
             "rain_p95": float(rng.gamma(2.0, 7.0)),
-            "storm_max": float(np.clip(rng.normal(36, 14), 0, 70)),
+            "storm_p95": float(np.clip(rng.normal(36, 14), 0, 70)),
             "wind_max": float(rng.gamma(6.0, 0.7)),
         }
         for _ in range(n)

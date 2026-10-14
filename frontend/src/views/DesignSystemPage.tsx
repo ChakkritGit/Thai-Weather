@@ -231,7 +231,7 @@ export function DesignSystemPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <AlertBadge alert={{ hazard: 'heat', level: 'danger', severity: 2, value: 43, label_th: 'อันตราย', label_en: 'Danger' }} showValue />
             <AlertBadge alert={{ hazard: 'rain', level: 'veryHeavy', severity: 1, value: 112, label_th: 'ฝนหนักมาก', label_en: 'Very heavy rain' }} showValue />
-            <AlertBadge alert={{ hazard: 'storm', level: 'severe', severity: 1, value: 80, label_th: 'พายุฝนฟ้าคะนองรุนแรง', label_en: 'Severe thunderstorms' }} />
+            <AlertBadge alert={{ hazard: 'storm', level: 'severe', severity: 1, value: 80, label_th: 'โอกาสเกิดสูง', label_en: 'High chance' }} />
             <AlertBadge alert={{ hazard: 'heat', level: 'extremeDanger', severity: 3, value: 56, label_th: 'อันตรายมาก', label_en: 'Extreme danger' }} />
             <TierChip severity={1} advice />
             <TierChip severity={2} advice />

@@ -101,6 +101,8 @@ export interface DaySummary {
   rain_p95: number;
   rain_coverage: number;
   storm_max: number;
+  /** area p95 of the daily max – what the storm alert uses (absent in runs made before it existed) */
+  storm_p95?: number;
   wind_max: number;
   rain_coverage_level: string | null;
   rain_level: string | null;

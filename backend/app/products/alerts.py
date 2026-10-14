@@ -22,7 +22,7 @@ from .scales import categorise
 RULES: list[tuple[str, str, str]] = [
     ("heat", "heat_max", "heatIndex"),
     ("rain", "rain_p95", "rainDaily"),
-    ("storm", "storm_max", "thunder"),
+    ("storm", "storm_p95", "thunder"),
     ("wind", "wind_max", "wind"),
     ("hot", "tmax", "tempMax"),
     ("cold", "tmin", "tempMin"),

@@ -1207,8 +1207,8 @@ export const weatherScales = {
           "id": "severe",
           "min": 75,
           "severity": 1,
-          "label_th": "พายุฝนฟ้าคะนองรุนแรง",
-          "label_en": "Severe thunderstorms"
+          "label_th": "โอกาสเกิดสูง",
+          "label_en": "High chance"
         }
       ]
     },

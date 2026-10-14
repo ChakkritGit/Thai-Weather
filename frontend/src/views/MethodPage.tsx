@@ -147,15 +147,15 @@ export function MethodPage({ run }: { run: MethodRun | null }) {
               {(th
                 ? [
                     'นี่คือการลดย่อส่วนเชิงสถิติ–พลวัต (statistical–dynamical) ไม่ใช่โมเดลเชิงตัวเลขเต็มรูปแบบ ไม่สามารถสร้างพายุที่โมเดลโลกไม่มีได้',
-                    'ตำแหน่งเซลล์ฝนแต่ละเซลล์เป็นความน่าจะเป็น จึงแสดงเป็น “โอกาสฝน” และ “ร้อยละของพื้นที่”',
-                    'ควรรัน WRF 3 กม. (ไฟล์ตั้งค่าอยู่ใน infra/wrf) คู่กันเมื่อมีทรัพยากรคำนวณ แล้วใช้ระบบนี้เป็นตัวลดย่อส่วน/แก้ไขค่าต่อ',
-                    'ต้องตรวจสอบ (verify) กับข้อมูลสถานีของกรมอุตุนิยมวิทยาอย่างต่อเนื่องก่อนใช้ในงานเตือนภัยจริง',
+                    'ตำแหน่งเซลล์ฝนแต่ละเซลล์เป็นความน่าจะเป็น จึงแสดงเป็น “โอกาสฝน” และ “ร้อยละของพื้นที่” — ช่วง 1 ชั่วโมงแรกใช้เรดาร์จริงปรับโอกาสฝนที่จุดที่เลือก',
+                    'ยังไม่ได้รัน WRF 3 กม. (ไฟล์ตั้งค่าอยู่ใน infra/wrf) เพราะต้องใช้ทรัพยากรคำนวณมากกว่าเซิร์ฟเวอร์ปัจจุบัน',
+                    'ตรวจสอบอัตโนมัติทุก 15 นาทีกับสถานีตรวจอากาศสนามบิน (METAR) แยกสถานีทดสอบอิสระไว้ส่วนหนึ่ง — อุณหภูมิคลาดเคลื่อนเฉลี่ยราว 1.5 °C แต่ยังพยากรณ์ “มีฝน” บ่อยกว่าที่เกิดจริง จึงยังไม่ควรใช้แทนประกาศเตือนภัยของกรมอุตุนิยมวิทยา',
                   ]
                 : [
                     'This is statistical–dynamical downscaling, not a full NWP model; it cannot create storms the global model lacks.',
-                    'Exact convective-cell positions are uncertain, so they are expressed as chance of rain and % of area.',
-                    'Run WRF at 3 km (configs in infra/wrf) alongside when compute allows, and feed it through the same pipeline.',
-                    'Continuous verification against TMD station data is required before operational warning use.',
+                    'Exact convective-cell positions are uncertain, so they are expressed as chance of rain and % of area; for the first hour, live radar adjusts the chance of rain at the selected point.',
+                    'WRF at 3 km (configs in infra/wrf) is not run yet: it needs more compute than the current server has.',
+                    'Verified automatically every 15 minutes against airport stations (METAR), with independent hold-out stations: temperature is off by about 1.5 °C on average, but rain is still forecast more often than it occurs, so this does not replace TMD warnings.',
                   ]
               ).map((x) => (
                 <li key={x}>{x}</li>

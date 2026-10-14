@@ -74,6 +74,8 @@ const loadStatic = () =>
     thai,
   })));
 
+const FINE_GRID_INK = 'rgb(12,16,22)';
+
 function gridLineCollection(g: GridDesc, clip: Bounds): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
@@ -128,8 +130,9 @@ export function WeatherMap(props: Props) {
       style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': token('--color-map-ocean') } }] },
       bounds: THAILAND,
       fitBoundsOptions: { padding: 24 },
+      // phones: the bottom sheet covers the lower ~60 % of the map, so leave room to lift the south above it
       maxBounds: [
-        [fineBounds.west - 4, fineBounds.south - 3],
+        [fineBounds.west - 4, fineBounds.south - (window.matchMedia('(max-width: 860px)').matches ? 12 : 3)],
         [fineBounds.east + 4, fineBounds.north + 3],
       ],
       minZoom: 4,
@@ -203,10 +206,11 @@ export function WeatherMap(props: Props) {
           source: 'fine-grid',
           minzoom: 8,
           layout: { visibility: 'none' },
+          // dark ink in both themes: the weather colours under it are mostly light, a pale line vanishes
           paint: {
-            'line-color': token('--color-map-coarseGrid'),
-            'line-width': 0.5,
-            'line-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 9, 0.35, 11, 0.55],
+            'line-color': FINE_GRID_INK,
+            'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.4, 11, 0.8],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0, 9, 0.4, 11, 0.6],
           },
         });
       }
@@ -290,7 +294,6 @@ export function WeatherMap(props: Props) {
     map.setPaintProperty('provinces-hover', 'line-color', token('--color-map-provinceHover'));
     map.setPaintProperty('countries-line', 'line-color', token('--color-map-border'));
     map.setPaintProperty('grid', 'line-color', token('--color-map-coarseGrid'));
-    if (map.getLayer('fine-grid')) map.setPaintProperty('fine-grid', 'line-color', token('--color-map-coarseGrid'));
     map.setPaintProperty('wind', 'icon-color', token('--color-fg-default'));
     map.setPaintProperty('wind', 'icon-halo-color', token('--color-bg-surface'));
 

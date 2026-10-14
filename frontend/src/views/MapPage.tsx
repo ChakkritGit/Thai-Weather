@@ -20,7 +20,24 @@ import { Timeline } from '../components/Timeline';
 import { WeatherMap, type MapPoint } from '../components/WeatherMap';
 
 const STORE_KEY = 'thwx.layer';
+/** Phones: the point panel is a bottom sheet (see base.css, max-width 860px). */
+const SHEET_MQ = '(max-width: 860px)';
+/** Height of a collapsed ("peek") sheet: handle + place name. Keep in step with --sheet-peek. */
+const SHEET_PEEK_PX = 96;
+/** Space the layer chips and top controls take over the map. */
+const TOP_CONTROLS_PX = 104;
 const LOC_KEY = 'thwx.lastLocation';
+
+/**
+ * The map center that shows `p` `dy` pixels below the middle of the map at `zoom` (Web Mercator,
+ * 512 px tiles). Used instead of the camera `offset` option, which MapLibre 6.11 ends up ignoring.
+ */
+function centerShowing(p: MapPoint, zoom: number, dy: number): [number, number] {
+  if (!dy) return [p.lon, p.lat];
+  const world = 512 * 2 ** zoom;
+  const y = (1 - Math.log(Math.tan(Math.PI / 4 + (p.lat * Math.PI) / 360)) / Math.PI) / 2 - dy / world;
+  return [p.lon, (360 / Math.PI) * Math.atan(Math.exp(Math.PI * (1 - 2 * y))) - 90];
+}
 
 function lastLocation(): MapPoint | null {
   try {
@@ -71,19 +88,38 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const radar = useRadar(radarOn);
   const stageRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
+  const [gridOn, setGridOn] = useState(false);
+  const sheetRef = useRef<HTMLElement>(null);
+  const [peek, setPeek] = useState(false);
+  const peekRef = useRef(peek);
+  peekRef.current = peek;
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
+
+  /** Phones: how far above the map's middle a point must sit to be in the middle of the area left above the sheet. */
+  const sheetLift = useCallback((): number => {
+    const stage = stageRef.current;
+    if (!stage || !window.matchMedia(SHEET_MQ).matches) return 0;
+    const h = stage.clientHeight;
+    const cover = peekRef.current ? SHEET_PEEK_PX : h * 0.62;
+    return Math.round((TOP_CONTROLS_PX - cover) / 2);
+  }, []);
   // a point to fly to once the fine map exists and has loaded
   const pendingFly = useRef<MapPoint | null>(null);
+  /** when flyTo last started (locate / a shared link): such a selection already lands above the sheet */
+  const flewAt = useRef(0);
   const flyTo = useCallback((p: MapPoint, zoom = 8) => {
     const m = maps.current.fine;
     if (!m) {
       pendingFly.current = p;
       return;
     }
-    const go = () => m.flyTo({ center: [p.lon, p.lat], zoom });
+    const go = () => {
+      flewAt.current = Date.now();
+      m.flyTo({ center: centerShowing(p, zoom, sheetLift()), zoom });
+    };
     if (m.loaded()) go();
     else m.once('load', go);
-  }, []);
+  }, [sheetLift]);
 
   const layer = meta.layers.find((l) => l.id === layerId) ?? meta.layers[0];
   const windLayer = meta.layers.find((l) => l.id === 'wind_dir');
@@ -141,14 +177,14 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     (m: MLMap | null) => {
       maps.current.fine = m;
       syncMaps();
-      if (m && initialPoint) m.once('load', () => m.flyTo({ center: [initialPoint.lon, initialPoint.lat], zoom: 7.5 }));
+      if (m && initialPoint) m.once('load', () => m.flyTo({ center: centerShowing(initialPoint, 7.5, sheetLift()), zoom: 7.5 }));
       else if (m && pendingFly.current) {
         const p = pendingFly.current;
         pendingFly.current = null;
-        m.once('load', () => m.flyTo({ center: [p.lon, p.lat], zoom: 8 }));
+        m.once('load', () => m.flyTo({ center: centerShowing(p, 8, sheetLift()), zoom: 8 }));
       }
     },
-    [syncMaps, initialPoint],
+    [syncMaps, initialPoint, sheetLift],
   );
   const onCoarseMap = useCallback(
     (m: MLMap | null) => {
@@ -177,6 +213,90 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     if (e.key === 'ArrowLeft') setSplit((s) => Math.max(0.05, s - 0.05));
     if (e.key === 'ArrowRight') setSplit((s) => Math.min(0.95, s + 0.05));
   };
+
+  // ------------------------------------------------------------ phone bottom sheet
+  // A new point opens the sheet fully; a point the open sheet would hide is moved up into view.
+  useEffect(() => {
+    setPeek(false);
+    const m = maps.current.fine;
+    const stage = stageRef.current;
+    if (!selected || !m || !stage || !window.matchMedia(SHEET_MQ).matches) return;
+    if (Date.now() - flewAt.current < 1000) return; // locate already flies it into view
+    const y = m.project([selected.lon, selected.lat]).y;
+    const sheetTop = stage.clientHeight * (1 - 0.62);
+    if (y > sheetTop - 40 || y < TOP_CONTROLS_PX) m.easeTo({ center: centerShowing(selected, m.getZoom(), sheetLift()), duration: 450 });
+  }, [selected, sheetLift]);
+
+  // Drag the sheet: down to a peek (just the place name), down again to close, up to open. From the
+  // handle any time, from the content only while it is scrolled to the top (otherwise it scrolls).
+  const closeSheet = useRef(() => setSelected(null));
+  closeSheet.current = () => setSelected(null);
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const mq = window.matchMedia(SHEET_MQ);
+    let startY = 0;
+    let dy = 0;
+    let dragging = false;
+    let fromHandle = false;
+    let base: number | null = null;
+    const start = (e: TouchEvent) => {
+      if (!mq.matches || el.dataset.open !== 'true' || e.touches.length !== 1) return;
+      const y = e.touches[0].clientY;
+      fromHandle = y - el.getBoundingClientRect().top < 44;
+      if (!fromHandle && el.scrollTop > 0) return;
+      startY = y;
+      dy = 0;
+      base = null;
+      dragging = true;
+    };
+    const move = (e: TouchEvent) => {
+      if (!dragging) return;
+      dy = e.touches[0].clientY - startY;
+      const peeked = el.dataset.peek === 'true';
+      if (!fromHandle && !peeked && dy < 0) {
+        dragging = false; // an upward swipe on the content is a scroll
+        return;
+      }
+      e.preventDefault();
+      if (base === null) base = new DOMMatrix(getComputedStyle(el).transform).m42; // where the sheet sits now
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${Math.max(0, base + dy)}px)`;
+    };
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      el.style.transition = '';
+      el.style.transform = '';
+      if (Math.abs(dy) < 8) return; // a tap: the handle button handles it
+      if (el.dataset.peek !== 'true') {
+        if (dy > 70) setPeek(true);
+      } else if (dy < -40) setPeek(false);
+      else if (dy > 50) closeSheet.current();
+    };
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+    return () => {
+      el.removeEventListener('touchstart', start);
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', end);
+      el.removeEventListener('touchcancel', end);
+    };
+  }, []);
+
+  // the grid only reads once zoomed in (cells are ~4 px wide at zoom 8): turning it on zooms there
+  const toggleGrid = useCallback(() => {
+    setGridOn((on) => {
+      const m = maps.current.fine;
+      if (!on && m && m.getZoom() < 9) {
+        const c = selected ? { center: centerShowing(selected, 9.5, sheetLift()) } : {};
+        m.easeTo({ zoom: 9.5, duration: 600, ...c });
+      }
+      return !on;
+    });
+  }, [selected, sheetLift]);
 
   const [locateStatus, setLocateStatus] = useState<LocateStatus>('idle');
   const locate = useCallback(
@@ -324,10 +444,11 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
       : undefined;
 
   const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
-  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare, radar: atNow ? radar.frame : null, onSelect: setSelected };
+  const gridLabel = t('gridLines', { km: fmtKm(run.fine_grid.resolution_km, lang) });
+  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, onSelect: setSelected };
 
   return (
-    <div className="map-page">
+    <div className="map-page" data-sheet={selected ? (peek ? 'peek' : 'open') : undefined}>
       <div className="map-stage" ref={stageRef}>
         <WeatherMap
           {...common}
@@ -402,6 +523,18 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             <Icon name="split" />
             <span className="btn-label">{compareLabel}</span>
           </button>
+          <button
+            type="button"
+            className="btn btn--icon-narrow"
+            aria-pressed={gridOn || compare}
+            disabled={compare}
+            aria-label={gridLabel}
+            title={gridLabel}
+            onClick={toggleGrid}
+          >
+            <Icon name="grid" />
+            <span className="btn-label">{gridLabel}</span>
+          </button>
           {canLocate && (
             <button
               type="button"
@@ -438,7 +571,22 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         </div>
       </div>
 
-      <aside className="map-sidebar" data-open={selected ? 'true' : 'false'} aria-label={selected ? t('next48') : t('overview')}>
+      <aside
+        ref={sheetRef}
+        className="map-sidebar"
+        data-open={selected ? 'true' : 'false'}
+        data-peek={selected && peek ? 'true' : undefined}
+        aria-label={selected ? t('next48') : t('overview')}
+      >
+        {selected && (
+          <button
+            type="button"
+            className="sheet-handle"
+            aria-expanded={!peek}
+            aria-label={peek ? t('sheetExpand') : t('sheetCollapse')}
+            onClick={() => setPeek((x) => !x)}
+          />
+        )}
         {selected ? (
           <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
         ) : (

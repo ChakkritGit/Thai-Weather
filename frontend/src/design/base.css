@@ -988,6 +988,7 @@ button {
 .locate-float { display: none; }
 
 /* sidebar / sheet */
+.sheet-handle { display: none; } /* phones only (bottom sheet) */
 .panel {
   display: grid;
   gap: var(--space-4);
@@ -1109,16 +1110,29 @@ button {
     transition: transform var(--duration-slow) var(--easing-standard);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .map-sidebar[data-open='true'] { transform: translateY(0); }
-  .map-sidebar::before {
-    content: '';
-    display: block;
-    width: 40px;
-    height: 4px;
-    margin: var(--space-2) auto 0;
-    border-radius: var(--radius-full);
-    background: var(--color-border-strong);
+  .map-sidebar[data-open='true'] { transform: translateY(0); overscroll-behavior: contain; }
+  /* collapsed: only the handle and the place name stay up (height = SHEET_PEEK_PX in MapPage) */
+  .map-sidebar[data-open='true'][data-peek='true'] {
+    transform: translateY(calc(100% - 96px - env(safe-area-inset-bottom)));
+    overflow: hidden;
   }
+  /* the visible bar is 4 px; the button around it is a full-width 28 px touch target */
+  .sheet-handle {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    width: 100%;
+    height: 28px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: linear-gradient(var(--color-border-strong), var(--color-border-strong)) center 10px / 40px 4px no-repeat, var(--color-bg-surface);
+    cursor: grab;
+    touch-action: none;
+  }
+  .sheet-handle:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: -4px; }
+  .map-page[data-sheet='peek'] .map-bottom { bottom: calc(96px + var(--space-2) + env(safe-area-inset-bottom)); }
   .locate-card { display: none; }
   .locate-float {
     display: flex;
