@@ -12,6 +12,7 @@ import { NowcastCard } from './NowcastCard';
 import { LevelBadge } from './SeverityBadge';
 import { ChartLegend, TimeSeriesChart } from './TimeSeriesChart';
 import type { MapPoint } from './WeatherMap';
+import { Num } from './Num';
 
 interface Props {
   point: MapPoint;
@@ -114,7 +115,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         <h3 id="model-forecast-h">{t('modelForecastTitle')}</h3>
         <p className="forecast-time">{fmtStep(data.times[i], lang)}</p>
         <div className="hero">
-          <div className="hero-temp">{fmtNum(f.temp[i], 0)}°</div>
+          <div className="hero-temp"><Num value={`${fmtNum(f.temp[i], 0)}°`} /></div>
           <div className="hero-meta">
             <span>
               {labels.comparison}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
@@ -299,7 +300,7 @@ function Stat({ label, value, unit, sub, note }: { label: string; value: string;
     <div className="stat">
       <span className="stat-label">{label}</span>
       <span className="stat-value">
-        {value} <small>{unit}</small>
+        <Num value={value} /> <small>{unit}</small>
       </span>
       {sub && <span className="stat-sub">{sub}</span>}
       {note && <p className="stat-note">{note}</p>}

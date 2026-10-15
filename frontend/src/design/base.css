@@ -1469,3 +1469,29 @@ button {
   .splash { transition: none; }
   .splash-bar::after { animation: none; width: 100%; opacity: 0.5; }
 }
+
+/* ------------------------------------------------------------------ motion
+   Pages enter on navigation (app/template.tsx), lists and cards one after another, changed numbers
+   slide (components/Num.tsx). The reduced-motion rule near the top shortens all of it to nothing. */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(10px); }
+}
+.page-enter { display: contents; }
+.page-enter > :not(.map-page):not(.splash),
+.page-inner > *,
+.alert-row,
+.day-cards > *,
+.now-grid > *,
+.data-table tbody tr {
+  animation: enter 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(2) { animation-delay: 35ms; }
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(3) { animation-delay: 70ms; }
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(4) { animation-delay: 105ms; }
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(5) { animation-delay: 140ms; }
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(6) { animation-delay: 175ms; }
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(7) { animation-delay: 210ms; }
+:is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(n + 8) { animation-delay: 240ms; }
+.num { display: inline-block; }
+.chip, .btn, .segmented button { transition: background var(--duration-fast) var(--easing-standard), color var(--duration-fast), border-color var(--duration-fast), transform 0.15s; }
+:is(.chip, .btn, .segmented button):active { transform: scale(0.96); }

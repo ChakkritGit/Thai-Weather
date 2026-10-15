@@ -9,6 +9,7 @@ import { useAsync } from '../lib/useAsync';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { AlertBadge, TierChip } from './SeverityBadge';
+import { Num } from './Num';
 
 export function OverviewPanel({ run, dayIndex }: { run: RunMeta; dayIndex: number }) {
   const { t, lang, pick } = useT();
@@ -56,7 +57,7 @@ export function OverviewPanel({ run, dayIndex }: { run: RunMeta; dayIndex: numbe
         <div className="stat">
           <span className="stat-label">{th ? 'จังหวัดที่มีการแจ้งเตือน' : 'Provinces with alerts'}</span>
           <span className="stat-value">
-            {withAlerts.length}
+            <Num value={String(withAlerts.length)} />
             <span className="muted" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 400 }}> / {rows.length}</span>
           </span>
           <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
@@ -142,7 +143,7 @@ function Tile({ icon, label, value, where }: { icon: 'heat' | 'drop' | 'mountain
       <span className="stat-label">
         <Icon name={icon} width={13} style={{ verticalAlign: '-2px' }} /> {label}
       </span>
-      <span className="stat-value">{value}</span>
+      <span className="stat-value"><Num value={value} /></span>
       <span className="stat-sub">{where}</span>
     </div>
   );
