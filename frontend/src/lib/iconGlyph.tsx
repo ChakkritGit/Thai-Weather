@@ -19,7 +19,7 @@ const BRAND = '#006ea6';
  * Bump when the icon changes, so installed apps and iOS's icon cache pick up the new image.
  * The static copies in public/ (apple-touch-icon.png, app-icons/) are exported from /icons/[size].
  */
-export const ICON_VERSION = 4;
+export const ICON_VERSION = 5;
 
 export function IconGlyph({ size, mode }: { size: number; mode: IconMode }) {
   const span = size * (mode === 'maskable' ? 0.4 : mode === 'badge' ? 0.8 : 0.56);
