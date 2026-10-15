@@ -32,6 +32,7 @@ from ..products.alerts import is_partial
 from ..sources.base import CoarseForecast
 from ..store import RunStore
 from . import observations as obsmod
+from .calibration import PopCalibration
 from .physics import (
     TerrainAt,
     coastal_convection_factor,
@@ -101,9 +102,11 @@ def terrain_context(static: StaticLayers, coarse: CoarseForecast, interp: Interp
 
 
 class Downscaler:
-    def __init__(self, static: StaticLayers, members: int = 8) -> None:
+    def __init__(self, static: StaticLayers, members: int = 8, pop_calibration: PopCalibration | None = None) -> None:
         self.static = static
         self.members = members
+        # chance of rain recalibrated against the stations (calibration.py); the identity until fitted
+        self.pop_calibration = pop_calibration or PopCalibration()
 
     # ------------------------------------------------------------------ run
     def run(
@@ -181,7 +184,7 @@ class Downscaler:
                 shift = (steer_v * 3600 / 1000 / cell_km, steer_u * 3600 / 1000 / cell_km)
                 members = ens.step(target, f["cape"], shift)
                 rain = members.mean(axis=0)
-                pop = PrecipEnsemble.exceedance(members, RAIN_THRESHOLD)
+                pop = self.pop_calibration.apply(PrecipEnsemble.exceedance(members, RAIN_THRESHOLD))
                 heavy = PrecipEnsemble.exceedance(members, HEAVY_THRESHOLD)
                 pconv = PrecipEnsemble.exceedance(members, CONVECTIVE_THRESHOLD, neighbourhood=5.0) / 100.0
                 storm = thunder_probability(f["cape"], pconv)
@@ -236,6 +239,7 @@ class Downscaler:
             "ensemble_members": self.members,
             "observations_used": obs_used,
             "observation_stations": obs_stations,
+            "pop_calibration": self.pop_calibration.record(),
             "notes": coarse.notes,
             "compute_seconds": round(time.perf_counter() - t0, 1),
         }

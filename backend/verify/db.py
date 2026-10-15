@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS obs (
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, run_time TEXT NOT NULL, collected_at TEXT NOT NULL,
     n_stations INTEGER NOT NULL, baseline_ok INTEGER NOT NULL,
-    obs_used INTEGER, obs_stations TEXT
+    obs_used INTEGER, obs_stations TEXT, pop_a REAL, pop_b REAL
 );
 CREATE TABLE IF NOT EXISTS forecasts (
     run_id TEXT NOT NULL, source TEXT NOT NULL, station TEXT NOT NULL, valid TEXT NOT NULL,
@@ -49,7 +49,7 @@ def parse_time(s: str) -> datetime:
     return datetime.strptime(s, TIME_FMT).replace(tzinfo=UTC)
 
 
-RUNS_COLUMNS = (("obs_used", "INTEGER"), ("obs_stations", "TEXT"))
+RUNS_COLUMNS = (("obs_used", "INTEGER"), ("obs_stations", "TEXT"), ("pop_a", "REAL"), ("pop_b", "REAL"))
 
 
 def _migrate(conn: sqlite3.Connection) -> None:

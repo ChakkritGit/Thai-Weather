@@ -142,8 +142,8 @@ def collect(
             [(run_id, *row) for row in rows],
         )
         conn.execute(
-            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations) "
-            "VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations, pop_a, pop_b) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
             (
                 run_id,
                 db.fmt_time(t0),
@@ -152,6 +152,9 @@ def collect(
                 baseline_ok,
                 int(run.get("observations_used") or 0),
                 ",".join(run.get("observation_stations") or []),
+                # the chance-of-rain calibration this run applied, so `calibrate` can undo it (None = raw)
+                (run.get("pop_calibration") or {}).get("a"),
+                (run.get("pop_calibration") or {}).get("b"),
             ),
         )
         conn.commit()

@@ -112,6 +112,12 @@ class Report:
     holdout_ids: list[str] = field(default_factory=list)
     corrected_samples: int = 0
     effect: list[Row] = field(default_factory=list)
+    # chance of rain per station hour, as shown (after any calibration) and as the raw ensemble gave it
+    pop_hours: int = 0
+    pop_rate: float | None = None
+    pop_brier_shown: float | None = None
+    pop_brier_raw: float | None = None
+    pop_reliability: list[tuple[str, int, float, float]] = field(default_factory=list)
 
 
 # ----------------------------------------------------------------- helpers
@@ -206,7 +212,21 @@ def score(conn: sqlite3.Connection, since: datetime | None = None, until: dateti
 
     _score_temperature(report, fc_rows, obs_rows, stations, sources, conn)
     _score_rain(report, fc_rows, obs_rows, sources)
+    _score_pop(report, conn, since, until)
     return report
+
+
+def _score_pop(report: Report, conn: sqlite3.Connection, since: datetime | None, until: datetime) -> None:
+    from .calibrate import hourly_pairs, reliability
+
+    raw, shown, obs = hourly_pairs(conn, since or datetime(2000, 1, 1, tzinfo=UTC), until)
+    if not len(obs):
+        return
+    report.pop_hours = len(obs)
+    report.pop_rate = float(obs.mean())
+    report.pop_brier_shown = float(np.mean((shown / 100 - obs) ** 2))
+    report.pop_brier_raw = float(np.mean((raw / 100 - obs) ** 2))
+    report.pop_reliability = reliability(shown, obs)
 
 
 def _score_temperature(report, fc_rows, obs_rows, stations, sources, conn) -> None:
@@ -476,5 +496,24 @@ def render_markdown(report: Report) -> str:
             f"{EFFECT_SPLIT_H}-{MAX_LEAD_H} ชม.",
             "",
             "สถานี hold-out: " + ", ".join(f"`{s}`" for s in report.holdout_ids),
+        ]
+
+    lines += ["", "## 8. โอกาสฝนเชื่อได้แค่ไหน (Chance of rain reliability, per station hour)", ""]
+    if not report.pop_hours:
+        lines += ["ยังไม่มีข้อมูล (no paired hours yet)."]
+    else:
+        clim = report.pop_rate * (1 - report.pop_rate)
+        lines += [
+            f"ชั่วโมงที่จับคู่ได้ N = **{report.pop_hours}** · ฝนตกจริง {report.pop_rate * 100:.1f}% ของชั่วโมง · "
+            f"Brier: ที่แสดงจริง **{report.pop_brier_shown:.4f}**, ค่าดิบก่อนปรับเทียบ {report.pop_brier_raw:.4f}, "
+            f"เดาด้วยค่าเฉลี่ย {clim:.4f} (ต่ำกว่า = ดีกว่า)",
+            "",
+            "| โอกาสฝนที่พยากรณ์ (%) | ชั่วโมง | ค่าเฉลี่ยที่พยากรณ์ | ฝนตกจริง |",
+            "|---|---|---|---|",
+        ]
+        lines += [f"| {band} | {n} | {mean:.1f}% | {seen:.1f}% |" for band, n, mean, seen in report.pop_reliability]
+        lines += [
+            "",
+            "ถ้าเชื่อถือได้ สองคอลัมน์ขวาควรใกล้กัน · การปรับเทียบ (`verify calibrate`, ทุกวัน) ฟิตบนค่าดิบ",
         ]
     return "\n".join(lines) + "\n"

@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from .config import Settings
 from .core.static import load_static
+from .downscale import calibration
 from .downscale.observations import Observation
 from .downscale.pipeline import Downscaler
 from .sources.base import Source
@@ -76,7 +77,9 @@ class Refresher:
                 coarse.notes.append(
                     f"Upstream source '{self.source.name}' failed ({exc.__class__.__name__}); demo data shown."
                 )
-            run_id = Downscaler(load_static(), self.settings.ensemble_members).run(
+            # the chance-of-rain calibration `verify calibrate` refits daily (identity until there is enough data)
+            pop_cal = calibration.load(self.settings.data_dir)
+            run_id = Downscaler(load_static(), self.settings.ensemble_members, pop_cal).run(
                 coarse, self.store, self.observations.snapshot()
             )
             self.status.update(state="idle", last_error=None, last_success=datetime.now(UTC).isoformat())
