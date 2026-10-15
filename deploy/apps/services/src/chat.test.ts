@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { allowedEndpoint, composeReport, createApp, digestDay, encryptPush, maybePostReport, monthName, open, reply, vapidKeys, type Digest } from './chat'
+import { allowedEndpoint, composeReport, createApp, digestDay, encryptPush, maybePostReport, monthName, open, page, reply, vapidKeys, type Digest } from './chat'
 
 const day = '2026-10-14'
 const from = Date.parse(`${day}T00:00:00+07:00`) / 1000
@@ -129,7 +129,22 @@ test('status alerts: need the secret, become a server message', async () => {
   const m = db.query('SELECT role, text, read FROM messages').get() as { role: string; text: string; read: number }
   expect(m.role).toBe('system')
   expect(m.read).toBe(0)
-  expect(m.text).toContain('ห้อง Whiteboard ล่ม')
+  expect(m.text).toStartWith('ห้อง Whiteboard ล่ม')
+  expect(db.query('SELECT kind FROM messages').get()).toEqual({ kind: 'down' })
   delete process.env.ALERT_SECRET
   expect((await send('', { title: 'a', body: 'b' })).status).toBe(403) // no secret configured → closed
+})
+
+test('paging: the latest page, older pages when scrolling up, new ones after an id', () => {
+  const db = open(':memory:')
+  for (let i = 1; i <= 75; i++) db.run("INSERT INTO messages (ts, role, text, read) VALUES (?, 'user', ?, 1)", [i, `m${i}`])
+  const p1 = page(db, {})
+  expect(p1.messages.map((m) => m.text)).toEqual(Array.from({ length: 30 }, (_, i) => `m${46 + i}`))
+  expect(p1.hasMore).toBe(true)
+  const p2 = page(db, { before: p1.messages[0].id })
+  expect(p2.messages[0].text).toBe('m16')
+  const p3 = page(db, { before: p2.messages[0].id })
+  expect(p3.messages.map((m) => m.text)).toEqual(Array.from({ length: 15 }, (_, i) => `m${1 + i}`))
+  expect(p3.hasMore).toBe(false)
+  expect(page(db, { after: 73 }).messages.map((m) => m.text)).toEqual(['m74', 'm75'])
 })

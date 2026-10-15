@@ -48,13 +48,18 @@ const prevMonth = (month: string) => {
 
 // ------------------------------------------------------------------ storage
 export type Role = 'user' | 'assistant' | 'system'
-export interface Message { id: number; ts: number; role: Role; text: string; read: number }
+/** what a server post is about, so Dock can draw an icon for it: a service down / back up, a month's report */
+export type Kind = 'down' | 'up' | 'report' | null
+export interface Message { id: number; ts: number; role: Role; text: string; read: number; kind: Kind }
 
 export function open(path = process.env.CHAT_DB ?? '/data/chat.db') {
   const db = new Database(path, { create: true })
   db.run('PRAGMA journal_mode = WAL')
   db.run(`CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL, read INTEGER NOT NULL DEFAULT 1)`)
+  if (!(db.query("SELECT name FROM pragma_table_info('messages')").all() as { name: string }[]).some((c) => c.name === 'kind')) {
+    db.run('ALTER TABLE messages ADD COLUMN kind TEXT')
+  }
   db.run('CREATE TABLE IF NOT EXISTS digests (day TEXT PRIMARY KEY, data TEXT NOT NULL)')
   db.run('CREATE TABLE IF NOT EXISTS reports (month TEXT PRIMARY KEY, message_id INTEGER NOT NULL)')
   db.run('CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created INTEGER NOT NULL)')
@@ -62,10 +67,25 @@ export function open(path = process.env.CHAT_DB ?? '/data/chat.db') {
   return db
 }
 
-function post(db: Database, role: Role, text: string, read = role !== 'system'): Message {
+function post(db: Database, role: Role, text: string, kind: Kind = null, read = role !== 'system'): Message {
   const ts = Date.now()
-  const r = db.query('INSERT INTO messages (ts, role, text, read) VALUES (?, ?, ?, ?) RETURNING id').get(ts, role, text, read ? 1 : 0) as { id: number }
-  return { id: r.id, ts, role, text, read: read ? 1 : 0 }
+  const r = db.query('INSERT INTO messages (ts, role, text, read, kind) VALUES (?, ?, ?, ?, ?) RETURNING id').get(ts, role, text, read ? 1 : 0, kind) as { id: number }
+  return { id: r.id, ts, role, text, read: read ? 1 : 0, kind }
+}
+
+const PAGE = 30
+/**
+ * One page of the conversation, oldest first: the latest PAGE, or the PAGE before `before` (scrolling
+ * up), or everything after `after` (polling for new ones). `hasMore` says whether older ones exist.
+ */
+export function page(db: Database, { before, after, limit = PAGE }: { before?: number; after?: number; limit?: number }) {
+  const n = Math.min(100, Math.max(1, limit))
+  let rows: Message[]
+  if (after !== undefined) rows = db.query('SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT 500').all(after) as Message[]
+  else rows = (db.query(`SELECT * FROM messages ${before !== undefined ? 'WHERE id < ?' : ''} ORDER BY id DESC LIMIT ?`).all(...(before !== undefined ? [before, n] : [n])) as Message[]).reverse()
+  const first = rows[0]?.id ?? before
+  const hasMore = first !== undefined && after === undefined ? Boolean(db.query('SELECT 1 FROM messages WHERE id < ? LIMIT 1').get(first)) : false
+  return { messages: rows, hasMore }
 }
 
 // ------------------------------------------------------------------ web push
@@ -365,7 +385,7 @@ export async function maybePostReport(db: Database, now = Date.now()) {
   const any = db.query('SELECT 1 FROM digests WHERE day LIKE ? LIMIT 1').get(`${due}-%`)
   if (!any) return null
   const text = await buildReport(db, due, now)
-  const msg = post(db, 'system', text)
+  const msg = post(db, 'system', text, 'report')
   db.run('INSERT INTO reports (month, message_id) VALUES (?, ?)', [due, msg.id])
   await pushAll(db, { title: 'Dock', body: `${text.split('\n')[0]} — แตะเพื่ออ่าน`, url: '/#/chat', tag: `report-${due}` }).catch(() => undefined)
   return msg
@@ -439,10 +459,15 @@ function sameSecret(a: string, b: string) {
 export function createApp(db = open()) {
   return new Elysia()
     .get('/health', () => ({ ok: true }))
-    .get('/chat', () => ({
-      messages: (db.query('SELECT * FROM (SELECT * FROM messages ORDER BY id DESC LIMIT 200) ORDER BY id').all() as Message[]),
-      llm: llmConfigured(),
-    }))
+    .get('/chat', ({ query }) => {
+      const num = (v: unknown) => (v === undefined || v === '' || !Number.isFinite(Number(v)) ? undefined : Number(v))
+      return { ...page(db, { before: num(query.before), after: num(query.after), limit: num(query.limit) }), llm: llmConfigured() }
+    })
+    .delete('/chat', () => {
+      // clears the conversation; the month reports already sent stay marked as sent
+      db.run('DELETE FROM messages')
+      return { ok: true }
+    })
     .get('/chat/unread', () => db.query('SELECT COUNT(*) AS count FROM messages WHERE read = 0').get() as { count: number })
     .post('/chat/read', () => {
       db.run('UPDATE messages SET read = 1 WHERE read = 0')
@@ -459,7 +484,8 @@ export function createApp(db = open()) {
         set.status = 400
         return { error: 'bad alert' }
       }
-      const msg = post(db, 'system', `${a.kind === 'up' ? '✅' : '⚠️'} ${a.title}\n${a.body}\nดูรายละเอียด: https://status.chakkritton.com`)
+      // no emoji: Dock draws the icon from `kind`
+      const msg = post(db, 'system', `${a.title}\n${a.body}\nดูรายละเอียด: https://status.chakkritton.com`, a.kind === 'up' ? 'up' : 'down')
       // one notification per service: "back up" replaces its "down"
       const tag = `status-${typeof a.id === 'string' ? a.id.slice(0, 40) : 'x'}`
       await pushAll(db, { title: a.title, body: a.body, url: '/#/chat', tag }).catch(() => undefined)
@@ -518,7 +544,6 @@ if (import.meta.main) {
       console.error('chat: scheduled work failed', err)
     }
   }
-  if (!db.query('SELECT 1 FROM messages LIMIT 1').get()) post(db, 'system', `สวัสดีครับ ที่นี่คือแชทของเซิร์ฟเวอร์\n\n${HELP}`)
   setTimeout(tick, 10_000)
   setInterval(tick, 5 * 60_000)
   createApp(db).listen(PORT)

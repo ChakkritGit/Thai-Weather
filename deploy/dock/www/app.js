@@ -54,6 +54,9 @@ const ICONS = {
   send: 'M5 12h13M12 5l7 7-7 7',
   bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
   belloff: 'M8.7 3A6 6 0 0 1 18 8c0 2.7.6 4.6 1.3 6M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7M10.3 21a1.94 1.94 0 0 0 3.4 0M2 2l20 20',
+  alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
+  checkcircle: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3',
+  trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -1122,23 +1125,67 @@ async function chatView(token) {
   let busy = false;
   const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 80;
   const toBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight });
-  const bubble = (m) => h('div', { class: `msg ${m.role}` },
-    m.role === 'system' ? h('span', { class: 'msg-label' }, 'จากระบบ') : null,
-    h('div', { class: 'msg-text' }, m.text),
-    h('span', { class: 'msg-time' }, fmtTime.format(new Date(m.ts))));
+  let firstId = 0;
+  let hasMore = false;
+  let loadingOlder = false;
+  // a server post's type → its icon and colour (instead of emoji in the text)
+  const KINDS = { down: ['alert', 'bad'], up: ['checkcircle', 'ok'], report: ['chart', 'info'] };
+  /** text with its https links made tappable (built as nodes, never as HTML) */
+  const linkify = (text) => text.split(/(https:\/\/[^\s]+)/g).map((part, i) =>
+    i % 2 ? h('a', { href: part, target: '_blank', rel: 'noopener' }, part.replace(/^https:\/\//, '')) : part);
+  const bubble = (m) => {
+    const kind = KINDS[m.kind];
+    const [title, ...rest] = m.text.split('\n');
+    return h('div', { class: `msg ${m.role}${kind ? ` kind-${kind[1]}` : ''}`, 'data-id': m.id },
+      m.role === 'system' ? h('span', { class: 'msg-label' }, kind ? icon(kind[0], 'msg-ic') : null, m.kind === 'report' ? 'รายงานประจำเดือน' : m.kind ? 'แจ้งเตือนระบบ' : 'จากระบบ') : null,
+      kind
+        ? h('div', { class: 'msg-text' }, h('b', { class: 'msg-title' }, title), rest.length ? '\n' : null, ...linkify(rest.join('\n')))
+        : h('div', { class: 'msg-text' }, ...linkify(m.text)),
+      h('span', { class: 'msg-time' }, fmtTime.format(new Date(m.ts))));
+  };
+  const empty = () => h('div', { class: 'chat-empty' },
+    h('span', { class: 'row-ic' }, icon('chat')),
+    h('b', {}, 'ยังไม่มีข้อความ'),
+    h('p', {}, 'สรุปรายเดือนและแจ้งเตือนเว็บล่มจะมาที่นี่ หรือแตะ สรุป / เดือนก่อน / ช่วย ด้านล่างเพื่อถาม'));
   const add = (msgs) => {
     const follow = atBottom();
-    for (const m of msgs) if (m.id > lastId) { log.append(bubble(m)); lastId = m.id; }
+    log.querySelector('.chat-empty')?.remove();
+    for (const m of msgs) if (m.id > lastId) { log.append(bubble(m)); lastId = m.id; if (!firstId) firstId = m.id; }
     if (follow) toBottom();
   };
+  // scrolling to the top brings the previous page; the view stays on the message you were reading
+  const older = h('div', { class: 'chat-older', hidden: true }, h('span', { class: 'spinner' }), 'กำลังโหลดข้อความก่อนหน้า…');
+  const loadOlder = async () => {
+    if (!hasMore || loadingOlder || !firstId) return;
+    loadingOlder = true;
+    older.hidden = false;
+    try {
+      const res = await api(`/chat?before=${firstId}`);
+      if (token !== viewToken) return;
+      const height = document.documentElement.scrollHeight;
+      const y = window.scrollY;
+      log.prepend(...res.messages.map(bubble));
+      if (res.messages.length) firstId = res.messages[0].id;
+      hasMore = res.hasMore;
+      window.scrollTo({ top: y + document.documentElement.scrollHeight - height });
+    } catch (err) { handleError(err); } finally { loadingOlder = false; older.hidden = true; }
+  };
+  const onScroll = () => { if (window.scrollY < 200) loadOlder(); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  const cleanupScroll = () => window.removeEventListener('scroll', onScroll);
+  window.addEventListener('hashchange', cleanupScroll, { once: true });
   const load = async () => {
-    const { messages, llm } = await api('/chat');
+    const first = !lastId;
+    const res = await api(first ? '/chat' : `/chat?after=${lastId}`);
     if (token !== viewToken) return;
-    if (!lastId) log.replaceChildren();
-    add(messages);
-    if (!messages.length && !log.children.length) log.append(h('p', { class: 'empty' }, 'ยังไม่มีข้อความ'));
-    note.textContent = llm ? ' ' : 'ยังไม่ได้เชื่อม LLM — ตอบได้เฉพาะคำสั่ง (สรุป, เดือนก่อน, ช่วย)';
-    if (messages.some((m) => !m.read)) { await api('/chat/read', { method: 'POST' }).catch(() => {}); refreshUnread(); }
+    if (first) {
+      log.replaceChildren();
+      hasMore = res.hasMore;
+    }
+    add(res.messages);
+    if (!log.querySelector('.msg')) log.replaceChildren(empty());
+    note.textContent = res.llm ? ' ' : 'ยังไม่ได้เชื่อม LLM — ตอบได้เฉพาะคำสั่ง (สรุป, เดือนก่อน, ช่วย)';
+    if (res.messages.some((m) => !m.read)) { await api('/chat/read', { method: 'POST' }).catch(() => {}); refreshUnread(); }
   };
   const submit = async (text) => {
     text = text.trim();
@@ -1146,7 +1193,7 @@ async function chatView(token) {
     busy = true;
     send.disabled = true;
     const typing = h('div', { class: 'msg assistant typing' }, h('div', { class: 'msg-text' }, 'กำลังตอบ…'));
-    log.querySelector('.empty')?.remove();
+    log.querySelector('.chat-empty')?.remove();
     log.append(h('div', { class: 'msg user pending' }, h('div', { class: 'msg-text' }, text)), typing);
     toBottom();
     try {
@@ -1176,7 +1223,27 @@ async function chatView(token) {
   const form = h('form', { class: 'chat-compose', onsubmit: (e) => { e.preventDefault(); const t = input.value; input.value = ''; grow(); submit(t); } },
     h('div', { class: 'chat-quick' }, ['สรุป', 'เดือนก่อน', 'ช่วย'].map((t) => h('button', { type: 'button', class: 'chip', onclick: () => submit(t) }, t))),
     h('div', { class: 'chat-row' }, input, send), note);
-  shell(topBar('แชท', { back: '#/more', onRefresh: () => load(), extra: pushButton() }), log, form, tabs('#/more'));
+  const clearBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'ล้างแชท', title: 'ล้างแชท' }, icon('trash'));
+  let clearArmed = 0;
+  clearBtn.addEventListener('click', async () => {
+    if (!clearArmed) {
+      clearBtn.classList.add('armed');
+      toast('แตะอีกครั้งเพื่อล้างแชททั้งหมด');
+      clearArmed = window.setTimeout(() => { clearArmed = 0; clearBtn.classList.remove('armed'); }, 3000);
+      return;
+    }
+    window.clearTimeout(clearArmed);
+    clearArmed = 0;
+    clearBtn.classList.remove('armed');
+    try {
+      await api('/chat', { method: 'DELETE' });
+      lastId = 0; firstId = 0; hasMore = false;
+      log.replaceChildren(empty());
+      refreshUnread();
+      toast('ล้างแชทแล้ว');
+    } catch (err) { handleError(err); }
+  });
+  shell(topBar('แชท', { back: '#/more', onRefresh: () => load(), extra: [clearBtn, pushButton()] }), older, log, form, tabs('#/more'));
   app.querySelector('.shell').classList.add('chat');
   // the composer sits right on top of the tab bar, whatever height that has on this device
   const nav = app.querySelector('.tabs');
