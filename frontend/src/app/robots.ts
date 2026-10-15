@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/api/'] }],
+    // the API is documented at /developers; crawlers only need its schema, not the data endpoints
+    rules: [{ userAgent: '*', allow: ['/', '/api/v1/openapi.json'], disallow: ['/api/'] }],
     sitemap: `${siteUrl()}/sitemap.xml`,
   };
 }

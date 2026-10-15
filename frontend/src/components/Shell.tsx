@@ -116,7 +116,9 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
     <nav className="bottom-nav" aria-label="main">
       {NAV.map((n) => (
         <Link key={n.href} href={n.href} aria-current={active(n.href) ? 'page' : undefined} data-tab-bounce>
-          <Icon name={n.icon} />
+          <span className="tab-icon" data-tab-icon>
+            <Icon name={n.icon} />
+          </span>
           <span className="label">{t(n.key)}</span>
           {n.href === paths.alerts && alertCount > 0 && <span className="count">{alertCount}</span>}
         </Link>

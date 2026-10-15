@@ -10,7 +10,8 @@ import { translate } from '@/i18n/dict';
 import type { AlertEntry, Meta } from '@/lib/api';
 import { fromApi, getPrefs, siteUrl } from '@/lib/server';
 import { ICON_VERSION } from '@/lib/iconGlyph';
-import { SITE_NAME } from '@/lib/seo';
+import { FEED_ALTERNATE, SITE_NAME } from '@/lib/seo';
+import { JsonLd, websiteLd } from '@/components/JsonLd';
 import { SPLASH_SPECS } from '@/lib/splash';
 import { DockAnalytics } from '@/components/DockAnalytics';
 import { PwaChrome } from '@/components/PwaChrome';
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
   },
   // iOS still reads the legacy tag for standalone launch + startup images
   other: { 'apple-mobile-web-app-capable': 'yes' },
-  alternates: { canonical: '/' },
+  alternates: { canonical: '/', types: FEED_ALTERNATE },
 };
 
 export const viewport: Viewport = {
@@ -80,6 +81,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
       </head>
       <body>
+        <JsonLd data={websiteLd(siteUrl())} />
         <ServiceWorkerRegister />
         <PwaChrome />
         <DockAnalytics />

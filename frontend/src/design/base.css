@@ -267,6 +267,7 @@ button {
   }
   .bottom-nav a span.label { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .bottom-nav a svg { width: 22px; height: 22px; }
+  .bottom-nav a .tab-icon { display: inline-grid; place-items: center; }
   .bottom-nav a[aria-current='page'] { color: var(--color-accent-default); font-weight: var(--font-weight-semibold); }
   .bottom-nav a[aria-current='page']::before {
     content: '';

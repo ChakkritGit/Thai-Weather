@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 
 export const SITE_NAME = 'ฟ้าละเอียด · Thai Weather HD';
 
+/** `<link rel="alternate">` to the alerts feed; every page's `alternates` replaces the layout's, so each carries it. */
+export const FEED_ALTERNATE = { 'application/rss+xml': [{ url: '/feed.xml', title: 'ฟ้าละเอียด · แจ้งเตือนรายจังหวัด' }] };
+
 /**
  * Complete share metadata for one page. A page's `openGraph` replaces the layout's (Next does not
  * merge it), so every page builds the whole set here: title, description, url, image, card type.
@@ -26,7 +29,7 @@ export function pageMeta({
   return {
     title: absoluteTitle ? { absolute: title } : title,
     description,
-    alternates: { canonical: path },
+    alternates: { canonical: path, types: FEED_ALTERNATE },
     openGraph: { type: 'website', siteName: SITE_NAME, locale: 'th_TH', title, description, url: path, images },
     twitter: { card: 'summary_large_image', title, description, images: [image] },
   };
