@@ -339,3 +339,10 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .chat-note { margin: 6px 2px 0; min-height: 0; color: var(--muted); font-size: 12px; }
 
 .icon-btn.on { color: var(--text); }
+
+/* numbers that update in place animate with transform (setNumber); keep them their own box */
+.row-side b, .row-side span, .mini-stats b { display: inline-block; will-change: transform; }
+.row-side b { display: block; }
+/* a new row (a container started or rolled out) fades in */
+a.row { animation: row-in 0.35s ease-out both; }
+@keyframes row-in { from { opacity: 0; transform: translateY(4px); } }

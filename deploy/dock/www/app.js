@@ -62,6 +62,28 @@ function setText(el, text) {
   if (el && el.textContent !== text) el.textContent = text;
 }
 
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+/** first number in "12.5%", "1.2 GB", "340 KB" in bytes-comparable form (units matter for MB vs GB) */
+function magnitude(text) {
+  const m = /(-?[\d.,]+)\s*(%|B|KB|MB|GB|TB)?/.exec(text ?? '');
+  if (!m) return NaN;
+  const v = Number(m[1].replace(/,/g, ''));
+  return v * ({ KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 }[m[2]] ?? 1);
+}
+/** like setText, and the new value slides in: up when it grew, down when it shrank */
+function setNumber(el, text) {
+  if (!el || el.textContent === text) return;
+  const before = magnitude(el.textContent);
+  const after = magnitude(text);
+  el.textContent = text;
+  if (reducedMotion.matches || !Number.isFinite(before) || !Number.isFinite(after) || before === after || !el.isConnected) return;
+  const dir = after > before ? 1 : -1;
+  el.animate(
+    [{ transform: `translateY(${dir * 6}px)`, opacity: 0.25 }, { transform: 'translateY(0)', opacity: 1 }],
+    { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+  );
+}
+
 function toast(text) {
   const t = h('div', { class: 'toast', role: 'status' }, text);
   document.body.append(t);
@@ -368,8 +390,8 @@ async function containersView(token) {
       const u = await stats(c.Id);
       const r = rows.get(c.Id);
       if (token !== viewToken || !u || !r) return;
-      setText(r.cpu, fmtPct(u.cpu));
-      setText(r.mem, fmtBytes(u.mem));
+      setNumber(r.cpu, fmtPct(u.cpu));
+      setNumber(r.mem, fmtBytes(u.mem));
     }));
   };
   shell(topBar('คอนเทนเนอร์', { onRefresh: load }), meta, body, tabs('#/containers'));
@@ -810,7 +832,7 @@ async function overviewView(token) {
         e = { el: el2, stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: `CPU ของ ${name}` }), mem: mkChart(memBox, { ...memO, label: `RAM ของ ${name}` }) };
         ctrCards.set(id, e);
       } else {
-        e.stWrap.querySelectorAll('b').forEach((b, k) => setText(b, values[k]));
+        e.stWrap.querySelectorAll('b').forEach((b, k) => setNumber(b, values[k]));
         e.cpu.update(cpuO);
         e.mem.update(memO);
       }
