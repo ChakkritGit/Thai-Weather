@@ -96,6 +96,7 @@ ssh -L 8181:127.0.0.1:81 root@<VPS_IP>
 | Cloudflare | ทั้ง 4 โดเมน **Proxied (เมฆส้ม)**, SSL/TLS = **Full (strict)** |
 | Origin lock | `deploy/hardening/cf-origin-lock.sh` (+ `.service`, `.timer` ใน `/etc/systemd/system/`) — chain `DOCKER-USER` ให้ 80/443 รับเฉพาะช่วง IP ของ Cloudflare (อัปเดตรายสัปดาห์) — ถ้าปิดเมฆส้มต้อง `systemctl stop cf-origin-lock` ก่อน ไม่งั้นเว็บเข้าไม่ได้ |
 | Rate limit ล็อกอิน | `deploy/hardening/npm-http_top.conf` → `/data/nginx/custom/http_top.conf` ของ NPM; Advanced ของ proxy host `portainer.`/`docker.` = `location = /api/auth { limit_req zone=login burst=5 nodelay; … include conf.d/include/proxy.conf; }`, `nginx.` = เดียวกันที่ `/api/tokens` |
+| บัฟเฟอร์ header | `deploy/hardening/npm-server_proxy.conf` → `/data/nginx/custom/server_proxy.conf` ของ NPM (ทุก proxy host) — คุกกี้ล็อกอิน Supabase ของ expenses ใหญ่เกินบัฟเฟอร์ 4k ปกติ → 502 "upstream sent too big header" |
 | IP จริงหลัง Cloudflare | Advanced ทุก host: `real_ip_header CF-Connecting-IP;` (ช่วง IP ของ CF อยู่ใน `ip_ranges.conf` ของ NPM แล้ว) |
 | Header หน้าแอดมิน | `nginx.`: `more_set_headers` X-Frame-Options DENY, nosniff, Referrer-Policy, CSP frame-ancestors · `portainer.`: Referrer-Policy (+ viewport สำหรับมือถือ) |
 | Default site | NPM Settings → Default Site = **No Response (444)** |
