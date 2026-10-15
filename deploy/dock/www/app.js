@@ -57,6 +57,7 @@ const ICONS = {
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   checkcircle: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3',
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -1133,8 +1134,48 @@ async function chatView(token) {
   /** text with its https links made tappable (built as nodes, never as HTML) */
   const linkify = (text) => text.split(/(https:\/\/[^\s]+)/g).map((part, i) =>
     i % 2 ? h('a', { href: part, target: '_blank', rel: 'noopener' }, part.replace(/^https:\/\//, '')) : part);
+  /** a month report as a card: tiles, daily CPU and visitors, traffic per site, advice */
+  const TIP = { bad: ['alert', 'bad'], warn: ['alert', 'warn'], info: ['info', 'info'], ok: ['checkcircle', 'ok'] };
+  const dayTimes = (rows) => rows.map((r) => Date.parse(`${r.day}T00:00:00+07:00`) / 1000);
+  const reportCard = (d) => {
+    const body = h('div', { class: 'report' },
+      h('b', { class: 'msg-title' }, d.title),
+      h('div', { class: 'report-tiles' }, d.tiles.map((t) => h('div', { class: `report-tile${t.tone ? ` tone-${t.tone}` : ''}` },
+        h('span', { class: 'tile-label' }, t.label), h('span', { class: 'report-value' }, t.value), t.sub ? h('span', { class: 'tile-sub' }, t.sub) : null))));
+    const chartBox = (title, opts) => {
+      const box = h('div', { class: 'report-chart' }, h('span', { class: 'report-h' }, title));
+      body.append(box);
+      requestAnimationFrame(() => mkChart(box, { ...opts, label: title, height: 120 })); // after it is in the page, so it knows its width
+    };
+    if (d.cpu.filter((r) => r.avg !== null).length >= 2) {
+      chartBox('CPU รายวัน', { times: dayTimes(d.cpu), step: 86400, kind: 'area', format: (v) => fmtPct(v),
+        series: [{ name: 'เฉลี่ย', color: 'var(--s1)', values: d.cpu.map((r) => r.avg) }] });
+    }
+    if (d.visitors.length >= 2) {
+      chartBox('ผู้เข้าชมรายวัน', { times: dayTimes(d.visitors), step: 86400, kind: 'columns', format: (v) => fmtNum(v),
+        series: [{ name: 'ผู้เข้าชม', color: 'var(--s3)', values: d.visitors.map((r) => r.visitors) }] });
+    }
+    if (d.sites.length) {
+      const top = Math.max(...d.sites.map((x) => x.requests), 1);
+      body.append(h('div', { class: 'report-sites' }, h('span', { class: 'report-h' }, 'คำขอตามเว็บ'),
+        d.sites.map((x) => h('div', { class: 'site-row' },
+          h('span', { class: 'site-name' }, x.site),
+          h('span', { class: 'site-bar' }, h('span', { style: `width:${((x.requests / top) * 100).toFixed(1)}%` })),
+          h('span', { class: 'site-num' }, fmtNum(x.requests)),
+          x.errorsPct >= 1 ? h('span', { class: 'pill tone-bad' }, `5xx ${x.errorsPct.toFixed(1)}%`) : null))));
+    }
+    body.append(h('div', { class: 'report-tips' }, h('span', { class: 'report-h' }, 'คำแนะนำ'),
+      d.tips.map((t) => h('div', { class: `tip tip-${t.level}` }, icon(TIP[t.level][0], 'msg-ic'), h('span', {}, t.text)))));
+    return body;
+  };
   const bubble = (m) => {
     const kind = KINDS[m.kind];
+    if (m.kind === 'report' && m.data) {
+      return h('div', { class: `msg ${m.role} report-msg`, 'data-id': m.id },
+        h('span', { class: 'msg-label' }, icon('chart', 'msg-ic'), m.role === 'system' ? 'รายงานประจำเดือน' : 'สรุป'),
+        reportCard(m.data),
+        h('span', { class: 'msg-time' }, fmtTime.format(new Date(m.ts))));
+    }
     const [title, ...rest] = m.text.split('\n');
     return h('div', { class: `msg ${m.role}${kind ? ` kind-${kind[1]}` : ''}`, 'data-id': m.id },
       m.role === 'system' ? h('span', { class: 'msg-label' }, kind ? icon(kind[0], 'msg-ic') : null, m.kind === 'report' ? 'รายงานประจำเดือน' : m.kind ? 'แจ้งเตือนระบบ' : 'จากระบบ') : null,

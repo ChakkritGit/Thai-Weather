@@ -417,3 +417,29 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .chat-older { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 0 14px; color: var(--muted); font-size: 13px; }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 50%; animation: spin 0.8s linear infinite; }
 .icon-btn.armed { background: var(--bad); color: #fff; }
+
+/* chat: a month report as a card */
+.msg.report-msg { align-self: stretch; max-width: 100%; border-radius: var(--radius); }
+.report { display: grid; gap: 14px; margin-top: 2px; }
+.report-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 620px) { .report-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.report-tile { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
+.report-value { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.report-tile.tone-warn .report-value { color: var(--warn); }
+.report-tile.tone-bad .report-value { color: var(--bad); }
+.report-h { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.report-chart { min-width: 0; }
+.report-sites { display: grid; gap: 6px; }
+.site-row { display: grid; grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: 13px; }
+.site-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-bar { height: 8px; border-radius: 999px; background: var(--grid); overflow: hidden; }
+.site-bar span { display: block; height: 100%; border-radius: inherit; background: var(--s1); }
+.site-num { font-variant-numeric: tabular-nums; color: var(--muted); }
+.pill.tone-bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); padding: 0 8px; font-size: 11px; }
+.report-tips { display: grid; gap: 8px; }
+.tip { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; font-size: 14px; line-height: 1.45; }
+.tip .msg-ic { margin-top: 2px; }
+.tip-bad .msg-ic { color: var(--bad); }
+.tip-warn .msg-ic { color: var(--warn); }
+.tip-ok .msg-ic { color: var(--ok); }
+.tip-info .msg-ic { color: var(--muted); }

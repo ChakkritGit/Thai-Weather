@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { allowedEndpoint, composeReport, createApp, digestDay, encryptPush, maybePostReport, monthName, open, page, reply, vapidKeys, type Digest } from './chat'
+import { allowedEndpoint, composeReport, reportData, createApp, digestDay, encryptPush, maybePostReport, monthName, open, page, reply, vapidKeys, type Digest } from './chat'
 
 const day = '2026-10-14'
 const from = Date.parse(`${day}T00:00:00+07:00`) / 1000
@@ -49,8 +49,8 @@ test('the report reads like a summary', () => {
 test('commands answer without an LLM, anything else says none is set up', async () => {
   delete process.env.LLM_PROVIDER
   const db = open(':memory:')
-  expect(await reply(db, 'ช่วย')).toContain('สรุป — สรุปเดือนนี้')
-  expect(await reply(db, 'สวัสดี')).toContain('ยังไม่ได้เชื่อม LLM')
+  expect((await reply(db, 'ช่วย')).text).toContain('สรุป — สรุปเดือนนี้')
+  expect((await reply(db, 'สวัสดี')).text).toContain('ยังไม่ได้เชื่อม LLM')
 })
 
 test('the month report is posted once, only for a month with data', async () => {
@@ -147,4 +147,26 @@ test('paging: the latest page, older pages when scrolling up, new ones after an 
   expect(p3.messages.map((m) => m.text)).toEqual(Array.from({ length: 15 }, (_, i) => `m${1 + i}`))
   expect(p3.hasMore).toBe(false)
   expect(page(db, { after: 73 }).messages.map((m) => m.text)).toEqual(['m74', 'm75'])
+})
+
+test('report data: tiles, charts and the advice that fits', () => {
+  const d = digestDay(day, metrics(), null) as Digest
+  const data = reportData('2026-10', [d], {
+    visitorsDaily: [{ day, visitors: 7, views: 40 }],
+    totals: { visitors: 7, views: 40 },
+    status: { services: [{ name: 'Whiteboard', status: 'up', uptime90: 98 }] },
+    backups: { bundles: [] },
+    untilDay: 15,
+  })
+  expect(data.title).toBe('สรุปเดือนตุลาคม 2569 (ถึงวันที่ 15)')
+  expect(data.tiles.map((t) => t.label)).toEqual(['CPU เฉลี่ย', 'RAM เฉลี่ย', 'ดิสก์', 'ผู้เข้าชม'])
+  expect(data.cpu).toHaveLength(1)
+  expect(data.sites[0].site).toBe('thai-weather')
+  const tips = data.tips.map((t) => t.text).join('\n')
+  expect(tips).toContain('expenses ตอบ error 5xx')
+  expect(tips).toContain('Whiteboard uptime 90 วัน 98%')
+  expect(tips).toContain('ยังไม่มีไฟล์สำรอง')
+  expect(data.tips.some((t) => t.level === 'ok')).toBe(false)
+  const calm = reportData('2026-10', [], { status: { services: [] }, backups: { bundles: [{ name: 'b', created: Date.now(), size: 1 }] } })
+  expect(calm.tips[0]).toEqual({ level: 'ok', text: 'ทุกอย่างปกติดี ไม่มีอะไรต้องทำ' })
 })

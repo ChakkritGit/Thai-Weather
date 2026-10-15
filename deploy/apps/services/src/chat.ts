@@ -50,16 +50,16 @@ const prevMonth = (month: string) => {
 export type Role = 'user' | 'assistant' | 'system'
 /** what a server post is about, so Dock can draw an icon for it: a service down / back up, a month's report */
 export type Kind = 'down' | 'up' | 'report' | null
-export interface Message { id: number; ts: number; role: Role; text: string; read: number; kind: Kind }
+export interface Message { id: number; ts: number; role: Role; text: string; read: number; kind: Kind; data?: ReportData | null }
 
 export function open(path = process.env.CHAT_DB ?? '/data/chat.db') {
   const db = new Database(path, { create: true })
   db.run('PRAGMA journal_mode = WAL')
   db.run(`CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL, read INTEGER NOT NULL DEFAULT 1)`)
-  if (!(db.query("SELECT name FROM pragma_table_info('messages')").all() as { name: string }[]).some((c) => c.name === 'kind')) {
-    db.run('ALTER TABLE messages ADD COLUMN kind TEXT')
-  }
+  const cols = (db.query("SELECT name FROM pragma_table_info('messages')").all() as { name: string }[]).map((c) => c.name)
+  if (!cols.includes('kind')) db.run('ALTER TABLE messages ADD COLUMN kind TEXT')
+  if (!cols.includes('data')) db.run('ALTER TABLE messages ADD COLUMN data TEXT') // a report's figures, for Dock's charts
   db.run('CREATE TABLE IF NOT EXISTS digests (day TEXT PRIMARY KEY, data TEXT NOT NULL)')
   db.run('CREATE TABLE IF NOT EXISTS reports (month TEXT PRIMARY KEY, message_id INTEGER NOT NULL)')
   db.run('CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created INTEGER NOT NULL)')
@@ -67,11 +67,14 @@ export function open(path = process.env.CHAT_DB ?? '/data/chat.db') {
   return db
 }
 
-function post(db: Database, role: Role, text: string, kind: Kind = null, read = role !== 'system'): Message {
+function post(db: Database, role: Role, text: string, kind: Kind = null, read = role !== 'system', data: ReportData | null = null): Message {
   const ts = Date.now()
-  const r = db.query('INSERT INTO messages (ts, role, text, read, kind) VALUES (?, ?, ?, ?, ?) RETURNING id').get(ts, role, text, read ? 1 : 0, kind) as { id: number }
-  return { id: r.id, ts, role, text, read: read ? 1 : 0, kind }
+  const r = db.query('INSERT INTO messages (ts, role, text, read, kind, data) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
+    .get(ts, role, text, read ? 1 : 0, kind, data ? JSON.stringify(data) : null) as { id: number }
+  return { id: r.id, ts, role, text, read: read ? 1 : 0, kind, data }
 }
+const parsed = (rows: (Omit<Message, 'data'> & { data?: string | null })[]): Message[] =>
+  rows.map((m) => ({ ...m, data: m.data ? (JSON.parse(m.data) as ReportData) : null }))
 
 const PAGE = 30
 /**
@@ -81,8 +84,8 @@ const PAGE = 30
 export function page(db: Database, { before, after, limit = PAGE }: { before?: number; after?: number; limit?: number }) {
   const n = Math.min(100, Math.max(1, limit))
   let rows: Message[]
-  if (after !== undefined) rows = db.query('SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT 500').all(after) as Message[]
-  else rows = (db.query(`SELECT * FROM messages ${before !== undefined ? 'WHERE id < ?' : ''} ORDER BY id DESC LIMIT ?`).all(...(before !== undefined ? [before, n] : [n])) as Message[]).reverse()
+  if (after !== undefined) rows = parsed(db.query('SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT 500').all(after) as Message[] as never)
+  else rows = parsed((db.query(`SELECT * FROM messages ${before !== undefined ? 'WHERE id < ?' : ''} ORDER BY id DESC LIMIT ?`).all(...(before !== undefined ? [before, n] : [n])) as never[]).reverse())
   const first = rows[0]?.id ?? before
   const hasMore = first !== undefined && after === undefined ? Boolean(db.query('SELECT 1 FROM messages WHERE id < ? LIMIT 1').get(first)) : false
   return { messages: rows, hasMore }
@@ -351,7 +354,78 @@ export function composeReport(month: string, digests: Digest[], extra: { analyti
   return lines.join('\n')
 }
 
-export async function buildReport(db: Database, month: string, now = Date.now()) {
+/** A report's figures for Dock's card: tiles, daily CPU and visitors, traffic per site, recommendations. */
+export interface ReportData {
+  month: string
+  title: string
+  tiles: { label: string; value: string; sub?: string; tone?: 'warn' | 'bad' }[]
+  cpu: { day: string; avg: number | null; max: number | null }[]
+  visitors: { day: string; visitors: number; views: number }[]
+  sites: { site: string; requests: number; errorsPct: number }[]
+  tips: { level: 'bad' | 'warn' | 'info' | 'ok'; text: string }[]
+}
+
+export function reportData(
+  month: string,
+  digests: Digest[],
+  extra: { visitorsDaily?: { day: string; visitors: number; views: number }[]; totals?: { visitors: number; views: number } | null; status?: StatusPayload | null; backups?: BackupPayload | null; untilDay?: number },
+): ReportData {
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+  const cpuAvg = avg(digests.flatMap((d) => (d.cpuAvg === null ? [] : [d.cpuAvg])))
+  const peak = digests.reduce<Digest | null>((p, d) => (d.cpuMax !== null && (p === null || d.cpuMax > (p.cpuMax ?? 0)) ? d : p), null)
+  const memAvg = avg(digests.flatMap((d) => (d.memAvg === null ? [] : [d.memAvg])))
+  const last = digests[digests.length - 1]
+  const first = digests[0]
+  const memPct = memAvg !== null && last ? (memAvg / last.memTotal) * 100 : null
+  const diskPct = last ? (last.diskUsed / last.diskTotal) * 100 : null
+  const sites = new Map<string, { req: number; s5: number }>()
+  for (const d of digests) for (const [h, r] of Object.entries(d.requests)) {
+    const t = sites.get(h) ?? { req: 0, s5: 0 }
+    t.req += r.req
+    t.s5 += r.s5
+    sites.set(h, t)
+  }
+  const all = [...sites.values()].reduce((a, r) => a + r.req, 0)
+  const s4 = digests.reduce((a, d) => a + Object.values(d.requests).reduce((b, r) => b + r.s4, 0), 0)
+
+  const tips: ReportData['tips'] = []
+  if (diskPct !== null && diskPct >= 80) tips.push({ level: 'bad', text: `ดิสก์ใช้ไป ${Math.round(diskPct)}% แล้ว ลบอิมเมจที่ไม่ได้ใช้ในหน้า "อิมเมจ" หรือขยายดิสก์` })
+  else if (first && last && last.diskUsed - first.diskUsed > 1024 ** 3) tips.push({ level: 'info', text: `ดิสก์โตขึ้น ${fmtBytes(last.diskUsed - first.diskUsed)} ในเดือนนี้ ถ้าโตแบบนี้ต่อ ควรดูว่าอะไรเพิ่ม (อิมเมจ log หรือข้อมูลพยากรณ์)` })
+  if (memPct !== null && memPct >= 80) tips.push({ level: 'warn', text: `หน่วยความจำใช้เฉลี่ย ${Math.round(memPct)}% ถ้าสูงต่อเนื่องอาจทำให้แอปช้าหรือถูกปิด ลองดูคอนเทนเนอร์ที่ใช้ RAM มากที่สุด` })
+  if (peak?.cpuMax != null && peak.cpuMax >= 90) tips.push({ level: 'info', text: `CPU แตะ ${Math.round(peak.cpuMax)}% วันที่ ${Number(peak.day.slice(8))} ถ้าเกิดบ่อย ดูกราฟ CPU ต่อคอนเทนเนอร์ในหน้าภาพรวม` })
+  for (const [h, r] of sites) if (r.req >= 50 && r.s5 / r.req >= 0.01) tips.push({ level: 'warn', text: `${site(h)} ตอบ error 5xx ${((r.s5 / r.req) * 100).toFixed(1)}% ของคำขอ ดู log ของคอนเทนเนอร์นั้น` })
+  if (all >= 200 && s4 / all >= 0.15) tips.push({ level: 'info', text: `คำขอผิด (4xx) ${((s4 / all) * 100).toFixed(0)}% ส่วนใหญ่มักเป็นบอทสแกนหาไฟล์ที่ไม่มี ไม่ต้องทำอะไรถ้าเว็บใช้งานได้ปกติ` })
+  for (const sv of extra.status?.services ?? []) {
+    if (sv.status !== 'up') tips.push({ level: 'bad', text: `${sv.name} มีปัญหาอยู่ตอนนี้ ดูที่ status.chakkritton.com` })
+    else if (sv.uptime90 !== null && sv.uptime90 < 99.5) tips.push({ level: 'warn', text: `${sv.name} uptime 90 วัน ${sv.uptime90}% ต่ำกว่าเป้า 99.5% ดูช่วงที่ล่มในหน้าสถานะ` })
+  }
+  const ms = (b: { created: string | number }) => (typeof b.created === 'number' ? b.created : Date.parse(b.created))
+  const latest = extra.backups ? [...extra.backups.bundles].sort((a, b) => ms(b) - ms(a))[0] : undefined
+  if (extra.backups && !latest) tips.push({ level: 'warn', text: 'ยังไม่มีไฟล์สำรองทั้งเซิร์ฟเวอร์ สร้างได้ที่ เพิ่มเติม → สำรองข้อมูล แล้วเก็บไว้นอกเซิร์ฟเวอร์' })
+  else if (latest && Date.now() - ms(latest) > 31 * DAY) tips.push({ level: 'warn', text: `ไฟล์สำรองล่าสุดเก่ากว่าหนึ่งเดือน (${bkkDay(ms(latest))}) ควรสร้างใหม่` })
+  const total = extra.untilDay ?? daysInMonth(month)
+  const covered = digests.filter((d) => d.coverage >= 0.5).length
+  if (digests.length && covered < total) tips.push({ level: 'info', text: `ข้อมูลเซิร์ฟเวอร์มี ${covered} จาก ${total} วัน (เก็บทุกคืน 23:50) ตัวเลขเดือนนี้จึงยังไม่ครบ` })
+  if (!tips.some((t) => t.level === 'bad' || t.level === 'warn')) tips.unshift({ level: 'ok', text: 'ทุกอย่างปกติดี ไม่มีอะไรต้องทำ' })
+
+  const tone = (p: number | null, warn: number, bad: number) => (p === null ? undefined : p >= bad ? ('bad' as const) : p >= warn ? ('warn' as const) : undefined)
+  return {
+    month,
+    title: `สรุปเดือน${monthName(month)}${extra.untilDay ? ` (ถึงวันที่ ${extra.untilDay})` : ''}`,
+    tiles: [
+      { label: 'CPU เฉลี่ย', value: fmtPct(cpuAvg), sub: peak?.cpuMax != null ? `สูงสุด ${fmtPct(peak.cpuMax)} วันที่ ${Number(peak.day.slice(8))}` : undefined, tone: tone(cpuAvg, 60, 85) },
+      { label: 'RAM เฉลี่ย', value: fmtBytes(memAvg), sub: last ? `จาก ${fmtBytes(last.memTotal)}` : undefined, tone: tone(memPct, 75, 90) },
+      { label: 'ดิสก์', value: diskPct === null ? '–' : `${Math.round(diskPct)}%`, sub: last ? `ว่าง ${fmtBytes(last.diskTotal - last.diskUsed)}` : undefined, tone: tone(diskPct, 75, 90) },
+      { label: 'ผู้เข้าชม', value: extra.totals ? fmtNum(extra.totals.visitors) : '–', sub: extra.totals ? `เพจวิว ${fmtNum(extra.totals.views)}` : undefined },
+    ],
+    cpu: digests.map((d) => ({ day: d.day, avg: d.cpuAvg, max: d.cpuMax })),
+    visitors: extra.visitorsDaily ?? [],
+    sites: [...sites].sort((a, b) => b[1].req - a[1].req).slice(0, 6).map(([h, r]) => ({ site: site(h), requests: r.req, errorsPct: r.req ? (r.s5 / r.req) * 100 : 0 })),
+    tips,
+  }
+}
+
+export async function buildReport(db: Database, month: string, now = Date.now()): Promise<{ text: string; data: ReportData }> {
   const digests = (db.query('SELECT data FROM digests WHERE day LIKE ? ORDER BY day').all(`${month}-%`) as { data: string }[]).map((r) => JSON.parse(r.data) as Digest)
   const isCurrent = bkkDay(now).startsWith(month)
   const untilDay = isCurrent ? Number(bkkDay(now).slice(8)) : undefined
@@ -369,7 +443,10 @@ export async function buildReport(db: Database, month: string, now = Date.now())
       }
     : null
   const [status, backups] = await Promise.all([getJson<StatusPayload>(`${STATUS_URL}/api/status`), getJson<BackupPayload>(`${BACKUP_URL}/backups`)])
-  return composeReport(month, digests, { analytics, status, backups, untilDay })
+  return {
+    text: composeReport(month, digests, { analytics, status, backups, untilDay }),
+    data: reportData(month, digests, { visitorsDaily: inMonth, totals: analytics?.totals ?? null, status, backups, untilDay }),
+  }
 }
 
 /** On the month's last evening (or, if missed, in the first days after), post its report once. */
@@ -384,8 +461,8 @@ export async function maybePostReport(db: Database, now = Date.now()) {
   // a month this service never saw (installed later) gets no report
   const any = db.query('SELECT 1 FROM digests WHERE day LIKE ? LIMIT 1').get(`${due}-%`)
   if (!any) return null
-  const text = await buildReport(db, due, now)
-  const msg = post(db, 'system', text, 'report')
+  const { text, data } = await buildReport(db, due, now)
+  const msg = post(db, 'system', text, 'report', false, data)
   db.run('INSERT INTO reports (month, message_id) VALUES (?, ?)', [due, msg.id])
   await pushAll(db, { title: 'Dock', body: `${text.split('\n')[0]} — แตะเพื่ออ่าน`, url: '/#/chat', tag: `report-${due}` }).catch(() => undefined)
   return msg
@@ -433,20 +510,22 @@ async function askLlm(messages: { role: 'system' | 'user' | 'assistant'; content
   return text.trim()
 }
 
-export async function reply(db: Database, text: string, now = Date.now()): Promise<string> {
+export interface Reply { text: string; kind?: Kind; data?: ReportData }
+
+export async function reply(db: Database, text: string, now = Date.now()): Promise<Reply> {
   const t = text.trim().toLowerCase()
-  if (/^(ช่วย|help|\/help|คำสั่ง)/.test(t)) return HELP
-  if (/^(สรุป|รายงาน|report|\/report)/.test(t)) return buildReport(db, bkkDay(now).slice(0, 7), now)
-  if (/^(เดือนก่อน|เดือนที่แล้ว|last month)/.test(t)) return buildReport(db, prevMonth(bkkDay(now).slice(0, 7)), now)
+  if (/^(ช่วย|help|\/help|คำสั่ง)/.test(t)) return { text: HELP }
+  if (/^(สรุป|รายงาน|report|\/report)/.test(t)) return { ...(await buildReport(db, bkkDay(now).slice(0, 7), now)), kind: 'report' }
+  if (/^(เดือนก่อน|เดือนที่แล้ว|last month)/.test(t)) return { ...(await buildReport(db, prevMonth(bkkDay(now).slice(0, 7)), now)), kind: 'report' }
   if (!llmConfigured()) {
-    return `ยังไม่ได้เชื่อม LLM จึงตอบได้เฉพาะคำสั่ง\n\n${HELP}\n\nต่อ LLM ได้ภายหลัง: Cloudflare Workers AI หรือเซิร์ฟเวอร์ที่ host เอง (ตั้งค่าใน chat.env)`
+    return { text: `ยังไม่ได้เชื่อม LLM จึงตอบได้เฉพาะคำสั่ง\n\n${HELP}\n\nต่อ LLM ได้ภายหลัง: Cloudflare Workers AI หรือเซิร์ฟเวอร์ที่ host เอง (ตั้งค่าใน chat.env)` }
   }
-  const context = await buildReport(db, bkkDay(now).slice(0, 7), now)
+  const context = (await buildReport(db, bkkDay(now).slice(0, 7), now)).text
   const history = (db.query('SELECT role, text FROM messages WHERE role != ? ORDER BY id DESC LIMIT 12').all('system') as { role: Role; text: string }[]).reverse()
-  return askLlm([
+  return { text: await askLlm([
     { role: 'system', content: `คุณคือผู้ช่วยดูแลเซิร์ฟเวอร์ VPS ของเจ้าของระบบ ตอบเป็นภาษาไทย สั้น ตรงประเด็น ไม่เดา ถ้าข้อมูลไม่พอให้บอกตรง ๆ\nข้อมูลล่าสุดของระบบ:\n${context}` },
     ...history.map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), content: m.text })),
-  ])
+  ]) }
 }
 
 // ------------------------------------------------------------------ HTTP
@@ -524,13 +603,13 @@ export function createApp(db = open()) {
         return { error: `ข้อความต้องยาว 1–${MAX_TEXT} ตัวอักษร` }
       }
       const mine = post(db, 'user', text)
-      let answer: string
+      let answer: Reply
       try {
         answer = await reply(db, text)
       } catch (err) {
-        answer = `ตอบไม่ได้ตอนนี้: ${err instanceof Error ? err.message : String(err)}`
+        answer = { text: `ตอบไม่ได้ตอนนี้: ${err instanceof Error ? err.message : String(err)}` }
       }
-      return { messages: [mine, post(db, 'assistant', answer)] }
+      return { messages: [mine, post(db, 'assistant', answer.text, answer.kind ?? null, true, answer.data ?? null)] }
     })
 }
 
