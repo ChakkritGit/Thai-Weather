@@ -84,6 +84,39 @@ function setNumber(el, text) {
   );
 }
 
+/**
+ * Brings `a` (on screen) in line with `b` (just built) without replacing it, when both have the same
+ * shape: text is patched (numbers slide via setNumber), inline styles copied (meters glide). Returns
+ * false when the shapes differ, so the caller swaps the node instead.
+ */
+function morph(a, b) {
+  if (a.nodeType === 3 && b.nodeType === 3) { if (a.data !== b.data) a.data = b.data; return true; }
+  if (a.nodeType !== 1 || b.nodeType !== 1 || a.tagName !== b.tagName || a.getAttribute('class') !== b.getAttribute('class')
+    || a.childNodes.length !== b.childNodes.length) return false;
+  if (a.style.cssText !== b.style.cssText) a.style.cssText = b.style.cssText;
+  for (const attr of ['title', 'aria-valuenow', 'colspan', 'href']) if (b.getAttribute(attr) !== a.getAttribute(attr)) b.hasAttribute(attr) ? a.setAttribute(attr, b.getAttribute(attr)) : a.removeAttribute(attr);
+  if (a.childNodes.length === 1 && a.firstChild.nodeType === 3) {
+    if (a.tagName === 'B' || a.classList.contains('tile-value') || a.classList.contains('num')) setNumber(a, b.textContent);
+    else setText(a, b.textContent);
+    return true;
+  }
+  for (let i = 0; i < a.childNodes.length; i++) {
+    const x = a.childNodes[i];
+    const y = b.childNodes[i];
+    if (!morph(x, y)) a.replaceChild(y.cloneNode(true), x);
+  }
+  return true;
+}
+/** replaceChildren that keeps what is already there when only values changed (no re-entrance, no flicker) */
+function patchChildren(parent, next) {
+  const old = [...parent.children];
+  if (old.length !== next.length || old.some((o, i) => o.tagName !== next[i].tagName || o.getAttribute('class') !== next[i].getAttribute('class'))) {
+    parent.replaceChildren(...next);
+    return;
+  }
+  old.forEach((o, i) => { if (!morph(o, next[i])) parent.replaceChild(next[i], o); });
+}
+
 function toast(text) {
   const t = h('div', { class: 'toast', role: 'status' }, text);
   document.body.append(t);
@@ -488,13 +521,13 @@ async function containerView(token, id) {
     if (atBottom || logsEl.dataset.first !== '1') { logsEl.scrollTop = logsEl.scrollHeight; logsEl.dataset.first = '1'; }
   };
   const loadStats = async () => {
-    if (!running) { statsEl.replaceChildren(statBox('สถานะ', 'หยุดอยู่', c.State.FinishedAt ? ago(Date.parse(c.State.FinishedAt) / 1000) : '')); return; }
+    if (!running) { patchChildren(statsEl, [statBox('สถานะ', 'หยุดอยู่', c.State.FinishedAt ? ago(Date.parse(c.State.FinishedAt) / 1000) : '')]); return; }
     const u = await stats(id);
     if (token !== viewToken || !u) return;
-    statsEl.replaceChildren(
+    patchChildren(statsEl, [
       statBox('CPU', fmtPct(u.cpu)),
       statBox('หน่วยความจำ', fmtBytes(u.mem), u.limit ? `จาก ${fmtBytes(u.limit)}` : ''),
-      statBox('เครือข่าย', `↓ ${fmtBytes(u.rx)}`, `↑ ${fmtBytes(u.tx)}`));
+      statBox('เครือข่าย', `↓ ${fmtBytes(u.rx)}`, `↑ ${fmtBytes(u.tx)}`)]);
   };
 
   // CPU / RAM history of this container from dock-metrics (last hour)
@@ -675,14 +708,14 @@ async function overviewView(token) {
     const memPct = (memUsed / sn.mem_total) * 100;
     const diskPct = (sn.disk_used / sn.disk_total) * 100;
     const swapUsed = sn.swap_total - sn.swap_free;
-    hostTiles.replaceChildren(
+    patchChildren(hostTiles, [
       tile('CPU ตอนนี้', fmtPct(cpuNow), `เฉลี่ยช่วงนี้ ${fmtPct(cpuAvg)} · สูงสุด ${fmtPct(maxOf((hs.cpu_user ?? []).map((v, i) => (v ?? 0) + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))))}`, cpuNow, pctTone(cpuNow)),
       tile('หน่วยความจำ', fmtBytes(memUsed), `จาก ${fmtBytes(sn.mem_total)} · ${fmtPct(memPct)}`, memPct, pctTone(memPct)),
       tile('ดิสก์', fmtBytes(sn.disk_used), `ว่าง ${fmtBytes(sn.disk_free)} จาก ${fmtBytes(sn.disk_total)}`, diskPct, pctTone(diskPct)),
       tile('Load (1 นาที)', sn.load[0].toFixed(2), `5 นาที ${sn.load[1].toFixed(2)} · 15 นาที ${sn.load[2].toFixed(2)} · เต็ม = ${sn.cpus}.00`, (sn.load[0] / sn.cpus) * 100, pctTone((sn.load[0] / sn.cpus) * 100)),
       tile('เครือข่ายตอนนี้', `↓ ${fmtRate(lastOf(hs.net_rx))}`, `↑ ${fmtRate(lastOf(hs.net_tx))}`),
       tile('Swap', fmtBytes(swapUsed), `จาก ${fmtBytes(sn.swap_total)}`, sn.swap_total ? (swapUsed / sn.swap_total) * 100 : NaN, ''),
-    );
+    ]);
 
     // ---- host charts
     const hostCharts = [
@@ -728,12 +761,12 @@ async function overviewView(token) {
     const errors = cls('s4') + cls('s5');
     const bytes = hosts.reduce((s2, k) => s2 + sumOf(ng[k].bytes), 0);
     const spanMin = (times.length * step) / 60;
-    ngTiles.replaceChildren(
+    patchChildren(ngTiles, [
       tile('คำขอทั้งหมด', fmtNum(allReq), `เฉลี่ย ${(allReq / spanMin).toFixed(1)} ต่อนาที`),
       tile('ผู้เข้าชม (IP ไม่ซ้ำ)', fmtNum(mx.top?.unique_clients), 'นับจาก log ของ proxy'),
       tile('ข้อผิดพลาด 4xx / 5xx', `${fmtNum(cls('s4'))} / ${fmtNum(cls('s5'))}`, allReq ? `${((errors / allReq) * 100).toFixed(1)}% ของคำขอ` : '–', allReq ? (errors / allReq) * 100 : NaN, errors / Math.max(1, allReq) > 0.05 ? 'warn' : ''),
       tile('ข้อมูลที่ส่งออก', fmtBytes(bytes), 'body ของ response'),
-    );
+    ]);
     const short = (hn) => hn.replace(/\.chakkritton\.com$/, '');
     const reqOpts = { ...T, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
       series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].req ?? [] })) };
@@ -772,13 +805,13 @@ async function overviewView(token) {
       h('td', {}, short(p.host)),
       h('td', { class: 'mono' }, `${p.method} ${p.path}`),
       h('td', { class: 'num' }, fmtNum(p.count))));
-    ngTables.replaceChildren(
+    patchChildren(ngTables, [
       card('สรุปตามเว็บไซต์', null, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
         h('tr', {}, h('th', {}, 'เว็บไซต์'), h('th', { class: 'num' }, 'คำขอ'), h('th', { class: 'num' }, 'ผิดพลาด'), h('th', { class: 'num' }, 'ส่งออก'), h('th', {}, 'สัดส่วน')),
         siteRows))),
       card('หน้าที่ถูกเรียกมากที่สุด', 'ไม่รวมไฟล์ static', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
         h('tr', {}, h('th', {}, 'เว็บไซต์'), h('th', {}, 'คำขอ'), h('th', { class: 'num' }, 'ครั้ง')),
-        pathRows.length ? pathRows : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล'))))));
+        pathRows.length ? pathRows : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล')))))]);
 
     // ---- containers: memory stack + small multiples
     const names = new Map(list.map((c) => [c.Id.slice(0, 12), { name: nameOf(c), c }]));
@@ -807,7 +840,9 @@ async function overviewView(token) {
         groupGrids.set(g, { section, grid });
       }
     }
-    ctrGrid.replaceChildren(...order.map((g) => groupGrids.get(g).section));
+    // re-attaching a section would replay its entrance, so only out-of-place ones move
+    order.forEach((g, i) => { const el = groupGrids.get(g).section; if (ctrGrid.children[i] !== el) ctrGrid.insertBefore(el, ctrGrid.children[i] ?? null); });
+    while (ctrGrid.children.length > order.length) ctrGrid.lastChild.remove();
     for (const g of order) {
       const n = ids.filter((id) => serviceOf(names.get(id).c).group === g).length;
       groupGrids.get(g).section.querySelector('.group-count').textContent = `${n}`;
@@ -911,12 +946,12 @@ async function webView(token) {
     const total = st.totals;
     const lcp = st.vitals.LCP;
     const lcpTone = lcp ? vitalTone(lcp.p75, 2500, 4000) : '';
-    tiles.replaceChildren(
+    patchChildren(tiles, [
       tile('ผู้เข้าชม', fmtNum(total.visitors), 'นับแยกรายวัน ไม่ใช้คุกกี้'),
       tile('เพจวิว', fmtNum(total.views), `เฉลี่ย ${fmtNum(total.views / st.days)} ต่อวัน`),
       tile('หน้าต่อการเข้าชม', total.visitors ? (total.views / total.visitors).toFixed(1) : '–', 'เพจวิว ÷ ผู้เข้าชม'),
       tile('LCP (p75)', lcp ? VITALS[0][4](lcp.p75) : '–', lcp ? `${vitalText(lcpTone)} · จาก ${fmtNum(lcp.n)} ครั้ง` : 'ยังไม่มีข้อมูล'),
-    );
+    ]);
     // whole numbers on the axis even for a quiet week
     const opts = { times, step: DAY, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), ...(Math.max(...pv) < 4 ? { max: 4 } : {}),
       series: [{ name: 'เพจวิว', color: SERIES[0], values: pv }, { name: 'ผู้เข้าชม', color: SERIES[1], values: uv }] };
@@ -926,7 +961,7 @@ async function webView(token) {
       views = mkChart(c, { ...opts, label: 'ผู้เข้าชมและเพจวิวรายวัน' });
     } else views.update(opts);
 
-    vitalsBox.replaceChildren(card('Web Vitals', 'ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+    patchChildren(vitalsBox, [card('Web Vitals', 'ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
       h('tr', {}, h('th', {}, 'ตัวชี้วัด'), h('th', { class: 'num' }, 'ทั้งหมด'), h('th', { class: 'num' }, 'มือถือ'), h('th', { class: 'num' }, 'เดสก์ท็อป'), h('th', {}, 'ผล')),
       VITALS.map(([key, label, good, poor, fmt]) => {
         const v = st.vitals[key];
@@ -937,21 +972,21 @@ async function webView(token) {
           h('td', { class: 'num' }, v?.mobile != null ? fmt(v.mobile) : '–'),
           h('td', { class: 'num' }, v?.desktop != null ? fmt(v.desktop) : '–'),
           h('td', {}, tone ? h('span', { class: `pill ${tone}` }, h('span', { class: `dot ${tone}` }), vitalText(tone)) : '–'));
-      })))));
+      }))))]);
 
     const table = (title, sub, head, rows, render) => card(title, sub, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
       h('tr', {}, h('th', {}, head), h('th', { class: 'num' }, 'ผู้เข้าชม'), h('th', { class: 'num' }, 'เพจวิว')),
       rows.length ? rows.map((r) => h('tr', {}, h('td', { class: render === 'mono' ? 'mono' : '' }, typeof render === 'function' ? render(r.key) : r.key),
         h('td', { class: 'num' }, fmtNum(r.visitors)), h('td', { class: 'num' }, fmtNum(r.views))))
         : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล')))));
-    tables.replaceChildren(
+    patchChildren(tables, [
       ...(st.host ? [] : [table('ตามเว็บไซต์', null, 'เว็บไซต์', st.perHost, siteName)]),
       table('หน้าที่ถูกเปิดมากที่สุด', null, 'หน้า', st.pages, 'mono'),
       table('มาจาก', 'เว็บที่ลิงก์มา (ไม่นับการเข้าตรง)', 'แหล่งที่มา', st.referrers),
       table('ประเทศ', 'จาก Cloudflare', 'ประเทศ', st.countries, countryName),
       table('อุปกรณ์', null, 'อุปกรณ์', st.devices, (d) => ({ mobile: 'มือถือ', tablet: 'แท็บเล็ต', desktop: 'คอมพิวเตอร์' })[d] ?? d),
       table('เบราว์เซอร์', null, 'เบราว์เซอร์', st.browsers),
-    );
+    ]);
   };
   await load();
   if (token !== viewToken) return;
@@ -983,7 +1018,7 @@ async function backupView(token) {
       handleError(err);
     }
   } }, pass1, pass2, create, status);
-  const list = h('div', { class: 'list' }, skeleton(2));
+  const list = h('div', { class: 'list no-enter' }, skeleton(2));
   const body = h('div', { class: 'stack' },
     card('สร้างไฟล์สำรองทั้งเซิร์ฟเวอร์', null,
       h('p', { class: 'backup-text' }, 'รวมฐานข้อมูล ข้อมูลใน Docker volume ทุกตัว ไฟล์ตั้งค่า และ commit ของโค้ด เป็น zip เดียว ข้อมูลข้างในเข้ารหัสด้วยรหัสผ่านนี้ — ลืมรหัสผ่าน = เปิดไฟล์ไม่ได้'),

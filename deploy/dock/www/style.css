@@ -340,9 +340,37 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 
 .icon-btn.on { color: var(--text); }
 
+/* ------------------------------------------------------------------ motion
+   Pages, cards and rows enter once (rows and cards are kept across refreshes, so they don't replay);
+   numbers that change slide (setNumber); meters glide. All of it is off with prefers-reduced-motion
+   (the rule near the top of this file). */
+@keyframes enter { from { opacity: 0; transform: translateY(8px); } }
+@keyframes enter-right { from { opacity: 0; transform: translateX(14px); } }
+@keyframes enter-left { from { opacity: 0; transform: translateX(-14px); } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } }
+.shell > :not(.tabs):not(.chat-compose):not(.top) { animation: enter 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.shell > :nth-child(3) { animation-delay: 40ms; }
+.shell > :nth-child(4) { animation-delay: 80ms; }
+.shell > :nth-child(5) { animation-delay: 120ms; }
+.list:not(.no-enter) > .row, .tiles > .tile, .grid > .card, .mini-grid > .card, .stats > .stat, .ctr-group {
+  animation: enter 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(2) { animation-delay: 35ms; }
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(3) { animation-delay: 70ms; }
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(4) { animation-delay: 105ms; }
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(5) { animation-delay: 140ms; }
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(6) { animation-delay: 175ms; }
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(7) { animation-delay: 210ms; }
+:is(.list > .row, .tiles > .tile, .grid > .card, .stats > .stat):nth-child(n + 8) { animation-delay: 240ms; }
+.msg { animation: enter-left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.msg.user { animation-name: enter-right; }
+.msg.system { animation-name: enter; }
+.toast { animation: toast-in 0.25s ease-out; }
+.meter-fill { transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s; }
+.segmented button, .tabs a, .btn, .chip, .icon-btn { transition: background-color 0.2s, color 0.2s, transform 0.15s; }
+.btn:active, .chip:active, .icon-btn:active, .tabs a:active { transform: scale(0.96); }
+.dot { transition: background-color 0.3s; }
+.badge:not([hidden]) { animation: enter 0.3s ease-out; }
 /* numbers that update in place animate with transform (setNumber); keep them their own box */
-.row-side b, .row-side span, .mini-stats b { display: inline-block; will-change: transform; }
-.row-side b { display: block; }
-/* a new row (a container started or rolled out) fades in */
-a.row { animation: row-in 0.35s ease-out both; }
-@keyframes row-in { from { opacity: 0; transform: translateY(4px); } }
+.row-side b, .row-side span, .mini-stats b, .tile-value, .stat b { display: inline-block; }
+.row-side b, .stat b { display: block; }
