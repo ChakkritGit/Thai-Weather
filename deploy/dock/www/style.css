@@ -374,3 +374,11 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 /* numbers that update in place animate with transform (setNumber); keep them their own box */
 .row-side b, .row-side span, .mini-stats b, .tile-value, .stat b { display: inline-block; }
 .row-side b, .stat b { display: block; }
+
+/* rolling numbers (roll.js): one slot per character, the outgoing glyph overlaid while it leaves */
+.roll { display: inline-flex; font-variant-numeric: tabular-nums; white-space: pre; }
+.roll-slot { position: relative; display: inline-block; }
+.roll-glyph { display: inline-block; will-change: transform, filter, opacity; }
+.roll-out { position: absolute; inset: 0 auto auto 0; }
+.row-side b.roll { display: flex; justify-content: flex-end; }
+.stat b.roll, .tile-value.roll { display: flex; }

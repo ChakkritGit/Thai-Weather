@@ -2,6 +2,7 @@
 // No dependencies. All text from the server goes in via textContent, never as HTML.
 import { chart } from './charts.js';
 import { BRANDS } from './brands.js';
+import { roll } from './roll.js';
 
 const TOKEN_KEY = 'dock.jwt';
 const LIST_REFRESH_MS = 10_000;
@@ -62,26 +63,10 @@ function setText(el, text) {
   if (el && el.textContent !== text) el.textContent = text;
 }
 
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-/** first number in "12.5%", "1.2 GB", "340 KB" in bytes-comparable form (units matter for MB vs GB) */
-function magnitude(text) {
-  const m = /(-?[\d.,]+)\s*(%|B|KB|MB|GB|TB)?/.exec(text ?? '');
-  if (!m) return NaN;
-  const v = Number(m[1].replace(/,/g, ''));
-  return v * ({ KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 }[m[2]] ?? 1);
-}
-/** like setText, and the new value slides in: up when it grew, down when it shrank */
+/** a number that rolls digit by digit when it changes (roll.js) */
 function setNumber(el, text) {
-  if (!el || el.textContent === text) return;
-  const before = magnitude(el.textContent);
-  const after = magnitude(text);
-  el.textContent = text;
-  if (reducedMotion.matches || !Number.isFinite(before) || !Number.isFinite(after) || before === after || !el.isConnected) return;
-  const dir = after > before ? 1 : -1;
-  el.animate(
-    [{ transform: `translateY(${dir * 6}px)`, opacity: 0.25 }, { transform: 'translateY(0)', opacity: 1 }],
-    { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
-  );
+  if (!el || (el.dataset.value ?? el.textContent) === text && el.dataset.value !== undefined) return;
+  roll(el, text);
 }
 
 /**
@@ -91,7 +76,11 @@ function setNumber(el, text) {
  */
 function morph(a, b) {
   if (a.nodeType === 3 && b.nodeType === 3) { if (a.data !== b.data) a.data = b.data; return true; }
-  if (a.nodeType !== 1 || b.nodeType !== 1 || a.tagName !== b.tagName || a.getAttribute('class') !== b.getAttribute('class')
+  if (a.nodeType === 1 && b.nodeType === 1 && a.dataset.value !== undefined && a.tagName === b.tagName) {
+    setNumber(a, b.textContent); // a rolling number: its glyph spans never match b's plain text
+    return true;
+  }
+  if (a.nodeType !== 1 || b.nodeType !== 1 || a.tagName !== b.tagName || a.getAttribute('class')?.replace(/ ?roll\b/, '') !== b.getAttribute('class')
     || a.childNodes.length !== b.childNodes.length) return false;
   if (a.style.cssText !== b.style.cssText) a.style.cssText = b.style.cssText;
   for (const attr of ['title', 'aria-valuenow', 'colspan', 'href']) if (b.getAttribute(attr) !== a.getAttribute(attr)) b.hasAttribute(attr) ? a.setAttribute(attr, b.getAttribute(attr)) : a.removeAttribute(attr);
