@@ -1508,3 +1508,10 @@ button {
 
 /* a space between number and unit is a slot of its own: keep its width whatever the parent's white-space */
 .roll .roll-glyph { white-space: pre; }
+
+/* With the bottom navigation on screen it already clears the home indicator, so the map's bottom
+   controls must not add the safe-area inset again (that left an empty band above the navigation). */
+@media (max-width: 860px) {
+  .map-bottom { bottom: var(--space-2); }
+  .map-page[data-sheet='peek'] .map-bottom { bottom: calc(96px + var(--space-2)); }
+}
