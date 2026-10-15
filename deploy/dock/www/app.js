@@ -1,6 +1,7 @@
 // Dock – a minimal Docker dashboard on top of Portainer's API (same origin, /api/* is proxied).
 // No dependencies. All text from the server goes in via textContent, never as HTML.
 import { chart } from './charts.js';
+import { BRANDS } from './brands.js';
 
 const TOKEN_KEY = 'dock.jwt';
 const LIST_REFRESH_MS = 10_000;
@@ -47,6 +48,9 @@ const ICONS = {
   pulse: 'M3 12h4l3-8 4 16 3-8h4',
   chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   archive: 'M3 4h18v4H3zM5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4',
+  more: 'M5 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM19 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3z',
+  chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z',
+  send: 'M5 12h13M12 5l7 7-7 7',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -125,7 +129,51 @@ function statusText(status = '') {
   if (m) return `หยุดเมื่อ ${dur(m[2])}ที่แล้ว${m[1] !== '0' ? ` (รหัส ${m[1]})` : ''}`;
   return s;
 }
-const nameOf = (c) => (c.Names?.[0] ?? c.Name ?? c.Id.slice(0, 12)).replace(/^\//, '');
+const labelsOf = (c) => c.Labels ?? c.Config?.Labels ?? {};
+/** container name; a rolled-out replica ("apps-expenses-4") shows under its service's name */
+function nameOf(c) {
+  const name = (c.Names?.[0] ?? c.Name ?? c.Id.slice(0, 12)).replace(/^\//, '');
+  const num = labelsOf(c)['com.docker.compose.container-number'];
+  return num && labelsOf(c)['com.docker.compose.service'] && name.endsWith(`-${num}`) ? name.slice(0, -`-${num}`.length) : name;
+}
+
+/** compose project/service → [brand mark, group] */
+const SERVICES = {
+  'thai-weather/web': ['nextdotjs', 'ฟ้าละเอียด'], 'thai-weather/api': ['fastapi', 'ฟ้าละเอียด'], 'thai-weather/verify': ['python', 'ฟ้าละเอียด'],
+  'apps/portfolio': ['nextdotjs', 'Portfolio'], 'apps/media': ['bun', 'Portfolio'],
+  'apps/expenses': ['nextdotjs', 'Spent/Cost'], 'apps/reminders': ['bun', 'Spent/Cost'],
+  'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
+  'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
+  'apps/db': ['postgresql', 'ฐานข้อมูล'], 'apps/rest': ['postgresql', 'ฐานข้อมูล'], 'apps/dbgw': ['bun', 'ฐานข้อมูล'],
+  'apps/status': ['bun', 'ระบบส่วนกลาง'], 'apps/analytics': ['bun', 'ระบบส่วนกลาง'], 'apps/backup': ['bun', 'ระบบส่วนกลาง'], 'apps/chat': ['bun', 'ระบบส่วนกลาง'],
+  'thai-weather/nginx-proxy-manager': ['nginxproxymanager', 'จัดการเซิร์ฟเวอร์'], 'thai-weather/portainer': ['portainer', 'จัดการเซิร์ฟเวอร์'],
+  'thai-weather/dock': ['nginx', 'จัดการเซิร์ฟเวอร์'], 'thai-weather/dock-metrics': ['bun', 'จัดการเซิร์ฟเวอร์'],
+};
+const GROUP_ORDER = ['ฟ้าละเอียด', 'Portfolio', 'Spent/Cost', 'Whiteboard', 'Drive Music', 'ฐานข้อมูล', 'ระบบส่วนกลาง', 'จัดการเซิร์ฟเวอร์'];
+function serviceOf(c) {
+  const l = labelsOf(c);
+  const known = SERVICES[`${l['com.docker.compose.project']}/${l['com.docker.compose.service']}`];
+  return { brand: known?.[0] ?? 'docker', group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
+}
+/** containers in the fixed group order (unknown groups after, by name) */
+function groupContainers(list) {
+  const groups = new Map();
+  for (const c of [...list].sort((a, b) => nameOf(a).localeCompare(nameOf(b)))) {
+    const g = serviceOf(c).group;
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(c);
+  }
+  const rank = (g) => { const i = GROUP_ORDER.indexOf(g); return i < 0 ? GROUP_ORDER.length : i; };
+  return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+}
+function brandIcon(slug) {
+  const b = BRANDS[slug] ?? BRANDS.docker;
+  const svg = h('svg', { viewBox: '0 0 24 24', class: 'brand-ic', role: 'img', 'aria-label': b.title }, h('path', { d: b.path, fill: b.hex ?? 'currentColor' }));
+  svg.prepend(document.createElementNS('http://www.w3.org/2000/svg', 'title'));
+  svg.firstChild.textContent = b.title;
+  return svg;
+}
+const groupTag = (g, n) => h('h2', { class: 'group-tag' }, h('span', { class: 'tag-chip' }, g), h('span', { class: 'group-count' }, `${n}`));
 
 /** running + health → dot class and a Thai word */
 function stateOf(c) {
@@ -179,11 +227,28 @@ const TABS = [
   ['#/images', 'layers', 'อิมเมจ'],
   ['#/volumes', 'disk', 'วอลุ่ม'],
   ['#/web', 'chart', 'สถิติเว็บ'],
-  ['#/backup', 'archive', 'สำรอง'],
+  ['#/more', 'more', 'เพิ่มเติม'],
 ];
+let unread = 0; // server posts in the chat not read yet (badge on เพิ่มเติม and แชท)
+function badge() {
+  return h('span', { class: 'badge', 'data-unread': '', hidden: !unread }, unread > 9 ? '9+' : String(unread));
+}
+async function refreshUnread() {
+  try { unread = (await api('/chat/unread')).count ?? 0; } catch { return; }
+  for (const b of document.querySelectorAll('[data-unread]')) { b.hidden = !unread; b.textContent = unread > 9 ? '9+' : String(unread); }
+}
+/** tapping the tab of the page you are on scrolls it back to the top */
 function tabs(current) {
   return h('nav', { class: 'tabs', 'aria-label': 'เมนู' },
-    TABS.map(([href, ic, label]) => h('a', { href, 'aria-current': href === current ? 'page' : false }, icon(ic), label)));
+    TABS.map(([href, ic, label]) => h('a', {
+      href, 'aria-current': href === current ? 'page' : false,
+      onclick: (e) => {
+        if (location.hash === href || (!location.hash && href === '#/')) {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        }
+      },
+    }, h('span', { class: 'tab-ic' }, icon(ic), href === '#/more' ? badge() : null), label)));
 }
 function topBar(title, { back, onRefresh } = {}) {
   const refresh = onRefresh
@@ -245,17 +310,11 @@ async function containersView(token) {
     if (token !== viewToken) return;
     const running = list.filter((c) => c.State === 'running');
     meta.replaceChildren(h('b', {}, `${running.length}/${list.length}`), ' ทำงาน · ', `${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`);
-    // group by compose project, standalone containers last
-    const groups = new Map();
-    for (const c of list.sort((a, b) => nameOf(a).localeCompare(nameOf(b)))) {
-      const g = c.Labels?.['com.docker.compose.project'] ?? 'อื่น ๆ';
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g).push(c);
-    }
+    // grouped by the app they belong to
     const sides = new Map();
-    body.replaceChildren(...[...groups].map(([g, cs]) =>
+    body.replaceChildren(...groupContainers(list).map(([g, cs]) =>
       h('section', { class: 'group' },
-        h('h2', { class: 'group-title' }, g),
+        groupTag(g, cs.length),
         h('div', { class: 'list' }, cs.map((c) => {
           const st = stateOf(c);
           const side = h('span', { class: 'row-side' });
@@ -263,7 +322,7 @@ async function containersView(token) {
           return h('a', { class: 'row', href: `#/c/${c.Id}` },
             h('span', { class: `dot ${st.cls}`, title: st.label }),
             h('span', { class: 'row-main' },
-              h('span', { class: 'row-title' }, nameOf(c)),
+              h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, nameOf(c)), brandIcon(serviceOf(c).brand)),
               h('span', { class: 'row-sub' }, `${st.label} · ${statusText(c.Status)}`)),
             side,
             icon('chev', 'chev'));
@@ -528,7 +587,8 @@ async function overviewView(token) {
   const ngTiles = h('div', { class: 'tiles' });
   const ngGrid = h('div', { class: 'grid' });
   const ngTables = h('div', { class: 'grid' });
-  const ctrGrid = h('div', { class: 'grid grid-3' });
+  const ctrGrid = h('div', { class: 'ctr-groups' });
+  const groupGrids = new Map(); // group → { section, grid }
   const ctrMem = h('div', { class: 'grid' });
   const body = h('div', { class: 'overview' },
     h('div', { class: 'filters' }, seg, live),
@@ -679,6 +739,20 @@ async function overviewView(token) {
         C[key] = mkChart(c, { ...opts, label: title });
       } else C[key].update(opts);
     }
+    // one titled grid per app group, in the fixed order
+    const order = groupContainers(ids.map((id) => names.get(id).c)).map(([g]) => g);
+    for (const g of order) {
+      if (!groupGrids.has(g)) {
+        const grid = h('div', { class: 'grid grid-3' });
+        const section = h('section', { class: 'ctr-group' }, groupTag(g, 0), grid);
+        groupGrids.set(g, { section, grid });
+      }
+    }
+    ctrGrid.replaceChildren(...order.map((g) => groupGrids.get(g).section));
+    for (const g of order) {
+      const n = ids.filter((id) => serviceOf(names.get(id).c).group === g).length;
+      groupGrids.get(g).section.querySelector('.group-count').textContent = `${n}`;
+    }
     ids.forEach((id, i) => {
       const { name, c } = names.get(id);
       const d = mx.containers[id];
@@ -692,13 +766,14 @@ async function overviewView(token) {
       const memO = { ...T, kind: 'area', compact: true, format: (v) => fmtBytes(v), series: [{ name: 'RAM', color: color(i), values: d.mem ?? [] }] };
       let e = ctrCards.get(id);
       if (!e) {
-        const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, h('span', { class: `dot ${st.cls}` }), h('span', { class: 'row-title' }, name), icon('chev', 'chev'));
+        const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, h('span', { class: `dot ${st.cls}` }),
+          h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, name), brandIcon(serviceOf(c).brand)), icon('chev', 'chev'));
         const stWrap = h('div', {}, stats2);
         const cpuBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'CPU'));
         const memBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'RAM'));
         const el2 = h('section', { class: 'card mini' }, head, stWrap, cpuBox, memBox);
-        ctrGrid.append(el2);
-        e = { stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: `CPU ของ ${name}` }), mem: mkChart(memBox, { ...memO, label: `RAM ของ ${name}` }) };
+        groupGrids.get(serviceOf(c).group).grid.append(el2);
+        e = { el: el2, stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: `CPU ของ ${name}` }), mem: mkChart(memBox, { ...memO, label: `RAM ของ ${name}` }) };
         ctrCards.set(id, e);
       } else {
         e.stWrap.replaceChildren(stats2);
@@ -706,6 +781,13 @@ async function overviewView(token) {
         e.mem.update(memO);
       }
     });
+    for (const [id, e] of ctrCards) {
+      if (ids.includes(id)) continue;
+      e.el.remove();
+      e.cpu.destroy();
+      e.mem.destroy();
+      ctrCards.delete(id);
+    }
   };
   await load();
   if (token !== viewToken) return;
@@ -846,14 +928,14 @@ async function backupView(token) {
     }
   } }, pass1, pass2, create, status);
   const list = h('div', { class: 'list' }, skeleton(2));
-  const body = h('div', {},
+  const body = h('div', { class: 'stack' },
     card('สร้างไฟล์สำรองทั้งเซิร์ฟเวอร์', null,
       h('p', { class: 'backup-text' }, 'รวมฐานข้อมูล ข้อมูลใน Docker volume ทุกตัว ไฟล์ตั้งค่า และ commit ของโค้ด เป็น zip เดียว ข้อมูลข้างในเข้ารหัสด้วยรหัสผ่านนี้ — ลืมรหัสผ่าน = เปิดไฟล์ไม่ได้'),
       form),
     h('h2', { class: 'section-title' }, 'ไฟล์ที่มี (เก็บ 5 ไฟล์ล่าสุด)'), list,
     card('กู้คืน', 'บนเครื่องเดิมหรือ Ubuntu 24.04 เครื่องใหม่',
       h('pre', { class: 'logs backup-steps' }, 'unzip thai-weather-backup-*.zip -d restore\ncd restore\nsudo bash restore.sh --check   # ตรวจก่อน ไม่เปลี่ยนอะไร\nsudo bash restore.sh           # กู้คืนทั้งหมด')));
-  shell(topBar('สำรองข้อมูล', { onRefresh: () => load() }), body, tabs('#/backup'));
+  shell(topBar('สำรองข้อมูล', { back: '#/more', onRefresh: () => load() }), body, tabs('#/more'));
 
   const load = async () => {
     const { bundles, job } = await api('/backups');
@@ -883,6 +965,98 @@ async function backupView(token) {
   await load();
 }
 
+// ------------------------------------------------------------------ more: backup + chat
+function moreView() {
+  const item = (href, ic, title, sub, extra) => h('a', { class: 'row', href },
+    h('span', { class: 'row-ic' }, icon(ic)),
+    h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, title), h('span', { class: 'row-sub' }, sub)),
+    extra, icon('chev', 'chev'));
+  shell(topBar('เพิ่มเติม'),
+    h('div', { class: 'list' },
+      item('#/chat', 'chat', 'แชท', 'สรุปรายเดือนจากระบบ และถาม–ตอบ', badge()),
+      item('#/backup', 'archive', 'สำรองข้อมูล', 'ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
+    tabs('#/more'));
+}
+
+// The server posts its monthly summary here; what is typed is answered by the chat service
+// (commands, or an LLM once one is configured in chat.env).
+const fmtTime = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+async function chatView(token) {
+  const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' }, skeleton(3));
+  const note = h('p', { class: 'chat-note' }, ' ');
+  const input = h('textarea', { class: 'field chat-input', rows: 1, placeholder: 'พิมพ์ข้อความ…', maxlength: 4000, 'aria-label': 'ข้อความ' });
+  const send = h('button', { class: 'icon-btn send', type: 'submit', 'aria-label': 'ส่ง', disabled: true }, icon('send'));
+  let lastId = 0;
+  let busy = false;
+  const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 80;
+  const toBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight });
+  const bubble = (m) => h('div', { class: `msg ${m.role}` },
+    m.role === 'system' ? h('span', { class: 'msg-label' }, 'จากระบบ') : null,
+    h('div', { class: 'msg-text' }, m.text),
+    h('span', { class: 'msg-time' }, fmtTime.format(new Date(m.ts))));
+  const add = (msgs) => {
+    const follow = atBottom();
+    for (const m of msgs) if (m.id > lastId) { log.append(bubble(m)); lastId = m.id; }
+    if (follow) toBottom();
+  };
+  const load = async () => {
+    const { messages, llm } = await api('/chat');
+    if (token !== viewToken) return;
+    if (!lastId) log.replaceChildren();
+    add(messages);
+    if (!messages.length && !log.children.length) log.append(h('p', { class: 'empty' }, 'ยังไม่มีข้อความ'));
+    note.textContent = llm ? ' ' : 'ยังไม่ได้เชื่อม LLM — ตอบได้เฉพาะคำสั่ง (สรุป, เดือนก่อน, ช่วย)';
+    if (messages.some((m) => !m.read)) { await api('/chat/read', { method: 'POST' }).catch(() => {}); refreshUnread(); }
+  };
+  const submit = async (text) => {
+    text = text.trim();
+    if (!text || busy) return;
+    busy = true;
+    send.disabled = true;
+    const typing = h('div', { class: 'msg assistant typing' }, h('div', { class: 'msg-text' }, 'กำลังตอบ…'));
+    log.querySelector('.empty')?.remove();
+    log.append(h('div', { class: 'msg user pending' }, h('div', { class: 'msg-text' }, text)), typing);
+    toBottom();
+    try {
+      const { messages } = await api('/chat', { method: 'POST', body: { text } });
+      log.querySelector('.msg.pending')?.remove();
+      typing.remove();
+      add(messages);
+      toBottom();
+    } catch (err) {
+      typing.remove();
+      log.querySelector('.msg.pending')?.classList.add('failed');
+      handleError(err);
+    } finally {
+      busy = false;
+      send.disabled = !input.value.trim();
+    }
+  };
+  const grow = () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 140)}px`; };
+  input.addEventListener('input', () => { send.disabled = busy || !input.value.trim(); grow(); });
+  // Enter sends on a computer; on a phone the return key makes a new line
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && window.matchMedia('(hover: hover)').matches) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  const form = h('form', { class: 'chat-compose', onsubmit: (e) => { e.preventDefault(); const t = input.value; input.value = ''; grow(); submit(t); } },
+    h('div', { class: 'chat-quick' }, ['สรุป', 'เดือนก่อน', 'ช่วย'].map((t) => h('button', { type: 'button', class: 'chip', onclick: () => submit(t) }, t))),
+    h('div', { class: 'chat-row' }, input, send), note);
+  shell(topBar('แชท', { back: '#/more', onRefresh: () => load() }), log, form, tabs('#/more'));
+  app.querySelector('.shell').classList.add('chat');
+  // the composer sits right on top of the tab bar, whatever height that has on this device
+  const nav = app.querySelector('.tabs');
+  const place = () => { form.style.bottom = `${nav.offsetHeight}px`; };
+  place();
+  new ResizeObserver(place).observe(nav);
+  await load();
+  if (token !== viewToken) return;
+  toBottom();
+  timer = setInterval(() => document.visibilityState === 'visible' && !busy && load().catch(handleError), 15_000);
+}
+
 // ------------------------------------------------------------------ routing
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); } catch { /* token may already be gone */ }
@@ -906,6 +1080,7 @@ async function route() {
   const hash = location.hash || '#/';
   try {
     await ensureEnv();
+    refreshUnread();
     const m = /^#\/c\/([0-9a-f]{12,64})$/.exec(hash);
     if (m) await containerView(token, m[1]);
     else if (hash === '#/containers') await containersView(token);
@@ -913,11 +1088,14 @@ async function route() {
     else if (hash === '#/volumes') await volumesView(token);
     else if (hash === '#/web') await webView(token);
     else if (hash === '#/backup') await backupView(token);
+    else if (hash === '#/more') moreView();
+    else if (hash === '#/chat') await chatView(token);
     else await overviewView(token);
   } catch (e) {
     if (token === viewToken) handleError(e);
   }
 }
 
-window.addEventListener('hashchange', route);
+// a new page starts at its top
+window.addEventListener('hashchange', () => { window.scrollTo(0, 0); route(); });
 route();

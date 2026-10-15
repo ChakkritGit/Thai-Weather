@@ -300,11 +300,38 @@ services:
       timeout: 5s
       retries: 3
 
+  # Dock's chat: a summary of each month on its last evening, answers to what is typed (an LLM can be
+  # plugged in through chat.env: Cloudflare Workers AI or any OpenAI-compatible server). Reads
+  # dock-metrics on Dock's internal network, the other services on proxy.
+  chat:
+    <<: *bun
+    container_name: apps-chat
+    command: ["bun", "src/chat.ts"]
+    pull_policy: never
+    env_file:
+      - path: ${ENVS:-/opt/apps/env}/chat.env
+        required: false
+    environment:
+      PORT: "8795"
+      CHAT_DB: /data/chat.db
+      TZ: Asia/Bangkok
+    volumes:
+      - chat-data:/data
+    networks: [proxy, dock]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8795/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 networks:
   proxy:
     external: true
   apps:
     name: apps-internal
+  dock:
+    external: true
+    name: dock-internal
 
 volumes:
   portfolio-cache:
@@ -313,6 +340,7 @@ volumes:
   drive-music-cache:
   sync-data:
   status-data:
+  chat-data:
   analytics-data:
   db-data:
   media-data:
