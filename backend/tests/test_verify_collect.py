@@ -164,7 +164,7 @@ def test_connect_migrates_old_runs_table(tmp_path):
     for _ in range(2):  # idempotent
         conn = db.connect(path)
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(runs)")]
-        assert cols[-4:] == ["obs_used", "obs_stations", "pop_a", "pop_b"]
+        assert cols[-5:] == ["obs_used", "obs_stations", "pop_a", "pop_b", "temp_bias"]
         conn.close()
     row = db.connect(path).execute("SELECT * FROM runs").fetchone()
     assert row["run_id"] == "R0" and row["obs_used"] is None

@@ -91,6 +91,17 @@ were used by the correction, so their error is optimistic and not independent. A
 station near an assimilated one may also improve (the kernel reaches 40 km) — that is the
 real benefit for nearby users. Early on there are few corrected runs; the section says so.
 
+## Learned temperature bias / อุณหภูมิที่เรียนรู้จากข้อมูลย้อนหลัง
+
+`python -m verify tempbias` (daily inside `loop`) takes the last 30 days of forecasts 24–48 h ahead
+(where the fresh-observation correction has faded) and, per assimilated station and Bangkok hour,
+averages forecast − observation. Each mean is shrunk towards zero by 10 pseudo-pairs, hours with
+fewer than 5 pairs get nothing, the 24 values are 1-2-1 smoothed and capped at ±5 °C. The next
+forecast runs subtract it at every lead time, spread with a 40 km / 300 m kernel (about 90 % at
+the station). Each run stores what it applied at the stations (`runs.temp_bias`), and the fit adds
+that back, so it always learns the raw model's bias instead of its own correction. Hold-out
+stations are never fitted, so the report's hold-out rows show whether it helps.
+
 ## Reading the report / อ่านรายงาน
 
 1. Check **N** first. Below 500 matched temperature samples the report warns; collect
@@ -109,5 +120,7 @@ real benefit for nearby users. Early on there are few corrected runs; the sectio
   `VC` (vicinity) weather is ignored. Amounts need gauges or satellite (GPM IMERG), not yet implemented.
 - Stations are mostly airports on flat ground or in cities: mountain skill is not covered.
 - Station coordinates are used as given; a station can sit in a neighbouring 2 km cell.
-- The score is a snapshot of the current method; it does not feed back into the
-  calibration constants in `backend/app/downscale/`.
+- Two fits feed back into the forecast (both refitted daily by `loop`, both skip hold-out stations):
+  `calibrate` (chance of rain, `calibration/pop.json`) and `tempbias` (temperature bias per
+  station and Bangkok hour, `calibration/temp_bias.json`). Everything else in
+  `backend/app/downscale/` is fixed constants.

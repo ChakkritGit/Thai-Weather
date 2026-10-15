@@ -16,6 +16,7 @@ completely or not at all (the ``runs`` row goes in last).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sqlite3
@@ -142,8 +143,8 @@ def collect(
             [(run_id, *row) for row in rows],
         )
         conn.execute(
-            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations, pop_a, pop_b) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations, pop_a, pop_b, temp_bias) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
             (
                 run_id,
                 db.fmt_time(t0),
@@ -155,6 +156,10 @@ def collect(
                 # the chance-of-rain calibration this run applied, so `calibrate` can undo it (None = raw)
                 (run.get("pop_calibration") or {}).get("a"),
                 (run.get("pop_calibration") or {}).get("b"),
+                # the learned temperature correction it applied, so `tempbias` can undo it (None = none)
+                json.dumps((run.get("temp_bias") or {}).get("applied"))
+                if (run.get("temp_bias") or {}).get("applied")
+                else None,
             ),
         )
         conn.commit()

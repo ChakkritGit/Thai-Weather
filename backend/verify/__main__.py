@@ -23,6 +23,7 @@ from . import calibrate as calibrate_mod
 from . import collect as collect_mod
 from . import db, holdout, observe, score, stations
 from . import push as push_mod
+from . import tempbias as tempbias_mod
 
 log = logging.getLogger("verify")
 
@@ -95,6 +96,11 @@ def run_calibrate(conn, args: argparse.Namespace):
     return calibrate_mod.refit(conn, root, days=getattr(args, "window_days", calibrate_mod.WINDOW_DAYS))
 
 
+def run_tempbias(conn, args: argparse.Namespace):
+    root = Path(os.environ.get("THWX_DATA_DIR") or "var")
+    return tempbias_mod.refit(conn, root, days=getattr(args, "window_days", tempbias_mod.WINDOW_DAYS))
+
+
 def run_loop(conn, args: argparse.Namespace) -> None:
     interval = max(1.0, args.interval_min) * 60.0
     score_args = argparse.Namespace(since=None, days=args.days, out=None)
@@ -108,6 +114,7 @@ def run_loop(conn, args: argparse.Namespace) -> None:
         steps.append(("collect", lambda: run_collect(conn, args)))
         if time.monotonic() - last_calibrate >= CALIBRATE_EVERY_S:
             steps.append(("calibrate", lambda: run_calibrate(conn, args)))
+            steps.append(("tempbias", lambda: run_tempbias(conn, args)))
             last_calibrate = time.monotonic()
         if time.monotonic() - last_score >= SCORE_EVERY_S:
             steps.append(("score", lambda: run_score(conn, score_args)))
@@ -146,6 +153,11 @@ def build_parser() -> argparse.ArgumentParser:
     ca = sub.add_parser("calibrate", help="refit the chance-of-rain calibration the next forecast runs use")
     ca.add_argument("--window-days", type=int, default=calibrate_mod.WINDOW_DAYS, help="rolling window (default 30)")
 
+    tb = sub.add_parser(
+        "tempbias", help="refit the stations' temperature bias by hour that the next forecast runs subtract"
+    )
+    tb.add_argument("--window-days", type=int, default=tempbias_mod.WINDOW_DAYS, help="rolling window (default 30)")
+
     lp = sub.add_parser("loop", help="observe + push + collect (+ hourly score, daily calibrate) forever")
     lp.add_argument("--interval-min", type=float, default=15.0)
     lp.add_argument("--days", type=int, default=30, help="report window in days")
@@ -175,6 +187,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"a={cal.a:.3f} b={cal.b:.3f} from {cal.pairs} hours ({cal.events} wet)"
                 + (" – identity, not enough data" if cal.identity else "")
             )
+        elif args.cmd == "tempbias":
+            rec = run_tempbias(conn, args).record()
+            print(f"{rec['pairs']} pairs, {rec['stations']} stations, mean |bias| {rec['mean_abs']:.2f} °C")
         else:
             run_loop(conn, args)
     finally:

@@ -46,3 +46,20 @@ def test_out_of_window_and_out_of_domain_not_listed(static, coarse, tmp_path):
     run = _run(static, coarse, tmp_path / "d", reports)
     assert run.meta["observations_used"] == 1
     assert run.meta["observation_stations"] == ["OK"]
+
+
+def test_learned_bias_is_subtracted_and_recorded(static, coarse, tmp_path):
+    from app.downscale import tempbias as tbmod
+
+    warm = tbmod.StationBias("BKK", LAT, LON, None, [1.5] * 24, [30] * 24)  # runs 1.5 °C warm all day
+    plain = _run(static, coarse, tmp_path / "a", None)
+    store = RunStore(tmp_path / "b")
+    Downscaler(static, members=2, temp_bias=tbmod.TempBias("t", 30, 720, [warm])).run(coarse, store, None)
+    fixed = store.latest()
+    iy, ix = fixed.fine_grid.index(LAT, LON)
+    diff = np.array(fixed.series("fine", "temp", iy, ix)) - np.array(plain.series("fine", "temp", iy, ix))
+    # every lead time, ~90 % of the bias at the station (± one 0.28 °C encoding step)
+    assert np.all((diff < -1.0) & (diff > -1.8))
+    rec = fixed.meta["temp_bias"]
+    assert rec["stations"] == 1 and len(rec["applied"]["BKK"]) == 24
+    assert plain.meta["temp_bias"] is None

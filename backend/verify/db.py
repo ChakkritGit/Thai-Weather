@@ -49,7 +49,13 @@ def parse_time(s: str) -> datetime:
     return datetime.strptime(s, TIME_FMT).replace(tzinfo=UTC)
 
 
-RUNS_COLUMNS = (("obs_used", "INTEGER"), ("obs_stations", "TEXT"), ("pop_a", "REAL"), ("pop_b", "REAL"))
+RUNS_COLUMNS = (
+    ("obs_used", "INTEGER"),
+    ("obs_stations", "TEXT"),
+    ("pop_a", "REAL"),
+    ("pop_b", "REAL"),
+    ("temp_bias", "TEXT"),  # the learned temperature correction the run applied per station and hour (JSON)
+)
 
 
 def _migrate(conn: sqlite3.Connection) -> None:

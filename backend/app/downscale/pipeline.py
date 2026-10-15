@@ -32,6 +32,7 @@ from ..products.alerts import is_partial
 from ..sources.base import CoarseForecast
 from ..store import RunStore
 from . import observations as obsmod
+from . import tempbias as tbmod
 from .calibration import PopCalibration
 from .layers import encodings_record
 from .physics import (
@@ -103,11 +104,18 @@ def terrain_context(static: StaticLayers, coarse: CoarseForecast, interp: Interp
 
 
 class Downscaler:
-    def __init__(self, static: StaticLayers, members: int = 8, pop_calibration: PopCalibration | None = None) -> None:
+    def __init__(
+        self,
+        static: StaticLayers,
+        members: int = 8,
+        pop_calibration: PopCalibration | None = None,
+        temp_bias: tbmod.TempBias | None = None,
+    ) -> None:
         self.static = static
         self.members = members
         # chance of rain recalibrated against the stations (calibration.py); the identity until fitted
         self.pop_calibration = pop_calibration or PopCalibration()
+        self.temp_bias = temp_bias or tbmod.TempBias()
 
     # ------------------------------------------------------------------ run
     def run(
@@ -137,6 +145,8 @@ class Downscaler:
         day_summaries: list[dict] = []
         acc: DayAccumulator | None = None
         correction = None
+        # the stations' learned warm / cold bias by hour of day (verify tempbias), at every lead time
+        bias_fields = tbmod.fields(self.temp_bias, fine, static.elev_land)
         obs_used = 0
         obs_stations: list[str] = []
 
@@ -149,6 +159,8 @@ class Downscaler:
 
                 # -- temperature & humidity
                 temp, _ = downscale_temperature(f["t2m"], ctx.terrain, rg)
+                if bias_fields is not None:
+                    temp = temp + bias_fields[tbmod.bkk_hour(t)]
                 if i == 0 and observations:
                     # one report per station (closest to t0) so a station is not over-weighted
                     nearest: dict[str, tuple[float, obsmod.Observation]] = {}
@@ -242,6 +254,12 @@ class Downscaler:
             "observation_stations": obs_stations,
             "pop_calibration": self.pop_calibration.record(),
             "encodings": encodings_record(),
+            # None when nothing was learned yet; `applied` lets the next fit add the correction back
+            "temp_bias": (
+                {**self.temp_bias.record(), "applied": tbmod.applied_at_stations(bias_fields, self.temp_bias, fine)}
+                if bias_fields is not None
+                else None
+            ),
             "notes": coarse.notes,
             "compute_seconds": round(time.perf_counter() - t0, 1),
         }
