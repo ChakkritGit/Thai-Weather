@@ -10,6 +10,8 @@ interface Props {
   run: RunMeta;
   daily: boolean;
   index: number;
+  /** the current hour's step, from MapPage's clock (so it moves on while the page stays open) */
+  nowIndex?: number;
   onChange: (i: number) => void;
   playing: boolean;
   onPlaying: (p: boolean) => void;
@@ -18,7 +20,7 @@ interface Props {
 }
 
 /** Hourly / daily time control. Playback itself runs in MapPage, so the radar and forecast stay in step. */
-export function Timeline({ run, daily, index, onChange, playing, onPlaying, label }: Props) {
+export function Timeline({ run, daily, index, nowIndex, onChange, playing, onPlaying, label }: Props) {
   const { t, lang } = useT();
   const n = daily ? run.days.length : run.times.length;
 
@@ -38,7 +40,7 @@ export function Timeline({ run, daily, index, onChange, playing, onPlaying, labe
     );
   }
 
-  const nowIdx = nearestStep(run.times);
+  const nowIdx = nowIndex ?? nearestStep(run.times);
   const dayStarts = run.times.map((tm, i) => (i === 0 || thaiHour(tm) === 0 ? i : -1)).filter((i) => i >= 0);
   return (
     <div className="timeline glass">

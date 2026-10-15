@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
+import { useRouter } from 'next/navigation';
 import type { LayerId, Meta, RunMeta } from '../lib/api';
 import { buildLut } from '../lib/color';
 import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
@@ -70,10 +71,52 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const { t, lang } = useT();
   const { theme } = useTheme();
   const [layerId, setLayerId] = useState<LayerId>(initialLayer);
-  const nowIdx = useMemo(() => nearestStep(run.times), [run.times]);
+  // The clock behind "now": ticks every minute and again whenever the page comes back (an iPhone
+  // resumes a home-screen app with its old state), so the current hour never goes stale.
+  const [clock, setClock] = useState(() => Date.now());
+  const nowIdx = useMemo(() => nearestStep(run.times, clock), [run.times, clock]);
   const [step, setStep] = useState(nowIdx);
   const [day, setDay] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const router = useRouter();
+  useEffect(() => {
+    let hiddenAt = 0;
+    let lastRefresh = Date.now();
+    // a newer forecast run replaces this page (it is keyed by run id); the server answer is cached 30 s
+    const refreshRun = () => {
+      lastRefresh = Date.now();
+      router.refresh();
+    };
+    const tick = () => {
+      setClock(Date.now());
+      if (document.visibilityState === 'visible' && Date.now() - lastRefresh > 30 * 60_000) refreshRun();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      setClock(Date.now());
+      if (hiddenAt && Date.now() - hiddenAt > 10 * 60_000) refreshRun();
+    };
+    const id = window.setInterval(tick, 60_000);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', tick);
+    };
+  }, [router]);
+  // following "now": when the hour moves on, a timeline that sat on the old "now" moves with it
+  // (one the user moved elsewhere, or playback, is left alone)
+  const prevNow = useRef(nowIdx);
+  useEffect(() => {
+    const prev = prevNow.current;
+    prevNow.current = nowIdx;
+    if (prev === nowIdx || playing) return;
+    setStep((s) => (s === prev ? nowIdx : s));
+  }, [nowIdx, playing]);
   const [compare, setCompare] = useState(false);
   const [split, setSplit] = useState(0.5);
   const [selected, setSelectedState] = useState<MapPoint | null>(initialPoint ?? null);
@@ -563,6 +606,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             run={run}
             daily={layer.daily}
             index={index}
+            nowIndex={nowIdx}
             onChange={onTimeline}
             playing={playing}
             onPlaying={togglePlay}
