@@ -52,8 +52,9 @@ class Layer:
 LAYERS: dict[str, Layer] = {
     lyr.id: lyr
     for lyr in [
-        Layer("temp", "°C", Encoding("linear", 0.0, 51.0), "อุณหภูมิ", "Temperature", "temperature"),
-        Layer("heat", "°C", Encoding("linear", 0.0, 63.75), "ดัชนีความร้อน", "Heat index", "heatIndex"),
+        # down to -20 °C so frost on the peaks (or a freak cold wave) is not cut off at 0
+        Layer("temp", "°C", Encoding("linear", -20.0, 51.0), "อุณหภูมิ", "Temperature", "temperature"),
+        Layer("heat", "°C", Encoding("linear", -20.0, 63.75), "ดัชนีความร้อน", "Heat index", "heatIndex"),
         Layer("rh", "%", Encoding("linear", 0.0, 100.0), "ความชื้นสัมพัทธ์", "Relative humidity", "humidity"),
         Layer("rain", "mm/h", Encoding("sqrt", 0.0, 150.0), "ฝน (มม./ชม.)", "Rain rate", "rainRate"),
         Layer("pop", "%", Encoding("linear", 0.0, 100.0), "โอกาสฝน", "Chance of rain", "probability"),
@@ -74,3 +75,24 @@ LAYERS: dict[str, Layer] = {
 }
 
 HOURLY_LAYERS = [k for k, v in LAYERS.items() if not v.daily]
+
+
+#: Encodings of runs written before each run recorded its own (meta["encodings"]); decoding an old run
+#: with today's encodings would shift its temperatures.
+LEGACY_ENCODINGS: dict[str, Encoding] = {
+    "temp": Encoding("linear", 0.0, 51.0),
+    "heat": Encoding("linear", 0.0, 63.75),
+}
+
+
+def encodings_record() -> dict[str, dict]:
+    """What a new run stores in its meta, so it can always be decoded the way it was encoded."""
+    return {lid: asdict(lyr.encoding) for lid, lyr in LAYERS.items()}
+
+
+def run_encoding(meta: dict, layer: str) -> Encoding:
+    """The encoding a run was written with."""
+    rec = (meta.get("encodings") or {}).get(layer)
+    if rec:
+        return Encoding(rec["kind"], float(rec["min"]), float(rec["max"]))
+    return LEGACY_ENCODINGS.get(layer, LAYERS[layer].encoding)

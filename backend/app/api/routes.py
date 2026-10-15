@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from ..config import get_settings
 from ..core.provinces_meta import REGIONS
 from ..core.static import DATA_DIR, load_static
-from ..downscale.layers import LAYERS
+from ..downscale.layers import LAYERS, run_encoding
 from ..downscale.observations import Observation
 from ..downscale.pipeline import explain_point
 from ..nowcast.cyclones import position_at, proximity
@@ -80,7 +80,8 @@ def meta(request: Request) -> dict:
     return {
         "status": request.app.state.refresher.status,
         "run": {**run.meta, "days": list(_day_coverage(run).values())} if run else None,
-        "layers": [lyr.describe() for lyr in LAYERS.values()],
+        # each layer with the encoding the shown run was written with (older runs used narrower ones)
+        "layers": [{**lyr.describe(), "encoding": asdict(run_encoding(run.meta, lid))} if run else lyr.describe() for lid, lyr in LAYERS.items()],
         "regions": [{"id": k, "name_th": v[0], "name_en": v[1]} for k, v in REGIONS.items()],
         "scales": weather_scales(),
         "fine_grid": static.grid.describe(),

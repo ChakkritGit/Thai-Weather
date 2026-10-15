@@ -4,8 +4,20 @@
     "temperature": {
       "unit": "°C",
       "mode": "continuous",
-      "$description": "Diverging-from-comfort ramp tuned for the Thai range 8–42 °C; perceptually ordered, distinguishable for deuteranopia at the hot end via lightness.",
+      "$description": "Diverging-from-comfort ramp tuned for the Thai range 8–42 °C; perceptually ordered, distinguishable for deuteranopia at the hot end via lightness. Below 8 °C: purple to near-white for frost on the peaks (down to -5 °C).",
       "stops": [
+        {
+          "value": -5,
+          "color": "#efe4ff"
+        },
+        {
+          "value": 0,
+          "color": "#a77fd6"
+        },
+        {
+          "value": 4,
+          "color": "#5b2a9e"
+        },
         {
           "value": 8,
           "color": "#2b2f8f"
@@ -541,6 +553,13 @@
           "severity": 2,
           "label_th": "อากาศหนาวจัด",
           "label_en": "Very cold"
+        },
+        {
+          "id": "frost",
+          "max": 2.0,
+          "severity": 3,
+          "label_th": "เสี่ยงน้ำค้างแข็ง (แม่คะนิ้ง)",
+          "label_en": "Frost risk"
         }
       ]
     },

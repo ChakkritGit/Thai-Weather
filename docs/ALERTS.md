@@ -43,6 +43,7 @@ The value is evaluated per province and day.
 | Low temperature / อุณหภูมิต่ำ | day min, province median | Cool / อากาศเย็น | ≤ 22.9 °C | – | TMD |
 | | | Cold / อากาศหนาว | ≤ 15.9 °C | **1 yellow** | |
 | | | Very cold / หนาวจัด | ≤ 7.9 °C | **2 orange** | |
+| | | Frost risk / เสี่ยงน้ำค้างแข็ง (แม่คะนิ้ง) | ≤ 2.0 °C | **3 red** | below TMD's classes: ground frost on the peaks starts around here |
 
 Why: a heat index of 32–41 °C (and 35 mm+ of rain in one cell, and a 50 % thunderstorm chance) is an ordinary
 Thai day. Alerting on it flagged all 77 provinces every day, which teaches users to ignore alerts. Only conditions

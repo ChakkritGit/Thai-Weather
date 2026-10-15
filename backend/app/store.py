@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from .core.grid import Grid
-from .downscale.layers import LAYERS
+from .downscale.layers import LAYERS, run_encoding
 from .sources.base import CoarseForecast
 
 KEEP_RUNS = 3
@@ -105,7 +105,7 @@ class Run:
 
     def series(self, res: str, layer: str, iy: int, ix: int) -> list[float]:
         codes = np.asarray(self.array(res, layer)[:, iy, ix])
-        return [round(float(v), 2) for v in LAYERS[layer].encoding.decode(codes)]
+        return [round(float(v), 2) for v in run_encoding(self.meta, layer).decode(codes)]
 
 
 class RunStore:

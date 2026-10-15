@@ -33,6 +33,7 @@ from ..sources.base import CoarseForecast
 from ..store import RunStore
 from . import observations as obsmod
 from .calibration import PopCalibration
+from .layers import encodings_record
 from .physics import (
     TerrainAt,
     coastal_convection_factor,
@@ -240,6 +241,7 @@ class Downscaler:
             "observations_used": obs_used,
             "observation_stations": obs_stations,
             "pop_calibration": self.pop_calibration.record(),
+            "encodings": encodings_record(),
             "notes": coarse.notes,
             "compute_seconds": round(time.perf_counter() - t0, 1),
         }

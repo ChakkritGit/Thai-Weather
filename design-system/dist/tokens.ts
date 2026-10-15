@@ -654,6 +654,18 @@ export const weatherScales = {
       "mode": "continuous",
       "stops": [
         {
+          "value": -5,
+          "color": "#efe4ff"
+        },
+        {
+          "value": 0,
+          "color": "#a77fd6"
+        },
+        {
+          "value": 4,
+          "color": "#5b2a9e"
+        },
+        {
           "value": 8,
           "color": "#2b2f8f"
         },
@@ -1182,6 +1194,13 @@ export const weatherScales = {
           "severity": 2,
           "label_th": "อากาศหนาวจัด",
           "label_en": "Very cold"
+        },
+        {
+          "id": "frost",
+          "max": 2,
+          "severity": 3,
+          "label_th": "เสี่ยงน้ำค้างแข็ง (แม่คะนิ้ง)",
+          "label_en": "Frost risk"
         }
       ]
     },
