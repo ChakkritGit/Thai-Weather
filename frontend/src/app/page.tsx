@@ -4,6 +4,7 @@ import { parsePoint } from '@/lib/push';
 import { pageMeta, thaiPlace } from '@/lib/seo';
 import { fromApi } from '@/lib/server';
 import { Warming } from '@/components/Shell';
+import { Splash } from '@/components/Splash';
 import MapClient from '@/views/MapClient';
 
 type Search = { searchParams: Promise<Record<string, string | undefined>> };
@@ -43,5 +44,10 @@ export default async function MapRoute({ searchParams }: Search) {
   const lat = Number(sp.lat);
   const lon = Number(sp.lon);
   const initialPoint = Number.isFinite(lat) && Number.isFinite(lon) && sp.lat && sp.lon ? { lat, lon } : null;
-  return <MapClient key={meta.run.run_id} meta={meta} run={meta.run} initialPoint={initialPoint} />;
+  return (
+    <>
+      <Splash />
+      <MapClient key={meta.run.run_id} meta={meta} run={meta.run} initialPoint={initialPoint} />
+    </>
+  );
 }

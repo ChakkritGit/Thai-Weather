@@ -1426,3 +1426,46 @@ button {
 .radar-spinner { display: inline-block; width: 12px; height: 12px; margin-left: var(--space-1); vertical-align: middle; }
 .radar-note { margin: 0; color: var(--color-severity-3-fg); line-height: 1.3; }
 .radar-credit { margin-left: var(--space-2); }
+
+/* opening splash of the map (components/Splash.tsx) */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: var(--zIndex-modal);
+  display: grid;
+  place-items: center;
+  padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+  background: var(--color-bg-canvas);
+  transition: opacity 350ms ease;
+}
+.splash[data-state='fading'] { opacity: 0; pointer-events: none; }
+.splash-inner { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.brand-mark.splash-mark { width: 76px; height: 76px; margin-bottom: 12px; filter: drop-shadow(0 8px 24px rgb(0 0 0 / 0.12)); }
+.splash-name { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--color-fg-default); }
+.splash-tagline { margin: 0; font-size: 14px; color: var(--color-fg-muted); }
+.splash-bar {
+  position: relative;
+  width: 120px;
+  height: 3px;
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-bg-muted);
+}
+.splash-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--color-accent-default);
+  animation: splash-slide 1.1s ease-in-out infinite;
+}
+@keyframes splash-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash { transition: none; }
+  .splash-bar::after { animation: none; width: 100%; opacity: 0.5; }
+}

@@ -9,6 +9,7 @@ import { buildRadarLut, decode, hexToRgb } from '../lib/color';
 import { gridBounds, gridLines, imageCoordinates, rasterFor, renderGrid, sampleGrid, type Bounds, type Raster } from '../lib/render';
 import { fmtNum } from '../lib/format';
 import { useT } from '../i18n';
+import { MAP_READY_EVENT } from '@/components/Splash';
 
 export interface MapPoint {
   lat: number;
@@ -353,7 +354,11 @@ export function WeatherMap(props: Props) {
         currentRef.current = { data, grid, layer };
       })
       .catch(() => undefined)
-      .finally(() => !cancelled && onLoading?.(false));
+      .finally(() => {
+        if (cancelled) return;
+        onLoading?.(false);
+        window.dispatchEvent(new Event(MAP_READY_EVENT)); // lifts the opening splash (first time only)
+      });
     // prefetch the next frame for smooth playback
     const next = layer.daily ? index + 1 : index + 1;
     const max = layer.daily ? run.days.length : run.times.length;
