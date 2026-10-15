@@ -24,19 +24,22 @@ export function Splash() {
 
   useEffect(() => {
     if (state !== 'shown') return;
-    let fadeTimer = 0;
     const hide = () => {
       dismissed = true;
       setState('fading');
-      fadeTimer = window.setTimeout(() => setState('gone'), FADE_MS);
     };
     const maxTimer = window.setTimeout(hide, MAX_MS);
     window.addEventListener(MAP_READY_EVENT, hide, { once: true });
     return () => {
       window.clearTimeout(maxTimer);
-      window.clearTimeout(fadeTimer);
       window.removeEventListener(MAP_READY_EVENT, hide);
     };
+  }, [state]);
+
+  useEffect(() => {
+    if (state !== 'fading') return;
+    const t = window.setTimeout(() => setState('gone'), FADE_MS);
+    return () => window.clearTimeout(t);
   }, [state]);
 
   if (state === 'gone') return null;
