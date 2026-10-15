@@ -57,6 +57,11 @@ const ICONS = {
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
 
+/** sets text only when it differs: an unchanged number is not re-laid-out or repainted */
+function setText(el, text) {
+  if (el && el.textContent !== text) el.textContent = text;
+}
+
 function toast(text) {
   const t = h('div', { class: 'toast', role: 'status' }, text);
   document.body.append(t);
@@ -308,34 +313,63 @@ function loginView(message = '') {
 async function containersView(token) {
   const body = h('div', {}, skeleton());
   const meta = h('p', { class: 'meta' }, ' ');
+  const rows = new Map(); // container id → its row and the parts that change
+  const sections = new Map(); // group → its section
   const load = async () => {
     const [list, info] = await Promise.all([docker('/containers/json?all=1'), docker('/info')]);
     if (token !== viewToken) return;
     const running = list.filter((c) => c.State === 'running');
-    meta.replaceChildren(h('b', {}, `${running.length}/${list.length}`), ' ทำงาน · ', `${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`);
-    // grouped by the app they belong to
-    const sides = new Map();
-    body.replaceChildren(...groupContainers(list).map(([g, cs]) =>
-      h('section', { class: 'group' },
-        groupTag(g, cs.length),
-        h('div', { class: 'list' }, cs.map((c) => {
-          const st = stateOf(c);
-          const side = h('span', { class: 'row-side' });
-          sides.set(c.Id, side);
-          return h('a', { class: 'row', href: `#/c/${c.Id}` },
-            h('span', { class: `dot ${st.cls}`, title: st.label }),
-            h('span', { class: 'row-main' },
-              h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, nameOf(c)), brandIcon(serviceOf(c).brand)),
-              h('span', { class: 'row-sub' }, `${st.label} · ${statusText(c.Status)}`)),
-            side,
-            icon('chev', 'chev'));
-        })))));
-    if (!list.length) body.replaceChildren(h('div', { class: 'list' }, h('p', { class: 'empty' }, 'ยังไม่มีคอนเทนเนอร์')));
-    // usage per running container (one-shot samples, in parallel)
+    const metaText = `${running.length}/${list.length}| ทำงาน · ${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`;
+    if (meta.dataset.v !== metaText) {
+      meta.dataset.v = metaText;
+      meta.replaceChildren(h('b', {}, `${running.length}/${list.length}`), ' ทำงาน · ', `${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`);
+    }
+    // grouped by the app they belong to. Rows are made once and then only their changed text is
+    // touched, so a refresh never blanks the CPU / RAM numbers (no flicker).
+    if (!list.length) { body.replaceChildren(h('div', { class: 'list' }, h('p', { class: 'empty' }, 'ยังไม่มีคอนเทนเนอร์'))); return; }
+    const groups = groupContainers(list);
+    const seen = new Set();
+    const order = groups.map(([g, cs]) => {
+      let sec = sections.get(g);
+      if (!sec) {
+        const tag = groupTag(g, cs.length);
+        const listEl = h('div', { class: 'list' });
+        sec = { el: h('section', { class: 'group' }, tag, listEl), list: listEl, count: tag.querySelector('.group-count') };
+        sections.set(g, sec);
+      }
+      setText(sec.count, `${cs.length}`);
+      cs.forEach((c, i) => {
+        seen.add(c.Id);
+        const st = stateOf(c);
+        let r = rows.get(c.Id);
+        if (!r) {
+          const dot = h('span', {});
+          const sub = h('span', { class: 'row-sub' });
+          const side = h('span', { class: 'row-side' }, h('b', {}), h('span', {}));
+          r = { el: h('a', { class: 'row', href: `#/c/${c.Id}` }, dot,
+            h('span', { class: 'row-main' }, h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, nameOf(c)), brandIcon(serviceOf(c).brand)), sub),
+            side, icon('chev', 'chev')), dot, sub, cpu: side.firstChild, mem: side.lastChild };
+          rows.set(c.Id, r);
+        }
+        if (r.dot.getAttribute('class') !== `dot ${st.cls}`) r.dot.setAttribute('class', `dot ${st.cls}`);
+        r.dot.title = st.label;
+        setText(r.sub, `${st.label} · ${statusText(c.Status)}`);
+        if (c.State !== 'running') { setText(r.cpu, ''); setText(r.mem, ''); }
+        if (sec.list.children[i] !== r.el) sec.list.insertBefore(r.el, sec.list.children[i] ?? null); // moves only what is out of place
+      });
+      while (sec.list.children.length > cs.length) sec.list.lastChild.remove();
+      return sec.el;
+    });
+    for (const [id, r] of rows) if (!seen.has(id)) { r.el.remove(); rows.delete(id); }
+    order.forEach((el, i) => { if (body.children[i] !== el) body.insertBefore(el, body.children[i] ?? null); });
+    while (body.children.length > order.length) body.lastChild.remove();
+    // usage per running container (one-shot samples, in parallel); the old numbers stay until the new ones arrive
     await Promise.all(running.map(async (c) => {
       const u = await stats(c.Id);
-      if (token !== viewToken || !u) return;
-      sides.get(c.Id)?.replaceChildren(h('b', {}, fmtPct(u.cpu)), fmtBytes(u.mem));
+      const r = rows.get(c.Id);
+      if (token !== viewToken || !u || !r) return;
+      setText(r.cpu, fmtPct(u.cpu));
+      setText(r.mem, fmtBytes(u.mem));
     }));
   };
   shell(topBar('คอนเทนเนอร์', { onRefresh: load }), meta, body, tabs('#/containers'));
@@ -760,18 +794,15 @@ async function overviewView(token) {
       const { name, c } = names.get(id);
       const d = mx.containers[id];
       const st = stateOf(c);
-      const stats2 = h('div', { class: 'mini-stats' },
-        h('span', {}, h('b', {}, fmtPct(lastOf(d.cpu))), 'CPU'),
-        h('span', {}, h('b', {}, fmtBytes(lastOf(d.mem))), 'RAM'),
-        h('span', {}, h('b', {}, `${fmtRate(lastOf(d.rx), true)}`), '↓ เน็ต'),
-        h('span', {}, h('b', {}, `${fmtRate(lastOf(d.wr), true)}`), 'เขียนดิสก์'));
+      const values = [fmtPct(lastOf(d.cpu)), fmtBytes(lastOf(d.mem)), fmtRate(lastOf(d.rx), true), fmtRate(lastOf(d.wr), true)];
       const cpuO = { ...T, kind: 'area', compact: true, format: (v) => fmtPct(v), series: [{ name: 'CPU', color: color(i), values: d.cpu ?? [] }] };
       const memO = { ...T, kind: 'area', compact: true, format: (v) => fmtBytes(v), series: [{ name: 'RAM', color: color(i), values: d.mem ?? [] }] };
       let e = ctrCards.get(id);
       if (!e) {
         const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, h('span', { class: `dot ${st.cls}` }),
           h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, name), brandIcon(serviceOf(c).brand)), icon('chev', 'chev'));
-        const stWrap = h('div', {}, stats2);
+        const stWrap = h('div', { class: 'mini-stats' },
+          ['CPU', 'RAM', '↓ เน็ต', 'เขียนดิสก์'].map((label, k) => h('span', {}, h('b', {}, values[k]), label)));
         const cpuBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'CPU'));
         const memBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'RAM'));
         const el2 = h('section', { class: 'card mini' }, head, stWrap, cpuBox, memBox);
@@ -779,7 +810,7 @@ async function overviewView(token) {
         e = { el: el2, stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: `CPU ของ ${name}` }), mem: mkChart(memBox, { ...memO, label: `RAM ของ ${name}` }) };
         ctrCards.set(id, e);
       } else {
-        e.stWrap.replaceChildren(stats2);
+        e.stWrap.querySelectorAll('b').forEach((b, k) => setText(b, values[k]));
         e.cpu.update(cpuO);
         e.mem.update(memO);
       }
