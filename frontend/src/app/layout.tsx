@@ -30,7 +30,11 @@ export const metadata: Metadata = {
       { url: `/app-icons/icon-192.png?v=${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
     ],
     // static .png files (public/), versioned: iOS keeps a "no icon" result per site, a new URL refetches
-    apple: [{ url: `/apple-touch-icon.png?v=${ICON_VERSION}`, sizes: '180x180', type: 'image/png' }],
+    // a larger one too: iOS 27 asked for /apple-touch-icon-240x240.png and drew a letter tile from the 180 alone
+    apple: [
+      { url: `/apple-touch-icon.png?v=${ICON_VERSION}`, sizes: '180x180', type: 'image/png' },
+      { url: `/app-icons/icon-512.png?v=${ICON_VERSION}`, sizes: '512x512', type: 'image/png' },
+    ],
   },
   appleWebApp: {
     capable: true,
