@@ -41,7 +41,9 @@ export function Timeline({ run, daily, index, nowIndex, onChange, playing, onPla
   }
 
   const nowIdx = nowIndex ?? nearestStep(run.times);
-  const dayStarts = run.times.map((tm, i) => (i === 0 || thaiHour(tm) === 0 ? i : -1)).filter((i) => i >= 0);
+  const midnights = run.times.map((tm, i) => (i > 0 && thaiHour(tm) === 0 ? i : -1)).filter((i) => i >= 0);
+  // the first (partial) day keeps its label only when there is room before the next day's
+  const dayStarts = midnights.length && midnights[0] / Math.max(1, run.times.length - 1) < 0.12 ? midnights : [0, ...midnights];
   return (
     <div className="timeline glass">
       <button

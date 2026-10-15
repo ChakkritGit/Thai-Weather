@@ -6,6 +6,15 @@ import { useT } from '../i18n';
 
 const CATEGORY_FOR_SCALE: Record<string, string> = { heatIndex: 'heatIndex' };
 
+/** The base map's data credits (they used to sit in MapLibre's "i" button). */
+function MapCredit({ lang }: { lang: string }) {
+  return (
+    <p className="legend-credit">
+      {lang === 'th' ? 'ภูมิประเทศ: AWS Terrain Tiles (SRTM/GMTED) · เขตแดน: Natural Earth' : 'Terrain: AWS Terrain Tiles (SRTM/GMTED) · Boundaries: Natural Earth'}
+    </p>
+  );
+}
+
 /** Legend for the active map layer, generated from the weather-scale tokens. */
 export function Legend({ layer }: { layer: LayerMeta }) {
   const { pick, lang } = useT();
@@ -32,6 +41,7 @@ export function Legend({ layer }: { layer: LayerMeta }) {
         <div className="subtle" style={{ marginTop: 4 }}>
           {lang === 'th' ? 'เกณฑ์ดัชนีความร้อน กรมอนามัย' : 'Thai Dept. of Health heat-index levels'}
         </div>
+        <MapCredit lang={lang} />
       </div>
     );
   }
@@ -62,6 +72,7 @@ export function Legend({ layer }: { layer: LayerMeta }) {
           ) : null,
         )}
       </div>
+      <MapCredit lang={lang} />
     </div>
   );
 }

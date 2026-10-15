@@ -147,13 +147,8 @@ export function WeatherMap(props: Props) {
     const el = container.current!;
     const stopPageZoom = (e: Event) => e.preventDefault();
     for (const type of ['gesturestart', 'gesturechange', 'gestureend']) el.addEventListener(type, stopPageZoom, { passive: false });
-    map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-        customAttribution: 'Terrain: AWS Terrain Tiles (SRTM/GMTED) · Boundaries: Natural Earth',
-      }),
-      'bottom-right',
-    );
+    // the map's data credits are printed under the legend (components/Legend.tsx) instead of an "i"
+    // button floating between the timeline and the bottom navigation
     mapRef.current = map;
     const raster = rasterFor(fineBounds, run.fine_grid.nx * 2);
     rasterRef.current = raster;
