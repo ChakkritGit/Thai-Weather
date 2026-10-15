@@ -13,6 +13,7 @@ import { ICON_VERSION } from '@/lib/iconGlyph';
 import { SITE_NAME } from '@/lib/seo';
 import { SPLASH_SPECS } from '@/lib/splash';
 import { DockAnalytics } from '@/components/DockAnalytics';
+import { PwaChrome } from '@/components/PwaChrome';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -80,6 +81,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <ServiceWorkerRegister />
+        <PwaChrome />
         <DockAnalytics />
         <Providers lang={lang} theme={theme}>
           <div className="app">

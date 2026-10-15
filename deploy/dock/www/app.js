@@ -295,7 +295,7 @@ async function refreshUnread() {
 function tabs(current) {
   return h('nav', { class: 'tabs', 'aria-label': 'เมนู' },
     TABS.map(([href, ic, label]) => h('a', {
-      href, 'aria-current': href === current ? 'page' : false,
+      href, 'aria-current': href === current ? 'page' : false, 'data-tab-bounce': true,
       onclick: (e) => {
         if (location.hash === href || (!location.hash && href === '#/')) {
           e.preventDefault();
@@ -1309,6 +1309,83 @@ async function route() {
   }
   hideSplash();
 }
+
+// ------------------------------------------------------------------ installed-app fixes (same as the other apps' lib/pwa-chrome.ts)
+// the status bar takes the colour of what is at the top of the screen; small fields are lifted to
+// 16px on touch so iOS doesn't zoom; bottom tabs squish and spring back when pressed
+function installPwaChrome() {
+  const opaque = (c) => !!c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c);
+  const topColor = () => {
+    let el = document.elementFromPoint(window.innerWidth / 2, 1);
+    while (el) {
+      const c = getComputedStyle(el).backgroundColor;
+      if (opaque(c)) return c;
+      el = el.parentElement;
+    }
+    return getComputedStyle(document.body).backgroundColor;
+  };
+  const sync = () => {
+    const c = topColor();
+    let metas = [...document.querySelectorAll('meta[name=\'theme-color\']')];
+    if (!metas.length) {
+      const m = document.createElement('meta');
+      m.name = 'theme-color';
+      document.head.append(m);
+      metas = [m];
+    }
+    for (const m of metas) if (m.content !== c) m.content = c;
+  };
+  let timer = 0;
+  const schedule = () => {
+    if (!timer) timer = window.setTimeout(() => { timer = 0; sync(); }, 120);
+  };
+  sync();
+  const observer = new MutationObserver(schedule);
+  observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'data-theme', 'hidden', 'open'] });
+  const dark = window.matchMedia('(prefers-color-scheme: dark)');
+  window.addEventListener('resize', schedule);
+  window.addEventListener('scroll', schedule, { passive: true });
+  dark.addEventListener('change', schedule);
+
+  const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea, select';
+  const lift = (e) => {
+    const el = e.target;
+    if (el?.matches?.(FIELD) && parseFloat(getComputedStyle(el).fontSize) < 16) el.style.fontSize = '16px';
+  };
+  const touch = window.matchMedia('(pointer: coarse)').matches;
+  if (touch) {
+    window.addEventListener('touchstart', lift, { capture: true, passive: true });
+    window.addEventListener('focusin', lift, true);
+  }
+
+  // a bottom-nav icon squishes and springs back when pressed (links marked data-tab-bounce)
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const bounce = (e) => {
+    const tab = (e.target)?.closest?.('[data-tab-bounce]');
+    const glyph = tab?.querySelector('svg');
+    if (!glyph || reduced.matches) return;
+    glyph.animate(
+      [{ transform: 'scale(1)' }, { transform: 'scale(0.75)', offset: 0.25 }, { transform: 'scale(1.12)', offset: 0.6 }, { transform: 'scale(1)' }],
+      { duration: 450, easing: 'ease-out' },
+    );
+  };
+  window.addEventListener('pointerdown', bounce, { passive: true });
+
+  return () => {
+    window.removeEventListener('pointerdown', bounce);
+    observer.disconnect();
+    window.clearTimeout(timer);
+    window.removeEventListener('resize', schedule);
+    window.removeEventListener('scroll', schedule);
+    dark.removeEventListener('change', schedule);
+    if (touch) {
+      window.removeEventListener('touchstart', lift, true);
+      window.removeEventListener('focusin', lift, true);
+    }
+  };
+}
+
+installPwaChrome();
 
 // a new page starts at its top
 window.addEventListener('hashchange', () => { window.scrollTo(0, 0); route(); });
