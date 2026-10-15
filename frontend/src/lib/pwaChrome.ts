@@ -7,14 +7,17 @@
  */
 export function installPwaChrome(): () => void {
   const opaque = (c: string) => !!c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c);
+  // what stays at the top while the page scrolls: a fixed or sticky bar (header, PIN screen, splash)
+  // gives its colour; scrolling content never does, the page background is used instead
   const topColor = () => {
-    let el = document.elementFromPoint(window.innerWidth / 2, 1);
-    while (el) {
-      const c = getComputedStyle(el).backgroundColor;
-      if (opaque(c)) return c;
-      el = el.parentElement;
+    let seen = '';
+    for (let el = document.elementFromPoint(window.innerWidth / 2, 1); el; el = el.parentElement) {
+      const cs = getComputedStyle(el);
+      if (!seen && opaque(cs.backgroundColor)) seen = cs.backgroundColor;
+      if (cs.position === 'fixed' || cs.position === 'sticky') return seen || getComputedStyle(document.body).backgroundColor;
     }
-    return getComputedStyle(document.body).backgroundColor;
+    const page = getComputedStyle(document.body).backgroundColor;
+    return opaque(page) ? page : getComputedStyle(document.documentElement).backgroundColor;
   };
   const sync = () => {
     const c = topColor();
