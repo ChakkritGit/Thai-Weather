@@ -22,13 +22,13 @@ x-next: &next
   cap_drop: [ALL]
   pids_limit: 256
   mem_limit: 384m
-  networks: [proxy]
   healthcheck:
     test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
     interval: 30s
     timeout: 5s
     retries: 3
-    start_period: 20s
+    start_period: 60s
+    start_interval: 2s   # a fresh container reports healthy within seconds, so a rollout can switch to it
 
 x-bun: &bun
   image: apps-services:local
@@ -43,10 +43,14 @@ services:
   portfolio:
     <<: *next
     image: apps-portfolio:local
-    container_name: apps-portfolio
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/portfolio.env
-    networks: [proxy, apps]
+    # no container_name: ../rollout.sh runs the new and the old side by side; NPM reaches either by this alias
+    networks:
+      proxy:
+        aliases: [apps-portfolio]
+      apps:
+        aliases: [apps-portfolio]
     # Next writes its image / fetch cache under .next/cache
     volumes:
       - portfolio-cache:/app/.next/cache
@@ -54,7 +58,10 @@ services:
   expenses:
     <<: *next
     image: apps-expenses:local
-    container_name: apps-expenses
+    # no container_name: ../rollout.sh runs the new and the old side by side; NPM reaches either by this alias
+    networks:
+      proxy:
+        aliases: [apps-expenses]
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/expenses.env
     volumes:
@@ -63,7 +70,10 @@ services:
   whiteboard:
     <<: *next
     image: apps-whiteboard:local
-    container_name: apps-whiteboard
+    # no container_name: ../rollout.sh runs the new and the old side by side; NPM reaches either by this alias
+    networks:
+      proxy:
+        aliases: [apps-whiteboard]
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/whiteboard.env
     volumes:
@@ -72,7 +82,10 @@ services:
   drive-music:
     <<: *next
     image: apps-drive-music:local
-    container_name: apps-drive-music
+    # no container_name: ../rollout.sh runs the new and the old side by side; NPM reaches either by this alias
+    networks:
+      proxy:
+        aliases: [apps-drive-music]
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/drive-music.env
     volumes:

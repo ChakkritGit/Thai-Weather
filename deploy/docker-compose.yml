@@ -157,7 +157,7 @@ services:
 
   web:
     image: ghcr.io/chakkritgit/thai-weather-web:${THWX_IMAGE_TAG:-latest}
-    container_name: thai-weather-web
+    # no container_name: rollout.sh runs the new and the old side by side; NPM reaches either by the alias
     restart: unless-stopped
     environment:
       SITE_URL: ${SITE_URL:-https://thai-weather.chakkritton.com}
@@ -169,9 +169,12 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 60s
+      start_interval: 2s
     networks:
-      - internal
-      - proxy
+      internal: {}
+      proxy:
+        aliases: [thai-weather-web]
 
 networks:
   proxy:

@@ -13,7 +13,11 @@ deploy() { # <image to build> <compose services to restart...>
   img=$1; shift
   echo "== build $img"
   ./build.sh "$img"
-  docker compose up -d --no-deps "$@"
+  case "$img" in
+    # the web apps switch with no gap (new container healthy before the old one stops)
+    portfolio|expenses|whiteboard|drive-music) ../rollout.sh "$img" ;;
+    *) docker compose up -d --no-deps "$@" ;;
+  esac
 }
 
 force=${2:-}
