@@ -13,10 +13,11 @@ const stub = Bun.serve({
   port: 0,
   async fetch(req) {
     const u = new URL(req.url)
-    if (u.pathname === '/push') {
-      const body = await req.json()
-      if (body.alert) alerts.push(body.alert)
-      return Response.json({ lastRun: new Date().toISOString() })
+    if (u.pathname === '/push') return Response.json({ lastRun: new Date().toISOString() })
+    if (u.pathname === '/alert') {
+      if (req.headers.get('x-alert-secret') !== 'z') return new Response('forbidden', { status: 403 })
+      alerts.push((await req.json()).alert)
+      return Response.json({ ok: true })
     }
     if (u.pathname === '/__health') return roomsUp ? new Response('ok\n') : new Response('no', { status: 503 })
     if (u.pathname === '/health') return Response.json({ status: 'ok', service: 'drive-music-sync', protocol: 2 })
@@ -29,7 +30,7 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 const env = {
-  STATUS_SECRET: 'x', HEALTH_TOKEN: 'y', SUPABASE_FUNCTION_URL: `${s}/push`,
+  STATUS_SECRET: 'x', HEALTH_TOKEN: 'y', SUPABASE_FUNCTION_URL: `${s}/push`, ALERT_URL: `${s}/alert`, ALERT_SECRET: 'z',
   ROOMS: { fetch: (_: unknown, init?: RequestInit) => fetch(`${s}/__health`, init) },
   MUSIC_SYNC: { fetch: (_: unknown, init?: RequestInit) => fetch(`${s}/health`, init) },
 }
@@ -41,7 +42,7 @@ test('rooms down twice → one alert, incident, state on disk, page renders', as
   const first = await tick(t, env as never, file)
   expect(first.state.services.rooms?.fails).toBe(1)
   await tick(t + 300_000, env as never, file)
-  expect(alerts).toEqual([{ title: 'ห้อง Whiteboard ล่ม', body: 'เข้าไม่ได้ติดกันเกิน 5 นาที' }])
+  expect(alerts).toEqual([{ title: 'ห้อง Whiteboard ล่ม', body: 'เข้าไม่ได้ติดกันเกิน 5 นาที', id: 'rooms', kind: 'down' }])
   roomsUp = true
   const back = await tick(t + 600_000, env as never, file)
   expect(back.state.services.rooms?.status).toMatch(/up|slow/)

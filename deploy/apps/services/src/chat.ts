@@ -14,6 +14,8 @@
  * dock-metrics keeps only 7 days, so every evening this stores a digest of the day (server load,
  * proxy traffic, visitors); a month is summed from those. Days missed while this was down are
  * filled in from the 7-day history the next time it runs.
+ * POST /chat/alert (x-alert-secret = ALERT_SECRET): the status service's "X ล่ม" / "X กลับมาแล้ว", posted
+ * as a server message and pushed.
  * Web Push: Dock subscribes a device (POST /chat/push/subscribe) and the monthly report is pushed to it.
  * Encrypted per RFC 8291 (aes128gcm) and signed with a VAPID key the service makes on first use.
  * Reachable only through Dock's proxy, behind the Portainer login.
@@ -21,6 +23,7 @@
 import { Elysia } from 'elysia'
 import { Database } from 'bun:sqlite'
 import { importJWK, SignJWT, type JWK } from 'jose'
+import { timingSafeEqual } from 'node:crypto'
 
 const PORT = Number(process.env.PORT ?? 8795)
 const METRICS_URL = process.env.METRICS_URL ?? 'http://dock-metrics:9100'
@@ -427,6 +430,12 @@ export async function reply(db: Database, text: string, now = Date.now()): Promi
 }
 
 // ------------------------------------------------------------------ HTTP
+function sameSecret(a: string, b: string) {
+  const x = Buffer.from(a)
+  const y = Buffer.from(b)
+  return x.length === y.length && timingSafeEqual(x, y)
+}
+
 export function createApp(db = open()) {
   return new Elysia()
     .get('/health', () => ({ ok: true }))
@@ -438,6 +447,23 @@ export function createApp(db = open()) {
     .post('/chat/read', () => {
       db.run('UPDATE messages SET read = 1 WHERE read = 0')
       return { ok: true }
+    })
+    .post('/chat/alert', async ({ body, headers, set }) => {
+      const secret = process.env.ALERT_SECRET ?? ''
+      if (!secret || !sameSecret(headers['x-alert-secret'] ?? '', secret)) {
+        set.status = 403
+        return { error: 'forbidden' }
+      }
+      const a = (body as { alert?: { title?: unknown; body?: unknown; id?: unknown; kind?: unknown } })?.alert
+      if (typeof a?.title !== 'string' || typeof a.body !== 'string' || a.title.length > 200 || a.body.length > 500) {
+        set.status = 400
+        return { error: 'bad alert' }
+      }
+      const msg = post(db, 'system', `${a.kind === 'up' ? '✅' : '⚠️'} ${a.title}\n${a.body}\nดูรายละเอียด: https://status.chakkritton.com`)
+      // one notification per service: "back up" replaces its "down"
+      const tag = `status-${typeof a.id === 'string' ? a.id.slice(0, 40) : 'x'}`
+      await pushAll(db, { title: a.title, body: a.body, url: '/#/chat', tag }).catch(() => undefined)
+      return { ok: true, id: msg.id }
     })
     .get('/chat/push/key', async () => ({ key: (await vapidKeys(db)).publicKey }))
     .post('/chat/push/subscribe', ({ body, set }) => {

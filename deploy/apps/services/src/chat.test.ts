@@ -116,3 +116,20 @@ test('push: one VAPID key, only real push services, subscribe and unsubscribe', 
   const key = await (await app.handle(new Request('http://localhost/chat/push/key'))).json()
   expect(key.key).toBe(a.publicKey)
 })
+
+test('status alerts: need the secret, become a server message', async () => {
+  process.env.ALERT_SECRET = 's3cret'
+  const db = open(':memory:')
+  const app = createApp(db)
+  const send = (secret: string, alert: unknown) => app.handle(new Request('http://localhost/chat/alert', { method: 'POST', headers: { 'content-type': 'application/json', 'x-alert-secret': secret }, body: JSON.stringify({ alert }) }))
+  expect((await send('nope', { title: 'a', body: 'b' })).status).toBe(403)
+  expect((await send('s3cret', { title: 1 })).status).toBe(400)
+  const ok = await send('s3cret', { title: 'ห้อง Whiteboard ล่ม', body: 'เข้าไม่ได้ติดกันเกิน 5 นาที', id: 'rooms', kind: 'down' })
+  expect(ok.status).toBe(200)
+  const m = db.query('SELECT role, text, read FROM messages').get() as { role: string; text: string; read: number }
+  expect(m.role).toBe('system')
+  expect(m.read).toBe(0)
+  expect(m.text).toContain('ห้อง Whiteboard ล่ม')
+  delete process.env.ALERT_SECRET
+  expect((await send('', { title: 'a', body: 'b' })).status).toBe(403) // no secret configured → closed
+})

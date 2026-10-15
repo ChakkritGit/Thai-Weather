@@ -30,6 +30,9 @@ const env = {
   STATUS_SECRET: process.env.STATUS_SECRET ?? '',
   HEALTH_TOKEN: process.env.HEALTH_TOKEN ?? '',
   SUPABASE_FUNCTION_URL: process.env.SUPABASE_FUNCTION_URL ?? 'https://yavhirzrepgpvvapohyz.supabase.co/functions/v1/push-reminders',
+  // down / back-up alerts go to Dock's chat (a message + a push to the devices subscribed there)
+  ALERT_URL: process.env.ALERT_URL ?? 'http://apps-chat:8795/chat/alert',
+  ALERT_SECRET: process.env.ALERT_SECRET ?? '',
   ROOMS: binding(ROOMS_URL),
   MUSIC_SYNC: binding(SYNC_URL),
 }
@@ -62,10 +65,11 @@ export async function tick(scheduledTime: number, e: typeof env = env, file = ST
     const alert = a.kind === 'down' ? { title: `${name} ล่ม`, body: 'เข้าไม่ได้ติดกันเกิน 5 นาที' } : { title: `${name} กลับมาแล้ว`, body: `ล่มไปประมาณ ${a.minutes} นาที` }
     // the state is saved already, so a failed alert is logged and never thrown
     try {
-      const r = await fetch(e.SUPABASE_FUNCTION_URL, {
+      const r = await fetch(e.ALERT_URL, {
         method: 'POST',
-        headers: { 'x-status-secret': e.STATUS_SECRET, 'content-type': 'application/json' },
-        body: JSON.stringify({ alert }),
+        headers: { 'x-alert-secret': e.ALERT_SECRET, 'content-type': 'application/json' },
+        body: JSON.stringify({ alert: { ...alert, id: a.id, kind: a.kind } }),
+        signal: AbortSignal.timeout(20_000),
       })
       if (!r.ok) console.error('alert failed', a.id, r.status)
     } catch (err) {
