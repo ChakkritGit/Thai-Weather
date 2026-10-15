@@ -1505,3 +1505,6 @@ button {
 .roll-strip .roll-glyph { display: flex; align-items: center; justify-content: center; }
 
 .legend-credit { margin: 6px 0 0; font-size: var(--font-size-2xs); line-height: 1.3; color: var(--color-fg-subtle); overflow-wrap: anywhere; }
+
+/* a space between number and unit is a slot of its own: keep its width whatever the parent's white-space */
+.roll .roll-glyph { white-space: pre; }

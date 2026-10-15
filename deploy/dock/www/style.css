@@ -448,3 +448,6 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 /* a rolling number keeps its row of digit slots, whatever box rules its parent has */
 .mini-stats b.roll, .row-side b.roll, .row-side span.roll, .stat b.roll, .tile-value.roll { display: inline-flex; }
 .row-side b.roll { display: flex; justify-content: flex-end; }
+
+/* a space between number and unit is a slot of its own: keep its width whatever the parent's white-space */
+.roll .roll-glyph { white-space: pre; }
