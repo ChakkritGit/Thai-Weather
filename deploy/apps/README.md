@@ -15,7 +15,8 @@
 | `rest` + `dbgw` | PostgREST behind a Bun + Elysia gateway that checks Supabase Auth sessions | expenses.chakkritton.com/data/ | Supabase `/rest/v1` |
 | `reminders` | Bun + Elysia, Spent-Cost bill reminders (built from the expenses repo) | internal | Edge Function `push-reminders` + pg_cron |
 | `media` | Bun + Elysia, portfolio uploads | chakkritton.com/media/ | Supabase Storage bucket |
-| `backup` | Bun + Elysia, whole-server backup bundles | Dock → สำรอง | – |
+| `backup` | Bun + Elysia, whole-server backup bundles | Dock → เพิ่มเติม → สำรองข้อมูล | – |
+| `chat` | Bun + Elysia: monthly server report (last evening of the month), commands, optional LLM, Web Push | Dock → เพิ่มเติม → แชท | – |
 
 Stays elsewhere: the AI worker `mr-worldwide` on Cloudflare (route `chakkritton.com/api/assistant*`,
 Workers AI), and **login for Spent-Cost on Supabase Auth** (project `yavhirzrepgpvvapohyz`, now auth only).
@@ -42,10 +43,23 @@ the env files, the Origin certificate and each repo's commit. `restore.sh --chec
   `autodeploy.sh` + `apps-autodeploy.timer` (auto-deploy on push, every 2 min)
 
 ```sh
-./build.sh portfolio && docker compose up -d portfolio   # one app by hand
+./build.sh portfolio && ../rollout.sh portfolio          # one app by hand, without downtime
 ./autodeploy.sh --force drive-music                      # rebuild even without a new commit
 journalctl -u apps-autodeploy -n 50                      # what the timer did
 ```
+
+**No downtime on deploy:** the four Next apps (and the weather site's `web`) have no `container_name`;
+`../rollout.sh <service>` starts the new container next to the old one, waits for its healthcheck, gives
+NPM 12 s to re-resolve the shared alias (`apps-<app>`), then stops the old one. NPM's 2 s connect timeout
+(`deploy/hardening/npm-server_proxy.conf`) moves a request off a stopped container at once.
+
+**Next builds reach the database:** `build.sh` runs `next build` on the host network with `apps-db`,
+`apps-dbgw` and `apps-media` mapped to the running containers, so ISR pages (portfolio) are not
+pre-rendered empty.
+
+**Chat (`chat.env`, optional):** `LLM_PROVIDER=cloudflare` + `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_AI_MODEL`, or
+`LLM_PROVIDER=openai` + `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` (any OpenAI-compatible server, e.g. Ollama).
+Without them it answers commands only (สรุป, เดือนก่อน, ช่วย). Its VAPID key lives in its own database.
 
 `next.Dockerfile` builds any of the apps without touching its repo (it wraps `next.config.ts` to add
 `output: 'standalone'`). The env file is mounted only during `next build`, because `NEXT_PUBLIC_*` values are
