@@ -380,6 +380,7 @@ export function reportData(
   const diskPct = last ? (last.diskUsed / last.diskTotal) * 100 : null
   const sites = new Map<string, { req: number; s5: number }>()
   for (const d of digests) for (const [h, r] of Object.entries(d.requests)) {
+    if (!h.includes('.')) continue // requests that matched no site (scanners hitting the IP)
     const t = sites.get(h) ?? { req: 0, s5: 0 }
     t.req += r.req
     t.s5 += r.s5

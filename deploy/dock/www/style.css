@@ -430,11 +430,12 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .report-h { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .report-chart { min-width: 0; }
 .report-sites { display: grid; gap: 6px; }
-.site-row { display: grid; grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: 13px; }
+.site-row { display: grid; grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) 4.5em; align-items: center; gap: 8px; font-size: 13px; }
+.site-row .pill { grid-column: 2 / -1; justify-self: start; }
 .site-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site-bar { height: 8px; border-radius: 999px; background: var(--grid); overflow: hidden; }
 .site-bar span { display: block; height: 100%; border-radius: inherit; background: var(--s1); }
-.site-num { font-variant-numeric: tabular-nums; color: var(--muted); }
+.site-num { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
 .pill.tone-bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); padding: 0 8px; font-size: 11px; }
 .report-tips { display: grid; gap: 8px; }
 .tip { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; font-size: 14px; line-height: 1.45; }

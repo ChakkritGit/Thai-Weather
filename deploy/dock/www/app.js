@@ -1147,11 +1147,12 @@ async function chatView(token) {
       body.append(box);
       requestAnimationFrame(() => mkChart(box, { ...opts, label: title, height: 120 })); // after it is in the page, so it knows its width
     };
-    if (d.cpu.filter((r) => r.avg !== null).length >= 2) {
-      chartBox('CPU รายวัน', { times: dayTimes(d.cpu), step: 86400, kind: 'area', format: (v) => fmtPct(v),
+    // columns, so a month that has only just started (one day) still shows its figure
+    if (d.cpu.some((r) => r.avg !== null)) {
+      chartBox('CPU เฉลี่ยรายวัน', { times: dayTimes(d.cpu), step: 86400, kind: 'columns', format: (v) => fmtPct(v),
         series: [{ name: 'เฉลี่ย', color: 'var(--s1)', values: d.cpu.map((r) => r.avg) }] });
     }
-    if (d.visitors.length >= 2) {
+    if (d.visitors.length) {
       chartBox('ผู้เข้าชมรายวัน', { times: dayTimes(d.visitors), step: 86400, kind: 'columns', format: (v) => fmtNum(v),
         series: [{ name: 'ผู้เข้าชม', color: 'var(--s3)', values: d.visitors.map((r) => r.visitors) }] });
     }
