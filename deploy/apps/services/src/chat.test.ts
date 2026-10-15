@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { composeReport, createApp, digestDay, maybePostReport, monthName, open, reply, type Digest } from './chat'
+import { allowedEndpoint, composeReport, createApp, digestDay, encryptPush, maybePostReport, monthName, open, reply, vapidKeys, type Digest } from './chat'
 
 const day = '2026-10-14'
 const from = Date.parse(`${day}T00:00:00+07:00`) / 1000
@@ -80,4 +80,39 @@ test('HTTP: post, list, unread and read', async () => {
   expect(list.messages).toHaveLength(2)
   expect(list.llm).toBe(false)
   expect((await call('/chat/unread')).count).toBe(0)
+})
+
+const u = (s: string) => Uint8Array.from(Buffer.from(s.replace(/\s+/g, ''), 'base64url'))
+
+test('push encryption matches RFC 8291 Appendix A byte for byte', async () => {
+  const asPublic = u('BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIg Dll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8')
+  const jwk = { kty: 'EC', crv: 'P-256', d: 'yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw', x: Buffer.from(asPublic.slice(1, 33)).toString('base64url'), y: Buffer.from(asPublic.slice(33)).toString('base64url') }
+  const privateKey = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])
+  const publicKey = await crypto.subtle.importKey('raw', asPublic, { name: 'ECDH', namedCurve: 'P-256' }, true, [])
+  const body = await encryptPush(u('V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24'),
+    'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4', 'BTBZMqHH6r4Tts7J_aSIgg',
+    u('DGv6ra1nlYgDCS1FRnbzlw'), { privateKey, publicKey })
+  const header = 'DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z 9KsN6nGRTbVYI_c7VJSPQTBtkgcy27ml mlMoZIIgDll6e3vCYLocInmYWAmS6Tlz AC8wEqKK6PBru3jl7A8'
+  const cipher = '8pfeW0KbunFT06SuDKoJH9Ql87S1QUrd irN6GcG7sFz1y1sqLgVi1VhjVkHsUoEs bI_0LpXMuGvnzQ'
+  expect(Buffer.from(body).toString('base64url')).toBe(Buffer.from([...u(header), ...u(cipher)]).toString('base64url'))
+})
+
+test('push: one VAPID key, only real push services, subscribe and unsubscribe', async () => {
+  const db = open(':memory:')
+  const a = await vapidKeys(db)
+  expect((await vapidKeys(db)).publicKey).toBe(a.publicKey)
+  expect(u(a.publicKey)).toHaveLength(65)
+  expect(allowedEndpoint('https://web.push.apple.com/QGu...')).toBe(true)
+  expect(allowedEndpoint('https://fcm.googleapis.com/fcm/send/abc')).toBe(true)
+  expect(allowedEndpoint('http://fcm.googleapis.com/x')).toBe(false)
+  expect(allowedEndpoint('https://apps-db:5432/')).toBe(false)
+  const app = createApp(db)
+  const post = (path: string, body: unknown) => app.handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }))
+  expect((await post('/chat/push/subscribe', { endpoint: 'https://evil.example/x', keys: { p256dh: 'a', auth: 'b' } })).status).toBe(400)
+  expect((await post('/chat/push/subscribe', { endpoint: 'https://web.push.apple.com/abc', keys: { p256dh: 'a', auth: 'b' } })).status).toBe(200)
+  expect(db.query('SELECT COUNT(*) AS n FROM push_subs').get()).toEqual({ n: 1 })
+  await post('/chat/push/unsubscribe', { endpoint: 'https://web.push.apple.com/abc' })
+  expect(db.query('SELECT COUNT(*) AS n FROM push_subs').get()).toEqual({ n: 0 })
+  const key = await (await app.handle(new Request('http://localhost/chat/push/key'))).json()
+  expect(key.key).toBe(a.publicKey)
 })

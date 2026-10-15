@@ -14,10 +14,13 @@
  * dock-metrics keeps only 7 days, so every evening this stores a digest of the day (server load,
  * proxy traffic, visitors); a month is summed from those. Days missed while this was down are
  * filled in from the 7-day history the next time it runs.
+ * Web Push: Dock subscribes a device (POST /chat/push/subscribe) and the monthly report is pushed to it.
+ * Encrypted per RFC 8291 (aes128gcm) and signed with a VAPID key the service makes on first use.
  * Reachable only through Dock's proxy, behind the Portainer login.
  */
 import { Elysia } from 'elysia'
 import { Database } from 'bun:sqlite'
+import { importJWK, SignJWT, type JWK } from 'jose'
 
 const PORT = Number(process.env.PORT ?? 8795)
 const METRICS_URL = process.env.METRICS_URL ?? 'http://dock-metrics:9100'
@@ -51,6 +54,8 @@ export function open(path = process.env.CHAT_DB ?? '/data/chat.db') {
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL, read INTEGER NOT NULL DEFAULT 1)`)
   db.run('CREATE TABLE IF NOT EXISTS digests (day TEXT PRIMARY KEY, data TEXT NOT NULL)')
   db.run('CREATE TABLE IF NOT EXISTS reports (month TEXT PRIMARY KEY, message_id INTEGER NOT NULL)')
+  db.run('CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created INTEGER NOT NULL)')
+  db.run('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
   return db
 }
 
@@ -58,6 +63,92 @@ function post(db: Database, role: Role, text: string, read = role !== 'system'):
   const ts = Date.now()
   const r = db.query('INSERT INTO messages (ts, role, text, read) VALUES (?, ?, ?, ?) RETURNING id').get(ts, role, text, read ? 1 : 0) as { id: number }
   return { id: r.id, ts, role, text, read: read ? 1 : 0 }
+}
+
+// ------------------------------------------------------------------ web push
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'https://docker.chakkritton.com'
+const b64u = (b: Uint8Array | ArrayBuffer) => Buffer.from(b instanceof Uint8Array ? b : new Uint8Array(b)).toString('base64url')
+const unb64u = (s: string): Uint8Array<ArrayBuffer> => Uint8Array.from(Buffer.from(s, 'base64url'))
+const concat = (...parts: Uint8Array[]): Uint8Array<ArrayBuffer> => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0))
+  let o = 0
+  for (const p of parts) { out.set(p, o); o += p.length }
+  return out
+}
+
+/** The service's VAPID key pair, made once and kept in the database. */
+export async function vapidKeys(db: Database): Promise<{ publicKey: string; privateJwk: JWK }> {
+  const row = db.query("SELECT value FROM settings WHERE key = 'vapid'").get() as { value: string } | null
+  if (row) return JSON.parse(row.value)
+  const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])
+  const keys = { publicKey: b64u(await crypto.subtle.exportKey('raw', kp.publicKey)), privateJwk: (await crypto.subtle.exportKey('jwk', kp.privateKey)) as JWK }
+  db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('vapid', ?)", [JSON.stringify(keys)])
+  return keys
+}
+
+async function hkdf(salt: Uint8Array<ArrayBuffer>, ikm: Uint8Array<ArrayBuffer>, info: Uint8Array<ArrayBuffer>, bytes: number) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits'])
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, bytes * 8))
+}
+
+/** RFC 8291 message encryption (one aes128gcm record). `salt` and `sender` are for the RFC's test vector. */
+export async function encryptPush(plain: Uint8Array<ArrayBuffer>, p256dh: string, auth: string, salt = crypto.getRandomValues(new Uint8Array(16)), sender?: CryptoKeyPair) {
+  const uaPublic = unb64u(p256dh)
+  const as = sender ?? ((await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])) as CryptoKeyPair)
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', as.publicKey))
+  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, [])
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, as.privateKey, 256))
+  const enc = new TextEncoder()
+  const ikm = await hkdf(unb64u(auth), shared, concat(enc.encode('WebPush: info\0'), uaPublic, asPublic), 32)
+  const cek = await hkdf(salt, ikm, enc.encode('Content-Encoding: aes128gcm\0'), 16)
+  const nonce = await hkdf(salt, ikm, enc.encode('Content-Encoding: nonce\0'), 12)
+  const key = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt'])
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, concat(plain, new Uint8Array([2]))))
+  const header = new Uint8Array(16 + 4 + 1 + 65)
+  header.set(salt, 0)
+  new DataView(header.buffer).setUint32(16, 4096)
+  header[20] = 65
+  header.set(asPublic, 21)
+  return concat(header, ct)
+}
+
+export interface PushSub { endpoint: string; p256dh: string; auth: string }
+export interface PushMessage { title: string; body: string; url: string; tag?: string }
+
+/** Sends to one device; a subscription the push service no longer knows (404/410) is dropped. */
+export async function sendPush(db: Database, sub: PushSub, msg: PushMessage): Promise<number> {
+  const { publicKey, privateJwk } = await vapidKeys(db)
+  const jwt = await new SignJWT({})
+    .setProtectedHeader({ alg: 'ES256', typ: 'JWT' })
+    .setAudience(new URL(sub.endpoint).origin)
+    .setExpirationTime('12h')
+    .setSubject(VAPID_SUBJECT)
+    .sign(await importJWK(privateJwk, 'ES256'))
+  const body = await encryptPush(new TextEncoder().encode(JSON.stringify(msg)), sub.p256dh, sub.auth)
+  const res = await fetch(sub.endpoint, {
+    method: 'POST',
+    headers: { Authorization: `vapid t=${jwt}, k=${publicKey}`, 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', TTL: '86400', Urgency: 'normal' },
+    body,
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (res.status === 404 || res.status === 410) db.run('DELETE FROM push_subs WHERE endpoint = ?', [sub.endpoint])
+  return res.status
+}
+
+export async function pushAll(db: Database, msg: PushMessage) {
+  const subs = db.query('SELECT endpoint, p256dh, auth FROM push_subs').all() as PushSub[]
+  const results = await Promise.allSettled(subs.map((s) => sendPush(db, s, msg)))
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : 0))
+}
+
+/** only the push services browsers use; anything else is refused (it would make this server fetch it) */
+export function allowedEndpoint(endpoint: string) {
+  try {
+    const u = new URL(endpoint)
+    return u.protocol === 'https:' && /(^|\.)(push\.apple\.com|fcm\.googleapis\.com|googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com)$/.test(u.hostname)
+  } catch {
+    return false
+  }
 }
 
 // ------------------------------------------------------------------ daily digest
@@ -273,6 +364,7 @@ export async function maybePostReport(db: Database, now = Date.now()) {
   const text = await buildReport(db, due, now)
   const msg = post(db, 'system', text)
   db.run('INSERT INTO reports (month, message_id) VALUES (?, ?)', [due, msg.id])
+  await pushAll(db, { title: 'Dock', body: `${text.split('\n')[0]} — แตะเพื่ออ่าน`, url: '/#/chat', tag: `report-${due}` }).catch(() => undefined)
   return msg
 }
 
@@ -346,6 +438,32 @@ export function createApp(db = open()) {
     .post('/chat/read', () => {
       db.run('UPDATE messages SET read = 1 WHERE read = 0')
       return { ok: true }
+    })
+    .get('/chat/push/key', async () => ({ key: (await vapidKeys(db)).publicKey }))
+    .post('/chat/push/subscribe', ({ body, set }) => {
+      const b = body as { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } }
+      const ok = typeof b?.endpoint === 'string' && allowedEndpoint(b.endpoint) && typeof b.keys?.p256dh === 'string' && typeof b.keys?.auth === 'string'
+      if (!ok) {
+        set.status = 400
+        return { error: 'subscription ไม่ถูกต้อง' }
+      }
+      db.run('INSERT OR REPLACE INTO push_subs (endpoint, p256dh, auth, created) VALUES (?, ?, ?, ?)', [b.endpoint as string, b.keys!.p256dh as string, b.keys!.auth as string, Date.now()])
+      return { ok: true }
+    })
+    .post('/chat/push/unsubscribe', ({ body }) => {
+      const endpoint = (body as { endpoint?: unknown })?.endpoint
+      if (typeof endpoint === 'string') db.run('DELETE FROM push_subs WHERE endpoint = ?', [endpoint])
+      return { ok: true }
+    })
+    .post('/chat/push/test', async ({ body, set }) => {
+      const endpoint = (body as { endpoint?: unknown })?.endpoint
+      const sub = typeof endpoint === 'string' ? (db.query('SELECT endpoint, p256dh, auth FROM push_subs WHERE endpoint = ?').get(endpoint) as PushSub | null) : null
+      if (!sub) {
+        set.status = 404
+        return { error: 'ยังไม่ได้ลงทะเบียนเครื่องนี้' }
+      }
+      const status = await sendPush(db, sub, { title: 'Dock', body: 'เปิดการแจ้งเตือนแล้ว สรุปรายเดือนจะเด้งมาที่เครื่องนี้', url: '/#/chat', tag: 'test' })
+      return { status }
     })
     .post('/chat', async ({ body, set }) => {
       const text = typeof (body as { text?: unknown })?.text === 'string' ? (body as { text: string }).text.trim() : ''

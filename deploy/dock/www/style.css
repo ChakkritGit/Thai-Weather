@@ -337,3 +337,5 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .icon-btn.send, .icon-btn.send:hover { width: 44px; height: 44px; background: var(--accent); color: var(--on-accent); }
 .icon-btn.send:disabled { opacity: 0.4; }
 .chat-note { margin: 6px 2px 0; min-height: 0; color: var(--muted); font-size: 12px; }
+
+.icon-btn.on { color: var(--text); }

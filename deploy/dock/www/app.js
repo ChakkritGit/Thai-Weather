@@ -51,6 +51,8 @@ const ICONS = {
   more: 'M5 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM19 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3z',
   chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z',
   send: 'M5 12h13M12 5l7 7-7 7',
+  bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
+  belloff: 'M8.7 3A6 6 0 0 1 18 8c0 2.7.6 4.6 1.3 6M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7M10.3 21a1.94 1.94 0 0 0 3.4 0M2 2l20 20',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -250,7 +252,7 @@ function tabs(current) {
       },
     }, h('span', { class: 'tab-ic' }, icon(ic), href === '#/more' ? badge() : null), label)));
 }
-function topBar(title, { back, onRefresh } = {}) {
+function topBar(title, { back, onRefresh, extra } = {}) {
   const refresh = onRefresh
     ? h('button', {
         class: 'icon-btn', type: 'button', 'aria-label': 'รีเฟรช', title: 'รีเฟรช',
@@ -264,6 +266,7 @@ function topBar(title, { back, onRefresh } = {}) {
   return h('header', { class: 'top' },
     back ? h('a', { class: 'icon-btn', href: back, 'aria-label': 'กลับ' }, icon('back')) : null,
     h('h1', {}, title),
+    extra ?? null,
     refresh,
     back || !PORTAINER_URL ? null : h('a', { class: 'icon-btn', href: PORTAINER_URL, 'aria-label': 'เปิด Portainer เต็ม', title: 'Portainer เต็ม', target: '_blank', rel: 'noopener' }, icon('ext')),
     back ? null : h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'ออกจากระบบ', title: 'ออกจากระบบ', onclick: logout }, icon('out')));
@@ -978,6 +981,57 @@ function moreView() {
     tabs('#/more'));
 }
 
+// ------------------------------------------------------------------ web push (chat → this device)
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+async function currentSub() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+const b64uToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+/** on: ask permission (needs the tap), subscribe, register with the chat service, send a test */
+async function enablePush() {
+  if (!pushSupported()) {
+    toast(isIos() && !standalone() ? 'iPhone: แชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิด Dock จากไอคอนก่อน' : 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน');
+    return false;
+  }
+  if ((await Notification.requestPermission()) !== 'granted') { toast('ไม่ได้รับอนุญาตให้แจ้งเตือน (เปิดได้ในการตั้งค่า)'); return false; }
+  const reg = await navigator.serviceWorker.ready;
+  const { key } = await api('/chat/push/key');
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(key) });
+  await api('/chat/push/subscribe', { method: 'POST', body: sub.toJSON() });
+  await api('/chat/push/test', { method: 'POST', body: { endpoint: sub.endpoint } }).catch(() => {});
+  toast('เปิดการแจ้งเตือนแล้ว');
+  return true;
+}
+async function disablePush() {
+  const sub = await currentSub();
+  if (sub) {
+    await api('/chat/push/unsubscribe', { method: 'POST', body: { endpoint: sub.endpoint } }).catch(() => {});
+    await sub.unsubscribe();
+  }
+  toast('ปิดการแจ้งเตือนแล้ว');
+}
+function pushButton() {
+  const b = h('button', { class: 'icon-btn', type: 'button' });
+  const paint = (on) => {
+    b.replaceChildren(icon(on ? 'bell' : 'belloff'));
+    b.setAttribute('aria-label', on ? 'ปิดการแจ้งเตือน' : 'เปิดการแจ้งเตือน');
+    b.title = on ? 'แจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' : 'เปิดการแจ้งเตือน';
+    b.classList.toggle('on', on);
+  };
+  currentSub().then((s) => paint(!!s)).catch(() => paint(false));
+  b.addEventListener('click', async () => {
+    b.disabled = true;
+    try {
+      if (await currentSub()) { await disablePush(); paint(false); } else paint(await enablePush());
+    } catch (err) { handleError(err); } finally { b.disabled = false; }
+  });
+  return b;
+}
+
 // The server posts its monthly summary here; what is typed is answered by the chat service
 // (commands, or an LLM once one is configured in chat.env).
 const fmtTime = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -1044,7 +1098,7 @@ async function chatView(token) {
   const form = h('form', { class: 'chat-compose', onsubmit: (e) => { e.preventDefault(); const t = input.value; input.value = ''; grow(); submit(t); } },
     h('div', { class: 'chat-quick' }, ['สรุป', 'เดือนก่อน', 'ช่วย'].map((t) => h('button', { type: 'button', class: 'chip', onclick: () => submit(t) }, t))),
     h('div', { class: 'chat-row' }, input, send), note);
-  shell(topBar('แชท', { back: '#/more', onRefresh: () => load() }), log, form, tabs('#/more'));
+  shell(topBar('แชท', { back: '#/more', onRefresh: () => load(), extra: pushButton() }), log, form, tabs('#/more'));
   app.querySelector('.shell').classList.add('chat');
   // the composer sits right on top of the tab bar, whatever height that has on this device
   const nav = app.querySelector('.tabs');
@@ -1098,4 +1152,6 @@ async function route() {
 
 // a new page starts at its top
 window.addEventListener('hashchange', () => { window.scrollTo(0, 0); route(); });
+// push only (see sw.js); Dock keeps working without it
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 route();
