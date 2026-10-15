@@ -1,30 +1,21 @@
 'use client';
 
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { roll } from '@/lib/roll';
 
 /**
- * A number that slides in when it changes: up when it grew, down when it shrank (off with reduced
- * motion). Used where values change in place, e.g. scrubbing the timeline.
+ * A figure that rolls digit by digit when it changes (iOS style, lib/roll.ts). React renders the
+ * first value only; after that roll() owns the content, so React never fights it.
  */
 export function Num({ value, className }: { value: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const prev = useRef(value);
+  const [first] = useState(value);
   useLayoutEffect(() => {
-    const before = parseFloat(prev.current.replace(/,/g, ''));
-    const after = parseFloat(value.replace(/,/g, ''));
-    prev.current = value;
-    const el = ref.current;
-    if (!el || !Number.isFinite(before) || !Number.isFinite(after) || before === after) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const dir = after > before ? 1 : -1;
-    el.animate(
-      [{ transform: `translateY(${dir * 0.35}em)`, opacity: 0.2 }, { transform: 'none', opacity: 1 }],
-      { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
-    );
+    if (ref.current) roll(ref.current, value);
   }, [value]);
   return (
-    <span ref={ref} className={className ? `num ${className}` : 'num'}>
-      {value}
+    <span ref={ref} className={className} aria-label={value}>
+      {first}
     </span>
   );
 }

@@ -1492,6 +1492,12 @@ button {
 :is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(6) { animation-delay: 175ms; }
 :is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(7) { animation-delay: 210ms; }
 :is(.page-inner > *, .alert-row, .day-cards > *, .now-grid > *, .data-table tbody tr):nth-child(n + 8) { animation-delay: 240ms; }
-.num { display: inline-block; }
+
 .chip, .btn, .segmented button { transition: background var(--duration-fast) var(--easing-standard), color var(--duration-fast), border-color var(--duration-fast), transform 0.15s; }
 :is(.chip, .btn, .segmented button):active { transform: scale(0.96); }
+
+/* rolling numbers (lib/roll.ts): one slot per character, the outgoing glyph overlaid while it leaves */
+.roll { display: inline-flex; font-variant-numeric: tabular-nums; white-space: pre; }
+.roll-slot { position: relative; display: inline-block; }
+.roll-glyph { display: inline-block; will-change: transform, filter, opacity; }
+.roll-out { position: absolute; inset: 0 auto auto 0; }
