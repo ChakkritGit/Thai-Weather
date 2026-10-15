@@ -265,7 +265,7 @@ table.data .mono { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace
 .mini-head { display: flex; align-items: center; gap: 8px; text-decoration: none; margin-bottom: 8px; }
 .mini-head .row-title { flex: 1; }
 .mini-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
-.mini-stats span { display: flex; flex-direction: column; min-width: 0; }
+.mini-stats > span { display: flex; flex-direction: column; min-width: 0; }
 .mini-stats b { color: var(--text); font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-chart { position: relative; margin-top: 6px; }
 .mini-label { position: absolute; top: 0; left: 0; z-index: 1; font-size: 11px; color: var(--muted); pointer-events: none; }
@@ -377,9 +377,9 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 
 /* rolling numbers (roll.js): one slot per character, the outgoing glyph overlaid while it leaves */
 .roll { display: inline-flex; font-variant-numeric: tabular-nums; white-space: pre; }
-.roll-slot { position: relative; display: inline-block; }
+.roll-slot { position: relative; display: inline-block; vertical-align: baseline; }
 .roll-glyph { display: inline-block; }
-.roll-slot.rolling { overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); }
+.roll-slot.rolling { clip-path: inset(0 -0.25em); -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); }
 .roll-strip { position: absolute; inset: 0 0 auto 0; display: flex; flex-direction: column; align-items: center; will-change: transform, filter; }
 .roll-strip .roll-glyph { display: flex; align-items: center; justify-content: center; }
 .row-side b.roll { display: flex; justify-content: flex-end; }
@@ -444,3 +444,7 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .tip-warn .msg-ic { color: var(--warn); }
 .tip-ok .msg-ic { color: var(--ok); }
 .tip-info .msg-ic { color: var(--muted); }
+
+/* a rolling number keeps its row of digit slots, whatever box rules its parent has */
+.mini-stats b.roll, .row-side b.roll, .row-side span.roll, .stat b.roll, .tile-value.roll { display: inline-flex; }
+.row-side b.roll { display: flex; justify-content: flex-end; }
