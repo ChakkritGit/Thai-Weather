@@ -384,3 +384,20 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .roll-strip .roll-glyph { display: flex; align-items: center; justify-content: center; }
 .row-side b.roll { display: flex; justify-content: flex-end; }
 .stat b.roll, .tile-value.roll { display: flex; }
+
+/* opening splash (index.html, lifted by hideSplash in app.js) */
+.splash {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+  background: var(--bg); color: var(--text);
+  transition: opacity 0.32s ease;
+}
+.splash[data-state='fading'] { opacity: 0; pointer-events: none; }
+.splash-mark { display: grid; place-items: center; width: 72px; height: 72px; margin-bottom: 12px; border-radius: 20px; background: var(--accent); color: var(--on-accent); box-shadow: 0 10px 30px rgb(0 0 0 / 0.14); }
+.splash-mark svg { width: 38px; height: 38px; }
+.splash-name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.splash-tag { color: var(--muted); font-size: 14px; }
+.splash-bar { position: relative; width: 120px; height: 3px; margin-top: 22px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.splash-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit; background: var(--text); animation: splash-slide 1.1s ease-in-out infinite; }
+@keyframes splash-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }

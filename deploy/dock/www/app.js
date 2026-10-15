@@ -351,6 +351,7 @@ function loginView(message = '') {
   user, pass, err, submit,
   h('p', { class: 'hint' }, 'ใช้บัญชีเดียวกับ Portainer'));
   app.replaceChildren(h('main', { class: 'login' }, form));
+  hideSplash();
   user.focus();
 }
 
@@ -1188,6 +1189,20 @@ async function chatView(token) {
   timer = setInterval(() => document.visibilityState === 'visible' && !busy && load().catch(handleError), 15_000);
 }
 
+// ------------------------------------------------------------------ opening splash (index.html)
+const splashStart = performance.now();
+/** lifts the splash once, after the first page has drawn (or at the latest after 6 s) */
+function hideSplash() {
+  const s = document.getElementById('splash');
+  if (!s || s.dataset.state) return;
+  s.dataset.state = 'waiting';
+  window.setTimeout(() => {
+    s.dataset.state = 'fading';
+    window.setTimeout(() => s.remove(), 320);
+  }, Math.max(0, 450 - (performance.now() - splashStart)));
+}
+window.setTimeout(hideSplash, 6000);
+
 // ------------------------------------------------------------------ routing
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); } catch { /* token may already be gone */ }
@@ -1225,6 +1240,7 @@ async function route() {
   } catch (e) {
     if (token === viewToken) handleError(e);
   }
+  hideSplash();
 }
 
 // a new page starts at its top

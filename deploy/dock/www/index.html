@@ -43,6 +43,13 @@
   <title>Dock</title>
 </head>
 <body>
+  <!-- opening splash: painted with the HTML, lifted by app.js once the first page has its data -->
+  <div class="splash" id="splash" role="status" aria-label="กำลังโหลด">
+    <span class="splash-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg></span>
+    <span class="splash-name">Dock</span>
+    <span class="splash-tag">ดูแลเซิร์ฟเวอร์</span>
+    <span class="splash-bar" aria-hidden="true"></span>
+  </div>
   <div id="app" aria-live="polite"></div>
   <noscript>ต้องเปิด JavaScript</noscript>
   <script type="module" src="app.js"></script>
