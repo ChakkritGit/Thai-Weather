@@ -1499,5 +1499,7 @@ button {
 /* rolling numbers (lib/roll.ts): one slot per character, the outgoing glyph overlaid while it leaves */
 .roll { display: inline-flex; font-variant-numeric: tabular-nums; white-space: pre; }
 .roll-slot { position: relative; display: inline-block; }
-.roll-glyph { display: inline-block; will-change: transform, filter, opacity; }
-.roll-out { position: absolute; inset: 0 auto auto 0; }
+.roll-glyph { display: inline-block; }
+.roll-slot.rolling { overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent); }
+.roll-strip { position: absolute; inset: 0 0 auto 0; display: flex; flex-direction: column; align-items: center; will-change: transform, filter; }
+.roll-strip .roll-glyph { display: flex; align-items: center; justify-content: center; }
