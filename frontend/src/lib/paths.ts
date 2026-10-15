@@ -22,5 +22,6 @@ export const paths = {
   alertSettings: (lat?: number, lon?: number) =>
     lat === undefined || lon === undefined ? '/alerts#notifications' : `/alerts?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}#notifications`,
   method: '/method',
+  developers: '/developers',
   design: '/design',
 };

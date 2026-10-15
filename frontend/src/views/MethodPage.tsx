@@ -172,7 +172,8 @@ export function MethodPage({ run }: { run: MethodRun | null }) {
               <li>{th ? 'ศัพท์และเกณฑ์ฝน/อุณหภูมิ: กรมอุตุนิยมวิทยา' : 'Rain/temperature terms: Thai Meteorological Department'}</li>
             </ul>
             <p className="muted" style={{ fontSize: 'var(--font-size-sm)' }}>
-              API: <code>/api/v1/meta</code> · <code>/api/v1/point</code> · <code>/api/v1/provinces</code> · <code>/docs</code>
+              {th ? 'ใช้ข้อมูลนี้ในแอปของคุณได้ผ่าน ' : 'Use this data in your own app with the '}
+              <a href="/developers">{th ? 'API ฟรี (ไม่ต้องใช้คีย์)' : 'free API (no key)'}</a>
             </p>
           </div>
         </section>

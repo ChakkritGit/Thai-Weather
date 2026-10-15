@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     data_dir: Path = Path("var")
     admin_token: str | None = None
     cors_origins: list[str] = ["*"]
+    # free public API, per client IP (app/api/ratelimit.py); the site's own pages only meet the flood guard
+    rate_per_min: int = 60
+    rate_per_day: int = 5000
+    rate_site_per_min: int = 3000
+    rate_site_per_day: int = 200_000
 
 
 @cache

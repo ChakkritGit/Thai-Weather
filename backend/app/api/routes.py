@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from functools import cache
 
 import numpy as np
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -62,7 +62,7 @@ def _binary(data: np.ndarray, etag: str, request: Request, extra: dict | None = 
 
 
 # ------------------------------------------------------------------ meta
-@router.get("/health")
+@router.get("/health", tags=["status"], summary="Service health and the current forecast run")
 def health(request: Request) -> dict:
     run = request.app.state.store.latest()
     return {
@@ -73,7 +73,9 @@ def health(request: Request) -> dict:
     }
 
 
-@router.get("/meta")
+@router.get(
+    "/meta", tags=["forecast"], summary="Current run, layers with their encodings, colour scales and the 2 km grid"
+)
 def meta(request: Request) -> dict:
     run = request.app.state.store.latest()
     static = load_static()
@@ -81,7 +83,10 @@ def meta(request: Request) -> dict:
         "status": request.app.state.refresher.status,
         "run": {**run.meta, "days": list(_day_coverage(run).values())} if run else None,
         # each layer with the encoding the shown run was written with (older runs used narrower ones)
-        "layers": [{**lyr.describe(), "encoding": asdict(run_encoding(run.meta, lid))} if run else lyr.describe() for lid, lyr in LAYERS.items()],
+        "layers": [
+            {**lyr.describe(), "encoding": asdict(run_encoding(run.meta, lid))} if run else lyr.describe()
+            for lid, lyr in LAYERS.items()
+        ],
         "regions": [{"id": k, "name_th": v[0], "name_en": v[1]} for k, v in REGIONS.items()],
         "scales": weather_scales(),
         "fine_grid": static.grid.describe(),
@@ -89,7 +94,7 @@ def meta(request: Request) -> dict:
 
 
 # ---------------------------------------------------------------- layers
-@router.get("/layers/{layer}")
+@router.get("/layers/{layer}", include_in_schema=False)
 def layer(
     layer: str,
     request: Request,
@@ -123,7 +128,7 @@ def _hillshade() -> np.ndarray:
     return np.where(static.land, shade, 0).astype(np.uint8)
 
 
-@router.get("/static/{name}")
+@router.get("/static/{name}", include_in_schema=False)
 def static_layer(name: str, request: Request) -> Response:
     static = load_static()
     if name == "hillshade":
@@ -137,7 +142,7 @@ def static_layer(name: str, request: Request) -> Response:
     return _binary(data, f"static-{name}-v2", request)
 
 
-@router.get("/geo/{name}")
+@router.get("/geo/{name}", include_in_schema=False)
 def geo(name: str) -> FileResponse:
     if name not in ("provinces", "countries"):
         raise HTTPException(404)
@@ -145,10 +150,10 @@ def geo(name: str) -> FileResponse:
 
 
 # ----------------------------------------------------------------- point
-@router.get("/point")
+@router.get("/point", tags=["forecast"], summary="Hourly 2 km forecast (and the raw ~25 km model) for one location")
 def point(
-    lat: float = Query(..., ge=-90, le=90),
-    lon: float = Query(..., ge=-180, le=180),
+    lat: float = Query(..., ge=-90, le=90, description="latitude, WGS84 (Thailand: 5.5-20.5)"),
+    lon: float = Query(..., ge=-180, le=180, description="longitude, WGS84 (Thailand: 97.3-105.7)"),
     run: Run = Depends(current_run),
 ) -> dict:
     static = load_static()
@@ -214,7 +219,7 @@ def _province_days(run: Run, i: int) -> list[dict]:
     return out
 
 
-@router.get("/provinces")
+@router.get("/provinces", tags=["provinces"], summary="Daily summary for all 77 provinces")
 def provinces(run: Run = Depends(current_run)) -> dict:
     static = load_static()
     return {
@@ -223,8 +228,10 @@ def provinces(run: Run = Depends(current_run)) -> dict:
     }
 
 
-@router.get("/provinces/{pid}")
-def province(pid: str, run: Run = Depends(current_run)) -> dict:
+@router.get("/provinces/{pid}", tags=["provinces"], summary="Hourly and daily forecast for one province")
+def province(
+    pid: str = Path(..., description="province id from /provinces, e.g. TH-10"), run: Run = Depends(current_run)
+) -> dict:
     static = load_static()
     p = static.province_by_id(pid)
     if p is None:
@@ -240,8 +247,11 @@ def province(pid: str, run: Run = Depends(current_run)) -> dict:
     }
 
 
-@router.get("/alerts")
-def alerts(min_severity: int = Query(1, ge=1, le=3), run: Run = Depends(current_run)) -> dict:
+@router.get("/alerts", tags=["alerts"], summary="Province alerts (heavy rain, storms, wind, heat, cold, frost) by day")
+def alerts(
+    min_severity: int = Query(1, ge=1, le=3, description="1 yellow (watch), 2 orange (warning), 3 red (danger)"),
+    run: Run = Depends(current_run),
+) -> dict:
     static = load_static()
     cover = _day_coverage(run)
     out = []
@@ -273,7 +283,7 @@ class ObservationIn(BaseModel):
     elevation: float | None = Field(None, ge=-100, le=9000)
 
 
-@router.post("/observations", dependencies=[Depends(require_admin)])
+@router.post("/observations", dependencies=[Depends(require_admin)], include_in_schema=False)
 def ingest_observations(items: list[ObservationIn], request: Request) -> dict:
     obs = [Observation(**o.model_dump()) for o in items]
     for o in obs:
@@ -283,7 +293,7 @@ def ingest_observations(items: list[ObservationIn], request: Request) -> dict:
     return {"accepted": len(obs), "buffered": total, "applied_on": "next forecast run"}
 
 
-@router.post("/runs", status_code=202, dependencies=[Depends(require_admin)])
+@router.post("/runs", status_code=202, dependencies=[Depends(require_admin)], include_in_schema=False)
 def trigger_run(request: Request) -> dict:
     request.app.state.refresher.trigger()
     return {"status": "scheduled"}
@@ -316,11 +326,11 @@ def _cyclones_for(request: Request, lat: float, lon: float, now: datetime) -> li
     return sorted(out, key=lambda c: c["distance_now_km"])
 
 
-@router.get("/nowcast")
+@router.get("/nowcast", tags=["nowcast"], summary="Radar nowcast 0-60 min for a point, plus active tropical cyclones")
 def nowcast(
     request: Request,
-    lat: float = Query(..., ge=-90, le=90),
-    lon: float = Query(..., ge=-180, le=180),
+    lat: float = Query(..., ge=-90, le=90, description="latitude, WGS84 (Thailand: 5.5-20.5)"),
+    lon: float = Query(..., ge=-180, le=180, description="longitude, WGS84 (Thailand: 97.3-105.7)"),
 ) -> dict:
     """Radar-based 0-60 min rain/storm nowcast for a point, plus active tropical cyclones."""
     service = request.app.state.nowcast
@@ -360,7 +370,7 @@ def nowcast(
     return out
 
 
-@router.get("/nowcast/layer")
+@router.get("/nowcast/layer", include_in_schema=False)
 def nowcast_layer(request: Request, lead: int = Query(0, ge=0, le=60)) -> Response:
     """Radar reflectivity as uint8 (``linear`` -10..75 dBZ, 0 = no echo), advected ``lead`` min ahead."""
     service = request.app.state.nowcast
@@ -385,7 +395,7 @@ def _frame_id(t: datetime) -> str:
     return str(int(t.timestamp()))
 
 
-@router.get("/nowcast/frames")
+@router.get("/nowcast/frames", include_in_schema=False)
 def nowcast_frames(request: Request) -> dict:
     """Observed radar frames of the last ~hour for playback, oldest first (ids are stable unix times).
 
@@ -412,7 +422,7 @@ def nowcast_frames(request: Request) -> dict:
     return out
 
 
-@router.get("/nowcast/frame/{frame_id}")
+@router.get("/nowcast/frame/{frame_id}", include_in_schema=False)
 def nowcast_frame(frame_id: str, request: Request) -> Response:
     """One observed radar frame as uint8 (same encoding as ``/nowcast/layer``); 404 once it aged out."""
     snap = request.app.state.nowcast.snapshot()
@@ -430,7 +440,7 @@ def nowcast_frame(frame_id: str, request: Request) -> Response:
     raise HTTPException(404, detail="radar frame not available")
 
 
-@router.get("/nowcast/status")
+@router.get("/nowcast/status", include_in_schema=False)
 def nowcast_status(request: Request) -> dict:
     return {**request.app.state.nowcast.status, "leads": list(LEADS), "stale_after_min": STALE_AFTER_MIN}
 
@@ -492,12 +502,12 @@ def _checked(sub: PushSubscription) -> PushSubscription:
     return sub
 
 
-@router.get("/push/public-key")
+@router.get("/push/public-key", include_in_schema=False)
 def push_public_key(request: Request) -> dict:
     return {"public_key": _push(request).keys.public}
 
 
-@router.post("/push/subscribe", dependencies=[Depends(_limit_body)])
+@router.post("/push/subscribe", dependencies=[Depends(_limit_body)], include_in_schema=False)
 def push_subscribe(body: PushSubscribe, request: Request) -> dict:
     """Register (or update, when the endpoint + auth secret match) a subscription for a location."""
     service = _push(request)
@@ -520,7 +530,7 @@ def push_subscribe(body: PushSubscribe, request: Request) -> dict:
     return {"id": sub.id, "lat": sub.lat, "lon": sub.lon, "label": sub.label, "prefs": asdict(sub.prefs)}
 
 
-@router.post("/push/unsubscribe", dependencies=[Depends(_limit_body)])
+@router.post("/push/unsubscribe", dependencies=[Depends(_limit_body)], include_in_schema=False)
 def push_unsubscribe(body: PushSubscription, request: Request) -> dict:
     service = _push(request)
     _checked(body)
@@ -532,7 +542,7 @@ def push_unsubscribe(body: PushSubscription, request: Request) -> dict:
     return {"ok": True, "deleted": service.store.delete(stored.id)}
 
 
-@router.post("/push/test", dependencies=[Depends(_limit_body)])
+@router.post("/push/test", dependencies=[Depends(_limit_body)], include_in_schema=False)
 def push_test(body: PushSubscription, request: Request) -> dict:
     """Send a test notification to this one subscription (at most once a minute)."""
     service = _push(request)
@@ -567,7 +577,7 @@ def push_test(body: PushSubscription, request: Request) -> dict:
     return {"ok": True}
 
 
-@router.get("/push/status", dependencies=[Depends(require_admin)])
+@router.get("/push/status", dependencies=[Depends(require_admin)], include_in_schema=False)
 def push_status(request: Request) -> dict:
     service = request.app.state.push
     return {"enabled": False} if service is None else service.status()

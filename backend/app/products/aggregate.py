@@ -101,7 +101,11 @@ class DayAccumulator:
         rain_mean, rain_p95 = idx.mean(rain), idx.percentile(rain, 95)
         # storm_max is the single hottest cell (for text); alerts use storm_p95 – like rain and wind, a
         # level counts only when at least ~5 % of the province reaches it, not one pixel at one hour
-        storm, storm_p95, wind = idx.max(self.stormmax), idx.percentile(self.stormmax, 95), idx.percentile(self.windmax, 95)
+        storm, storm_p95, wind = (
+            idx.max(self.stormmax),
+            idx.percentile(self.stormmax, 95),
+            idx.percentile(self.windmax, 95),
+        )
         out = []
         for i, _p in enumerate(idx.provinces):
             day = {

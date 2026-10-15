@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
+from .api.ratelimit import RateLimitMiddleware, Tier
 from .api.routes import router
 from .config import get_settings
 from .core.static import load_static
@@ -55,6 +56,16 @@ app = FastAPI(
         "global ~22 km models with terrain, coastline, urban and convective physics."
     ),
     lifespan=lifespan,
+    # the schema of the public endpoints; the human docs are the site's /developers page
+    openapi_url="/api/v1/openapi.json",
+    docs_url=None,
+    redoc_url=None,
+)
+_s = get_settings()
+app.add_middleware(
+    RateLimitMiddleware,
+    public=Tier("public", _s.rate_per_min, _s.rate_per_day),
+    site=Tier("site", _s.rate_site_per_min, _s.rate_site_per_day),
 )
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
@@ -62,6 +73,10 @@ app.add_middleware(
     allow_origins=get_settings().cors_origins,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
-    expose_headers=["X-Grid-NY", "X-Grid-NX", "X-Run-Id", "X-Frame-Time", "X-Lead", "X-Enc-Min", "X-Enc-Max"],
+    expose_headers=[
+        *("X-Grid-NY", "X-Grid-NX", "X-Run-Id", "X-Frame-Time", "X-Lead", "X-Enc-Min", "X-Enc-Max"),
+        *("X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"),
+        *("X-RateLimit-Limit-Day", "X-RateLimit-Remaining-Day", "Retry-After"),
+    ],
 )
 app.include_router(router)

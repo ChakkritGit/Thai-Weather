@@ -17,6 +17,7 @@ from .sources.synthetic import SyntheticSource
 from .store import RunStore
 
 log = logging.getLogger(__name__)
+RETRY_MINUTES = 30  # after a failed run
 
 
 def build_source(settings: Settings) -> Source:
@@ -93,12 +94,28 @@ class Refresher:
         finally:
             self._lock.release()
 
+    def first_wait_s(self, now: datetime | None = None) -> float:
+        """Seconds until the first run: none when the latest run is due, otherwise when it falls due.
+
+        Every deploy restarts the API; fetching the whole grid again each time spent Open-Meteo's
+        hourly quota (429) for a forecast that was minutes old.
+        """
+        if not self.settings.run_on_startup:
+            return self.settings.refresh_minutes * 60
+        run = self.store.latest()
+        created = (run.meta.get("created") if run else None) or None
+        if not created or run.meta.get("demo"):
+            return 0.0
+        age = ((now or datetime.now(UTC)) - datetime.fromisoformat(created)).total_seconds()
+        return max(0.0, self.settings.refresh_minutes * 60 - age)
+
     def start(self) -> None:
         def loop() -> None:
-            if self.settings.run_on_startup:
-                self.run_once()
-            while not self._stop.wait(self.settings.refresh_minutes * 60):
-                self.run_once()
+            wait = self.first_wait_s()
+            while not self._stop.wait(wait):
+                ok = self.run_once() is not None
+                # a failed fetch (quota, network) is retried soon instead of a whole interval later
+                wait = self.settings.refresh_minutes * 60 if ok else RETRY_MINUTES * 60
 
         self._thread = threading.Thread(target=loop, name="refresher", daemon=True)
         self._thread.start()
