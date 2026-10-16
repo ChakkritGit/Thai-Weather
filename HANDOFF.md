@@ -135,19 +135,6 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   restricted-scope verification, which the owner declined). The Picker/`drive.file` code is kept; it failed
   in iPhone Safari (third-party cookies).
 
-### Implemented from the owner's request of 2026-10-17
-- **City search in the weather app**: `PlaceSearch.tsx` on the map, Thai/English with keyboard and touch
-  selection, debounced/abortable requests, flies to the result and opens its point forecast. The local
-  GeoNames index contains 88,259 places (77 provinces, 928 districts); `GET /api/v1/places?q=` returns up
-  to 10 exact/prefix/contains matches under the existing API rate limit, independently of forecast runs.
-  GeoNames credit is in the UI/API; `/developers` documents the endpoint. Regenerate with
-  `backend/scripts/build_places.py` using a dump outside the repo; see `backend/app/data/places.md`.
-- **Drive Music skeletons**: `LoadingSkeletons.tsx` covers the session gate, route transitions, Drive
-  folder/track fetches, playlists and the local library. IndexedDB readiness prevents false empty or
-  missing-playlist states; previous folder rows are hidden while fetching. Reduced motion is supported.
-  Verified production builds and unit tests, plus Chromium/WebKit iPhone emulation and desktop layouts;
-  Drive tests use mocked auth and file responses, never the owner's real Google data.
-
 ### Other follow-up work
 - Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
@@ -194,3 +181,39 @@ map page server-rendered (LCP 5.7 → ~2–3.7 s); Bot Fight Mode off (best prac
 Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SILAM) as its own view —
 picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
+
+### Delivered and verified on production (2026-10-17)
+- **Deployed code**: Thai Weather `1c958e9` on `claude/vigilant-ride-i3yr1m`; Drive Music `37988cf`
+  on `main`. Thai Weather API/verify were updated once, the weather web and Drive Music rolled out
+  without downtime, and the normal Drive Music deploy rebuilt the Bun services and backup image.
+  All affected containers were running and their configured health checks passed after rollout;
+  `apps-autodeploy.timer` remained active.
+- **City search in the weather app**: `PlaceSearch.tsx` on the map, Thai/English with keyboard and touch
+  selection, debounced/abortable requests, flies to the result and opens its point forecast. The local
+  GeoNames index contains 88,259 places (77 provinces, 928 districts); `GET /api/v1/places?q=` returns up
+  to 10 exact/prefix/contains matches under the existing API rate limit, independently of forecast runs.
+  GeoNames credit is in the UI/API; `/developers` documents the endpoint. Regenerate with
+  `backend/scripts/build_places.py` using a dump outside the repo; see `backend/app/data/places.md`.
+- **Drive Music skeletons**: `LoadingSkeletons.tsx` covers the session gate, route transitions, Drive
+  folder/track fetches, playlists and the local library. IndexedDB readiness prevents false empty or
+  missing-playlist states; previous folder rows are hidden while fetching. Reduced motion is supported.
+  Verified production builds and unit tests, plus Chromium/WebKit iPhone emulation and desktop layouts;
+  Drive tests use mocked auth and file responses, never the owner's real Google data.
+- **Validation**: backend Ruff lint/format and **258 pytest tests**; weather frontend TypeScript,
+  **77 Vitest tests** and production build; Drive Music TypeScript, **349 Vitest tests**, ESLint on
+  changed files and production build. Total: **684 passing tests**.
+- **Production browser checks**: Chromium and WebKit with iPhone 13 emulation, plus desktop layouts.
+  Weather checks covered Thai/English queries, keyboard and touch selection, visible map pins above
+  the forecast sheet, empty/error states, clearing, Escape, stale-request cancellation and the 16 px
+  input. Drive checks covered five route skeletons, light/dark layouts, reduced motion, policy links,
+  folder loading, hidden previous-folder rows and the final empty state. Drive auth and file responses
+  were mocked; a physical iPhone with the real Google session and home-screen PWA still needs the
+  owner's check (see §7). Test analytics were blocked and tests sent no real notifications.
+- **Forecast quota and cleanup**: no extra forecast was requested. The run remained
+  `20261016T1200Z-open-meteo` before/after rollout and production checks. Unused replaced weather images
+  were removed; the app deploy ran its dangling-image cleanup and builder-cache prune
+  (`--keep-storage 3gb`). The downloaded GeoNames dump and temporary Drive Music validation checkout
+  were removed.
+- **Local Drive Music checkout**: sibling `../drive-music-player` is the `Drive-Music-Web` repository;
+  it was fast-forwarded to `37988cf` and is clean. Existing untracked files in Thai Weather
+  (`frontend/AGENTS.md`, `frontend/CLAUDE.md`, `frontend/supabase/`, `supabase/`) were left untouched.
