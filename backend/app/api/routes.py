@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import binascii
+import json
 import math
 import time
 from dataclasses import asdict
@@ -235,6 +236,23 @@ def forecast(
         },
         **body,
     }
+
+
+@router.get("/air/stations", tags=["air"], summary="PM2.5 now at every Air4Thai station (Pollution Control Department)")
+def air_stations(request: Request) -> Response:
+    """Each station's latest hour (under 6 h old): PM2.5 µg/m³, AQI and the PCD level and colour.
+    Refreshed every 20 minutes; empty when the source is unreachable."""
+    svc = getattr(request.app.state, "air", None)
+    body = {
+        "updated": svc.updated.isoformat() if svc and svc.updated else None,
+        "stations": svc.all() if svc else [],
+        "attribution": {"name": "Air4Thai, กรมควบคุมมลพิษ", "url": "https://air4thai.pcd.go.th"},
+    }
+    return Response(
+        json.dumps(body, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 # ---------------------------------------------------------- verification

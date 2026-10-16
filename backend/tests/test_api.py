@@ -94,3 +94,8 @@ def test_forecast_endpoint_without_extras(client):
     assert all(day["source"] == "fine" and day["sunrise"] for day in d["daily"])
     assert d["air"] is None and d["attribution"] == []  # extras are off in tests
     assert client.get("/api/v1/forecast", params={"lat": 40, "lon": 100}).status_code == 422
+
+
+def test_air_stations_endpoint_is_empty_without_the_source(client):
+    d = client.get("/api/v1/air/stations").json()
+    assert d["stations"] == [] and d["updated"] is None and "Air4Thai" in d["attribution"]["name"]

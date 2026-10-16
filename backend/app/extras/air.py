@@ -129,6 +129,29 @@ class AirService:
     def stop(self) -> None:
         self._stop.set()
 
+    def describe(self, r: Reading) -> dict:
+        th, en, color = LEVELS.get(r.level, ("", "", None))
+        return {
+            "id": r.station,
+            "name_th": r.name_th.strip(),
+            "name_en": r.name_en.strip(),
+            "area_th": r.area_th,
+            "lat": r.lat,
+            "lon": r.lon,
+            "pm25": r.pm25,
+            "aqi": r.aqi,
+            "level": int(r.level) if r.level.isdigit() else None,
+            "label_th": th,
+            "label_en": en,
+            "color": color,
+            "time": r.time.isoformat(),
+        }
+
+    def all(self, now: datetime | None = None) -> list[dict]:
+        """Every station with a reading under MAX_AGE old (for the map)."""
+        now = now or datetime.now(UTC)
+        return [self.describe(r) for r in self.readings if now - r.time <= MAX_AGE]
+
     def nearest(self, lat: float, lon: float, now: datetime | None = None) -> dict | None:
         now = now or datetime.now(UTC)
         best, best_km = None, MAX_KM

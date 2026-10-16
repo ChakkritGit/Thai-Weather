@@ -321,7 +321,13 @@ export interface ForecastResponse {
   attribution: { name: string; url: string; license?: string }[];
 }
 
+export interface AirStation {
+  id: string; name_th: string; name_en: string; area_th: string; lat: number; lon: number;
+  pm25: number; aqi: number | null; level: number | null; label_th: string; label_en: string; color: string | null; time: string;
+}
+
 export const api = {
+  airStations: () => getJson<{ updated: string | null; stations: AirStation[] }>('/api/v1/air/stations'),
   forecast: (lat: number, lon: number) =>
     getJson<ForecastResponse>(`/api/v1/forecast?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
   meta: () => getJson<Meta>('/api/v1/meta'),

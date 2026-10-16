@@ -1631,3 +1631,32 @@ button {
 .tenday-bar { position: relative; height: 6px; border-radius: 3px; background: var(--color-bg-subtle); }
 .tenday-bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .tenday-note { font-size: var(--font-size-xs); margin: 0; }
+
+/* ---------------------------------------------------------------- PM2.5 stations on the map */
+.aq-marker {
+  min-width: 26px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  border: 1.5px solid var(--color-bg-surface);
+  background: var(--aq);
+  color: #1b1f24;
+  font: 600 11px/19px var(--font-family-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.aq-marker[data-level='5'] { color: #fff; }
+.aq-marker:focus-visible { outline: 2px solid var(--color-accent-default); outline-offset: 1px; }
+.air-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+}
+.air-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.air-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }

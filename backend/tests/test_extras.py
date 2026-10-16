@@ -174,6 +174,9 @@ def test_nearest_fresh_air4thai_station():
         r["station"]["id"] == "near" and r["pm25"] == 15.9 and r["label_th"] == "ดี" and r["station"]["distance_km"] < 10
     )
     assert svc.nearest(7.0, 100.5, now) is None  # nothing within 50 km
+    stations = {s["id"]: s for s in svc.all(now)}
+    assert set(stations) == {"near", "far"}  # the 18-hour-old reading and the broken one are left out
+    assert stations["far"]["level"] == 5 and stations["far"]["color"] == "#f04646"
 
 
 def test_air4thai_chain_file_is_shipped():

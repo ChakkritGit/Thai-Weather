@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { CanvasSource, GeoJSONSource, ImageSource, Map as MLMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { api, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
+import { api, type AirStation, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
 import { buildRadarLut, decode, hexToRgb } from '../lib/color';
 import { gridBounds, gridLines, imageCoordinates, rasterFor, renderGrid, sampleGrid, type Bounds, type Raster } from '../lib/render';
 import { fmtNum } from '../lib/format';
@@ -26,6 +26,8 @@ interface Props {
   theme: 'light' | 'dark';
   showGrid?: boolean;
   selected?: MapPoint | null;
+  /** PM2.5 stations to draw as labelled dots (null/undefined = hidden) */
+  air?: AirStation[] | null;
   /** latest radar frame to overlay above the weather layer (null/undefined = hidden) */
   radar?: RadarFrame | null;
   onSelect?: (p: MapPoint) => void;
@@ -116,6 +118,7 @@ export function WeatherMap(props: Props) {
   const currentRef = useRef<{ data: GridData; grid: GridDesc; layer: LayerMeta } | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const cityMarkers = useRef<maplibregl.Marker[]>([]);
+  const airMarkers = useRef<maplibregl.Marker[]>([]);
   const [hover, setHover] = useState<{ x: number; y: number; text: string; place: string } | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -310,6 +313,32 @@ export function WeatherMap(props: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, ready]);
+
+  // PM2.5 stations: HTML markers (the map style has no glyphs), coloured by the PCD level; a tap
+  // opens the point panel there, like a tap anywhere else
+  const air = props.air;
+  useEffect(() => {
+    const map = mapRef.current;
+    airMarkers.current.forEach((m) => m.remove());
+    airMarkers.current = [];
+    if (!map || !ready || !air?.length) return;
+    for (const s of air) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'aq-marker';
+      el.dataset.level = String(s.level ?? '');
+      el.style.setProperty('--aq', s.color ?? 'var(--color-fg-subtle)');
+      el.textContent = String(Math.round(s.pm25));
+      const name = lang === 'th' ? s.name_th : s.name_en || s.name_th;
+      el.title = `${name}: PM2.5 ${Math.round(s.pm25)} µg/m³ (${lang === 'th' ? s.label_th : s.label_en})`;
+      el.setAttribute('aria-label', el.title);
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        onSelectRef.current?.({ lat: s.lat, lon: s.lon });
+      });
+      airMarkers.current.push(new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map));
+    }
+  }, [air, ready, lang]);
 
   useEffect(() => {
     cityMarkers.current.forEach((m, i) => (m.getElement().textContent = lang === 'th' ? CITIES[i].th : CITIES[i].en));

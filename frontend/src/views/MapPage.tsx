@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
-import type { LayerId, Meta, RunMeta } from '../lib/api';
+import { api, type AirStation, type LayerId, type Meta, type RunMeta } from '../lib/api';
 import { buildLut } from '../lib/color';
 import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
 import { nextFrameId } from '../lib/radarHistory';
@@ -132,6 +132,20 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const stageRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   const [gridOn, setGridOn] = useState(false);
+  // PM2.5 now at the Air4Thai stations, fetched while shown and every 10 minutes after
+  const [airOn, setAirOn] = useState(false);
+  const [airStations, setAirStations] = useState<AirStation[] | null>(null);
+  useEffect(() => {
+    if (!airOn) return;
+    let cancelled = false;
+    const load = () => api.airStations().then((d) => !cancelled && setAirStations(d.stations)).catch(() => {});
+    load();
+    const timer = window.setInterval(load, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [airOn]);
   const sheetRef = useRef<HTMLElement>(null);
   const [peek, setPeek] = useState(false);
   const peekRef = useRef(peek);
@@ -488,7 +502,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
   const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
   const gridLabel = t('gridLines', { km: fmtKm(run.fine_grid.resolution_km, lang) });
-  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, onSelect: setSelected };
+  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, air: airOn ? airStations : null, onSelect: setSelected };
 
   return (
     <div className="map-page" data-sheet={selected ? (peek ? 'peek' : 'open') : undefined}>
@@ -558,6 +572,17 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           <button
             type="button"
             className="btn btn--icon-narrow"
+            aria-pressed={airOn}
+            aria-label={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
+            title={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
+            onClick={() => setAirOn((on) => !on)}
+          >
+            <Icon name="air" />
+            <span className="btn-label">PM2.5</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn--icon-narrow"
             aria-pressed={compare}
             aria-label={compareLabel}
             title={compareLabel}
@@ -602,6 +627,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         <div className="map-bottom">
           {radarOn && <RadarControl radar={radar} active={atNow} onSelect={onRadarSelect} />}
           <Legend layer={layer} />
+          {airOn && <AirLegend lang={lang} count={airStations?.length ?? null} />}
           <Timeline
             run={run}
             daily={layer.daily}
@@ -640,6 +666,33 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           </>
         )}
       </aside>
+    </div>
+  );
+}
+
+
+const AIR_LEVELS: [string, string, string][] = [
+  ['#3bccff', 'ดีมาก', 'Very good'],
+  ['#92d050', 'ดี', 'Good'],
+  ['#ffff00', 'ปานกลาง', 'Moderate'],
+  ['#ffa200', 'เริ่มมีผลฯ', 'Starting to affect'],
+  ['#f04646', 'มีผลต่อสุขภาพ', 'Affects health'],
+];
+
+/** The PCD's PM2.5 levels, under the weather legend while the stations are shown. */
+function AirLegend({ lang, count }: { lang: 'th' | 'en'; count: number | null }) {
+  const th = lang === 'th';
+  return (
+    <div className="air-legend glass" role="note">
+      <b>PM2.5</b>
+      {AIR_LEVELS.map(([c, t, e]) => (
+        <span key={c}>
+          <i style={{ background: c }} /> {th ? t : e}
+        </span>
+      ))}
+      <span className="subtle">
+        {count === null ? (th ? 'กำลังโหลด…' : 'Loading…') : th ? `${count} สถานี · Air4Thai กรมควบคุมมลพิษ` : `${count} stations · Air4Thai (PCD)`}
+      </span>
     </div>
   );
 }
