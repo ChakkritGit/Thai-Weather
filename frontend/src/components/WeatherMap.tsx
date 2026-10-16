@@ -353,6 +353,10 @@ export function WeatherMap(props: Props) {
       add(root, 'span', 'aq-pop-level', `${th ? s.label_th : s.label_en}${s.aqi != null ? ` · AQI ${s.aqi}` : ''}`);
       const when = new Date(s.time).toLocaleTimeString(th ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
       add(root, 'span', 'aq-pop-time', th ? `วัดเมื่อ ${when} น. · Air4Thai` : `Measured ${when} · Air4Thai`);
+      // taps inside the card must not reach the map (its click would close the card or pick a point)
+      for (const type of ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick'] as const) {
+        root.addEventListener(type, (ev) => ev.stopPropagation());
+      }
       const go = add(root, 'button', 'btn aq-pop-go', th ? 'ดูพยากรณ์ที่นี่' : 'Forecast here') as HTMLButtonElement;
       go.type = 'button';
       go.addEventListener('click', () => {
@@ -361,7 +365,13 @@ export function WeatherMap(props: Props) {
       });
       return root;
     };
-    const show = (s: AirStation) => popup.setLngLat([s.lon, s.lat]).setDOMContent(content(s)).addTo(map);
+    // open downwards in the upper half: above a dot near the top the card sat under the layer chips
+    const show = (s: AirStation) => {
+      const y = map.project([s.lon, s.lat]).y;
+      popup.options.anchor = y < map.getContainer().clientHeight * 0.5 ? 'top' : 'bottom';
+      popup.setLngLat([s.lon, s.lat]).setDOMContent(content(s)).addTo(map);
+      setHover(null);
+    };
 
     for (const s of air) {
       const el = document.createElement('button');
