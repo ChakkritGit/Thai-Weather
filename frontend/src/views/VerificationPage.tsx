@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 
 type Metrics = { n: number; bias: number | null; mae: number | null; rmse: number | null };
@@ -103,7 +104,7 @@ export function VerificationPage({ report }: { report: VerificationReport }) {
               ? 'ค่าบวก = พยากรณ์ร้อนเกินจริง · ค่าลบ = เย็นเกินจริง (°C) · ชั่วโมงตามเวลาไทย'
               : 'Positive = forecast too warm · negative = too cold (°C) · Bangkok time'}
           </p>
-          <BiasChart rows={t.by_hour} name={name} />
+          <BiasChart rows={t.by_hour} name={name} th={th} />
         </section>
 
         <section className="two-col">
@@ -251,16 +252,32 @@ function BarTable({ rows, name, th, first }: { rows: Row[]; name: (s: string) =>
   );
 }
 
-function BiasChart({ rows, name }: { rows: Row[]; name: (s: string) => string }) {
-  const W = 640, H = 220, L = 40, R = 12, T = 12, B = 30;
+/** The chart's box width in CSS px, so the SVG is drawn at its real size: it fills the card while the
+ * text stays 11 px instead of scaling with the drawing. */
+function useWidth(fallback: number) {
+  const ref = useRef<HTMLElement>(null);
+  const [w, setW] = useState(fallback);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(240, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w] as const;
+}
+
+function BiasChart({ rows, name, th }: { rows: Row[]; name: (s: string) => string; th: boolean }) {
+  const [ref, W] = useWidth(640);
+  const H = 240, L = 52, R = 12, T = 12, B = 44;
   const vals = rows.flatMap((r) => [r.metrics.fine?.bias ?? 0, r.metrics.gfs_raw?.bias ?? 0]);
   const lim = Math.max(1, Math.ceil(Math.max(...vals.map(Math.abs)) * 2) / 2);
   const x = (i: number) => L + ((W - L - R) * (i + 0.5)) / rows.length;
   const y = (v: number) => T + ((H - T - B) * (lim - v)) / (2 * lim);
   const ticks = [-lim, -lim / 2, 0, lim / 2, lim];
   return (
-    <figure className="verify-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="bias by hour">
+    <figure className="verify-chart" ref={ref}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="bias by hour">
         {ticks.map((v) => (
           <g key={v}>
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--color-chart-axis)' : 'var(--color-chart-grid)'} />
@@ -268,8 +285,10 @@ function BiasChart({ rows, name }: { rows: Row[]; name: (s: string) => string })
           </g>
         ))}
         {rows.map((r, i) => (
-          <text key={r.label} x={x(i)} y={H - 10} textAnchor="middle" className="verify-axis">{r.label.slice(0, 2)}:00</text>
+          <text key={r.label} x={x(i)} y={H - B + 16} textAnchor="middle" className="verify-axis">{r.label.slice(0, 2)}:00</text>
         ))}
+        <text x={L + (W - L - R) / 2} y={H - 4} textAnchor="middle" className="verify-axis-title">{th ? 'เวลาไทย' : 'Bangkok time'}</text>
+        <text transform={`translate(12 ${T + (H - T - B) / 2}) rotate(-90)`} textAnchor="middle" className="verify-axis-title">{th ? 'คลาด °C (+ ร้อนเกิน)' : 'error °C (+ too warm)'}</text>
         {(['gfs_raw', 'fine'] as const).map((s) => (
           <g key={s}>
             <polyline
@@ -298,21 +317,24 @@ function BiasChart({ rows, name }: { rows: Row[]; name: (s: string) => string })
 }
 
 function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliability']; th: boolean }) {
-  const S = 260, P = 34;
-  const x = (v: number) => P + ((S - P - 10) * v) / 100;
-  const y = (v: number) => S - P - ((S - P - 10) * v) / 100;
+  const [ref, W] = useWidth(340);
+  const H = 300, L = 52, R = 14, T = 12, B = 44;
+  const x = (v: number) => L + ((W - L - R) * v) / 100;
+  const y = (v: number) => H - B - ((H - T - B) * v) / 100;
   const maxN = Math.max(...bins.map((b) => b.n), 1);
   return (
-    <figure className="verify-chart verify-chart--square">
-      <svg viewBox={`0 0 ${S} ${S}`} role="img" aria-label={th ? 'ความน่าเชื่อถือของโอกาสฝน' : 'chance of rain reliability'}>
+    <figure className="verify-chart" ref={ref}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={th ? 'ความน่าเชื่อถือของโอกาสฝน' : 'chance of rain reliability'}>
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
             <line x1={x(0)} x2={x(100)} y1={y(v)} y2={y(v)} stroke="var(--color-chart-grid)" />
-            <text x={P - 6} y={y(v) + 4} textAnchor="end" className="verify-axis">{v}</text>
-            <text x={x(v)} y={S - P + 16} textAnchor="middle" className="verify-axis">{v}</text>
+            <text x={L - 6} y={y(v) + 4} textAnchor="end" className="verify-axis">{v}</text>
+            <text x={x(v)} y={H - B + 16} textAnchor="middle" className="verify-axis">{v}</text>
           </g>
         ))}
         <line x1={x(0)} y1={y(0)} x2={x(100)} y2={y(100)} stroke="var(--color-chart-axis)" strokeDasharray="4 4" />
+        <text x={L + (W - L - R) / 2} y={H - 4} textAnchor="middle" className="verify-axis-title">{th ? 'โอกาสฝนที่พยากรณ์ (%)' : 'Forecast chance (%)'}</text>
+        <text transform={`translate(12 ${T + (H - T - B) / 2}) rotate(-90)`} textAnchor="middle" className="verify-axis-title">{th ? 'ฝนตกจริง (%)' : 'Rained (%)'}</text>
         <polyline fill="none" stroke="var(--color-chart-fine)" strokeWidth={2} points={bins.map((b) => `${x(b.forecast)},${y(b.observed)}`).join(' ')} />
         {bins.map((b) => (
           <circle key={b.bin} cx={x(b.forecast)} cy={y(b.observed)} r={3 + 5 * Math.sqrt(b.n / maxN)} fill="var(--color-chart-fine)" stroke="var(--color-bg-surface)" strokeWidth={2}>
@@ -321,7 +343,7 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
         ))}
       </svg>
       <figcaption className="muted verify-note">
-        {th ? 'แนวนอน: โอกาสฝนที่พยากรณ์ (%) · แนวตั้ง: ฝนตกจริง (%) · จุดใหญ่ = ชั่วโมงมาก' : 'Across: forecast chance (%) · up: how often it rained (%) · bigger dot = more hours'}
+        {th ? 'จุดใหญ่ = มีชั่วโมงมาก' : 'Bigger dot = more hours'}
       </figcaption>
     </figure>
   );
