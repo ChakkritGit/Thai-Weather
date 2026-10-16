@@ -17,7 +17,7 @@ import numpy as np
 
 from ..core.grid import Grid, grid_for
 from ..core.static import load_static
-from ..core.thermo import wind_components
+from ..core.thermo import SCALE_HEIGHT_M, wind_components
 from .base import CoarseForecast
 
 log = logging.getLogger(__name__)
@@ -33,8 +33,10 @@ HOURLY = (
     "wind_direction_850hPa",
     "cloud_cover",
     "shortwave_radiation",
-    "surface_pressure",
 )
+# Ten variables, not eleven: Open-Meteo counts a location with more than ten as more than one call
+# (11 = 1.1). Surface pressure, used only to convert humidity, comes from the grid cell's height
+# instead (see `psfc` below): ~9 % off every run, which kept the 18Z run inside the 10,000-call day.
 BATCH = 100
 
 
@@ -148,7 +150,9 @@ class OpenMeteoSource:
             "v850": v850.astype(np.float32),
             "cloud": grid_of("cloud_cover", 50.0),
             "sw": np.clip(grid_of("shortwave_radiation", 0.0), 0, None),
-            "psfc": grid_of("surface_pressure", 1008.0),
+            # standard-atmosphere pressure at the model cell's height; its real day-to-day swing (a few
+            # hPa) moves relative humidity by well under 1 %
+            "psfc": np.broadcast_to(1010.0 * np.exp(-orog / SCALE_HEIGHT_M), (nt, *g.shape)).astype(np.float32),
         }
         missing = int(np.isnan(raw["temperature_2m"][:nt]).sum())
         notes = [f"{missing} missing temperature values were gap-filled"] if missing else []

@@ -253,3 +253,25 @@ def test_silam_field_is_bytes_of_ug_from_the_south():
         assert fl.times[0].isoformat() == "2026-10-16T16:00:00+00:00"
     j = to_json(fl)
     assert j["nx"] == 2 and j["ny"] == 3 and len(j["frames"]) == 2
+
+
+def test_field_is_pulled_to_the_stations_and_fades_with_distance_and_lead():
+    from datetime import UTC, datetime, timedelta
+
+    import numpy as np
+
+    from app.extras.pmforecast import Field, adjust
+
+    t0 = datetime(2026, 10, 17, 0, tzinfo=UTC)
+    times = [t0 + timedelta(hours=h) for h in (0, 24, 72)]
+    ug = np.full((3, 30, 30), 60, dtype=np.uint8)  # model says 60 everywhere
+    fl = Field(13.0, 100.0, 0.2, 0.2, times, ug)
+    station = (14.0, 101.0, 18.0, t0)  # measured 18 at the box centre
+    out, used = adjust(fl, [station], now=t0 + timedelta(minutes=30))
+    assert used == 1
+    cy, cx = 5, 5
+    assert abs(int(out.ug[0, cy, cx]) - 18) <= 3  # now: close to the station
+    assert out.ug[1, cy, cx] > out.ug[0, cy, cx]  # tomorrow: partly back to the model
+    assert out.ug[0, 29, 29] > 45  # ~400 km away: barely changed
+    stale = (14.0, 101.0, 18.0, t0 - timedelta(hours=5))
+    assert adjust(fl, [stale], now=t0)[1] == 0

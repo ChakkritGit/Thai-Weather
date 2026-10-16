@@ -247,13 +247,17 @@ def forecast(
 @router.get("/air/forecast", tags=["air"], summary="PM2.5 forecast field over Thailand (FMI SILAM, 0.2°, hourly, 72 h)")
 def air_forecast(request: Request) -> Response:
     """Hourly PM2.5 (µg/m³) on SILAM's 0.2° grid over Thailand for the next 72 hours: one base64 byte per
-    cell, rows from the south. Refreshed every 3 hours; 503 until the first fetch has worked."""
-    from ..extras.pmforecast import to_json
+    cell, rows from the south, adjusted to the Air4Thai stations' latest readings (fading with distance
+    and lead time; `stations_used` says how many). Refreshed every 3 hours; 503 until the first fetch."""
+    from ..extras.pmforecast import adjust, to_json
 
     svc = getattr(request.app.state, "pm", None)
     if svc is None or svc.field is None:
         raise HTTPException(503, detail="PM2.5 forecast not available yet")
-    body = {"updated": svc.updated.isoformat() if svc.updated else None, **to_json(svc.field)}
+    air = getattr(request.app.state, "air", None)
+    readings = [(r.lat, r.lon, r.pm25, r.time) for r in air.readings] if air else []
+    field, used = adjust(svc.field, readings)
+    body = {"updated": svc.updated.isoformat() if svc.updated else None, "stations_used": used, **to_json(field)}
     return Response(
         json.dumps(body, ensure_ascii=False),
         media_type="application/json",

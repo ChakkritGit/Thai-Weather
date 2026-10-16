@@ -77,3 +77,10 @@ def test_backs_off_on_rate_limit(monkeypatch):
     src = OpenMeteoSource(spacing_deg=2.0, client=httpx.Client(transport=httpx.MockTransport(limited)))
     src.fetch(datetime(2026, 10, 9, tzinfo=UTC), 3)
     assert sleeps[0] == 65.0
+
+
+def test_ten_variables_so_each_location_counts_as_one_call():
+    # Open-Meteo counts a location with more than ten hourly variables as more than one call
+    from app.sources.openmeteo import HOURLY
+
+    assert len(HOURLY) <= 10 and "surface_pressure" not in HOURLY
