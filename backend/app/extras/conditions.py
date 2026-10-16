@@ -16,6 +16,7 @@ CONDITIONS = {
     "thunderstorm": ("ฝนฟ้าคะนอง", "Thunderstorms", 9),
 }
 WET = {"drizzle", "rain", "heavy_rain", "thunderstorm"}
+MIN_POP = 30.0  # % chance of rain for a rain icon
 
 
 def describe(code: str, night: bool = False) -> dict:
@@ -24,15 +25,20 @@ def describe(code: str, night: bool = False) -> dict:
 
 
 def from_forecast(rain_mm: float, pop: float, storm: float, cloud: float) -> str:
-    """One hour of the 2.2 km forecast: rain (mm/h), chance of rain and storm (%), cloud (%)."""
+    """One hour of the 2.2 km forecast: rain (mm/h), chance of rain and storm (%), cloud (%).
+
+    A rain icon needs a real chance of rain (MIN_POP) as well as an amount, so the icon never
+    contradicts the "11 %" printed next to it; only heavy rain stands on its amount alone.
+    """
     if storm >= 40 and (rain_mm >= 0.5 or pop >= 40):
         return "thunderstorm"
     if rain_mm >= 5:
         return "heavy_rain"
-    if rain_mm >= 1:
-        return "rain"
-    if rain_mm >= 0.2:
-        return "drizzle"
+    if pop >= MIN_POP:
+        if rain_mm >= 1:
+            return "rain"
+        if rain_mm >= 0.2:
+            return "drizzle"
     if cloud < 15:
         return "clear"
     if cloud < 35:

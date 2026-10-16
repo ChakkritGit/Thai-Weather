@@ -34,6 +34,7 @@ def test_conditions_from_numbers_and_met_symbols():
     assert conditions.from_forecast(0.0, 5, 0, 5) == "clear"
     assert conditions.from_forecast(0.0, 5, 0, 70) == "mostly_cloudy"
     assert conditions.from_forecast(0.3, 50, 10, 90) == "drizzle"
+    assert conditions.from_forecast(0.6, 11, 5, 70) == "mostly_cloudy"  # an amount with an 11 % chance: no rain icon
     assert conditions.from_forecast(6.0, 90, 20, 100) == "heavy_rain"
     assert conditions.from_forecast(1.0, 60, 55, 100) == "thunderstorm"
     assert conditions.from_met("heavyrainandthunder") == "thunderstorm"
