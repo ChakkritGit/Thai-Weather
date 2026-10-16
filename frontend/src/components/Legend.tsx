@@ -7,7 +7,7 @@ import { useT } from '../i18n';
 const CATEGORY_FOR_SCALE: Record<string, string> = { heatIndex: 'heatIndex' };
 
 /** The base map's data credits (they used to sit in MapLibre's "i" button). */
-function MapCredit({ lang }: { lang: string }) {
+export function MapCredit({ lang }: { lang: string }) {
   return (
     <p className="legend-credit">
       {lang === 'th' ? 'ภูมิประเทศ: AWS Terrain Tiles (SRTM/GMTED) · เขตแดน: Natural Earth' : 'Terrain: AWS Terrain Tiles (SRTM/GMTED) · Boundaries: Natural Earth'}

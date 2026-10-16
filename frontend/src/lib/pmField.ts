@@ -71,3 +71,16 @@ export function pmLut(alpha = 205): Uint8ClampedArray {
   }
   return lut;
 }
+
+/** The field's value at a point (bilinear, µg/m³), null outside it. */
+export function samplePm(f: AirForecast, frame: Uint8Array, lat: number, lon: number): number | null {
+  const fy = (lat - f.lat0) / f.dlat;
+  const fx = (lon - f.lon0) / f.dlon;
+  if (fy < 0 || fx < 0 || fy > f.ny - 1 || fx > f.nx - 1) return null;
+  const y0 = Math.min(Math.floor(fy), f.ny - 2);
+  const x0 = Math.min(Math.floor(fx), f.nx - 2);
+  const ty = fy - y0;
+  const tx = fx - x0;
+  const at = (y: number, x: number) => frame[y * f.nx + x];
+  return (at(y0, x0) * (1 - tx) + at(y0, x0 + 1) * tx) * (1 - ty) + (at(y0 + 1, x0) * (1 - tx) + at(y0 + 1, x0 + 1) * tx) * ty;
+}

@@ -10,7 +10,7 @@ import { gridBounds, gridLines, imageCoordinates, rasterFor, renderGrid, sampleG
 import { fmtNum } from '../lib/format';
 import { useT } from '../i18n';
 import { MAP_READY_EVENT } from '@/components/Splash';
-import { pmLut, resample } from '../lib/pmField';
+import { pmLut, resample, samplePm } from '../lib/pmField';
 
 export interface MapPoint {
   lat: number;
@@ -126,6 +126,9 @@ export function WeatherMap(props: Props) {
   const [hover, setHover] = useState<{ x: number; y: number; text: string; place: string } | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  // the hover read-out tells the PM2.5 forecast while it has the map
+  const pmRef = useRef(props.pm);
+  pmRef.current = props.pm;
 
   const fineBounds = gridBounds(run.fine_grid);
 
@@ -268,6 +271,12 @@ export function WeatherMap(props: Props) {
       if (hovered !== undefined && hovered !== f?.id) map.setFeatureState({ source: 'provinces', id: hovered }, { hover: false });
       hovered = f?.id;
       if (hovered !== undefined) map.setFeatureState({ source: 'provinces', id: hovered }, { hover: true });
+      const place = f ? String(f.properties?.[lang === 'th' ? 'name_th' : 'name_en'] ?? '') : '';
+      const pm = pmRef.current;
+      if (pm) {
+        const ug = samplePm(pm.field, pm.frame, e.lngLat.lat, e.lngLat.lng);
+        return setHover(ug === null ? null : { x: e.point.x, y: e.point.y, text: `PM2.5 ${fmtNum(ug, 0)} µg/m³`, place });
+      }
       if (!cur) return;
       const code = sampleGrid(cur.data.codes, cur.grid, e.lngLat.lat, e.lngLat.lng);
       if (code === null) return setHover(null);
@@ -277,7 +286,7 @@ export function WeatherMap(props: Props) {
         x: e.point.x,
         y: e.point.y,
         text: `${fmtNum(v, digits)} ${cur.layer.unit}`,
-        place: f ? String(f.properties?.[lang === 'th' ? 'name_th' : 'name_en'] ?? '') : '',
+        place,
       });
     });
     map.on('mouseout', () => setHover(null));
@@ -522,9 +531,12 @@ export function WeatherMap(props: Props) {
     const pm = props.pm;
     if (!pm) {
       map.setLayoutProperty('pm25', 'visibility', 'none');
+      map.setLayoutProperty('wind', 'visibility', 'visible');
       map.setPaintProperty('weather', 'raster-opacity', 0.88);
       return;
     }
+    // the PM2.5 view has the map to itself: no weather colours, no wind arrows
+    map.setLayoutProperty('wind', 'visibility', 'none');
     let cancelled = false;
     // onto the 2.2 km grid and through the same renderer as the weather: smooth, and only over Thailand
     loadStatic().then((statics) => {

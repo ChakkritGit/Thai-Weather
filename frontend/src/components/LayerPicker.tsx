@@ -27,7 +27,8 @@ export function LayerPicker({
   onChange,
 }: {
   layers: LayerMeta[];
-  value: LayerId;
+  /** null: none is shown (the PM2.5 forecast has the map) */
+  value: LayerId | null;
   onChange: (id: LayerId) => void;
 }) {
   const { lang, t } = useT();

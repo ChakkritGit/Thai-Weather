@@ -15,7 +15,7 @@ import { useTheme } from '../lib/theme';
 import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
 import { LocateCta, type LocateStatus } from '../components/LocateCta';
-import { Legend } from '../components/Legend';
+import { Legend, MapCredit } from '../components/Legend';
 import { RadarControl } from '../components/RadarControl';
 import { OverviewPanel } from '../components/OverviewPanel';
 import { PointPanel } from '../components/PointPanel';
@@ -595,7 +595,15 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           </>
         )}
 
-        <LayerPicker layers={meta.layers} value={layerId} onChange={setLayerId} />
+        <LayerPicker
+          layers={meta.layers}
+          value={pmFrame ? null : layerId}
+          onChange={(id) => {
+            // picking a weather layer leaves the PM2.5 view: the two are never on the map together
+            setAirOn(false);
+            setLayerId(id);
+          }}
+        />
 
         <div className="map-tools" data-cta={canLocate && !selected && !compare ? 'true' : undefined}>
           <button
@@ -666,7 +674,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
         <div className="map-bottom">
           {radarOn && <RadarControl radar={radar} active={atNow} onSelect={onRadarSelect} />}
-          <Legend layer={layer} />
+          {!pmFrame && <Legend layer={layer} />}
           {airOn && <AirLegend lang={lang} count={airStations?.length ?? null} forecast={pmFrame !== null} />}
           <Timeline
             run={run}
@@ -738,6 +746,8 @@ function AirLegend({ lang, count, forecast }: { lang: 'th' | 'en'; count: number
         {count === null ? '…' : th ? `จุด = วัดจริง ${count} สถานี` : `dots = ${count} stations`}
         {forecast ? (th ? ' · สี = พยากรณ์ FMI SILAM ~22 กม.' : ' · shading = FMI SILAM forecast, ~22 km') : ''}
       </span>
+      {/* the weather legend (and its credits) is hidden while the PM2.5 forecast has the map */}
+      {forecast && <MapCredit lang={lang} />}
     </div>
   );
 }
