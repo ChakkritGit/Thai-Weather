@@ -327,6 +327,42 @@ export function WeatherMap(props: Props) {
     const compact = () => (box.dataset.aqCompact = map.getZoom() < 7 ? 'true' : 'false');
     compact();
     map.on('zoomend', compact);
+
+    // the station's details above its dot: on hover (desktop) and pinned by a tap (any device)
+    const th = lang === 'th';
+    const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 14, maxWidth: '260px', className: 'aq-popup' });
+    let pinned: string | null = null;
+    popup.on('close', () => (pinned = null));
+    const add = (parent: HTMLElement, tag: string, cls: string, text?: string) => {
+      const n = document.createElement(tag);
+      n.className = cls;
+      if (text !== undefined) n.textContent = text;
+      parent.appendChild(n);
+      return n;
+    };
+    const content = (s: AirStation) => {
+      const root = document.createElement('div');
+      root.className = 'aq-pop';
+      add(root, 'b', 'aq-pop-name', (th ? s.name_th : s.name_en || s.name_th).trim());
+      if (s.area_th) add(root, 'span', 'aq-pop-area', s.area_th);
+      const row = add(root, 'div', 'aq-pop-value');
+      const dot = add(row, 'i', 'aq-pop-dot');
+      dot.style.background = s.color ?? 'var(--color-fg-subtle)';
+      add(row, 'strong', '', String(Math.round(s.pm25)));
+      add(row, 'span', 'aq-pop-unit', 'µg/m³ PM2.5');
+      add(root, 'span', 'aq-pop-level', `${th ? s.label_th : s.label_en}${s.aqi != null ? ` · AQI ${s.aqi}` : ''}`);
+      const when = new Date(s.time).toLocaleTimeString(th ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+      add(root, 'span', 'aq-pop-time', th ? `วัดเมื่อ ${when} น. · Air4Thai` : `Measured ${when} · Air4Thai`);
+      const go = add(root, 'button', 'btn aq-pop-go', th ? 'ดูพยากรณ์ที่นี่' : 'Forecast here') as HTMLButtonElement;
+      go.type = 'button';
+      go.addEventListener('click', () => {
+        popup.remove();
+        onSelectRef.current?.({ lat: s.lat, lon: s.lon });
+      });
+      return root;
+    };
+    const show = (s: AirStation) => popup.setLngLat([s.lon, s.lat]).setDOMContent(content(s)).addTo(map);
+
     for (const s of air) {
       const el = document.createElement('button');
       el.type = 'button';
@@ -335,16 +371,23 @@ export function WeatherMap(props: Props) {
       el.style.setProperty('--aq', s.color ?? 'var(--color-fg-subtle)');
       el.textContent = String(Math.round(s.pm25));
       const name = lang === 'th' ? s.name_th : s.name_en || s.name_th;
-      el.title = `${name}: PM2.5 ${Math.round(s.pm25)} µg/m³ (${lang === 'th' ? s.label_th : s.label_en})`;
-      el.setAttribute('aria-label', el.title);
+      el.setAttribute('aria-label', `${name}: PM2.5 ${Math.round(s.pm25)} µg/m³ (${lang === 'th' ? s.label_th : s.label_en})`);
+      el.addEventListener('mouseenter', () => {
+        if (!pinned) show(s);
+      });
+      el.addEventListener('mouseleave', () => {
+        if (!pinned) popup.remove();
+      });
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        onSelectRef.current?.({ lat: s.lat, lon: s.lon });
+        pinned = s.id;
+        show(s);
       });
       airMarkers.current.push(new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map));
     }
     return () => {
       map.off('zoomend', compact);
+      popup.remove();
     };
   }, [air, ready, lang]);
 

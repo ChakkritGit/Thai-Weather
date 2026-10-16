@@ -1664,3 +1664,22 @@ button {
 .air-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .air-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 [data-aq-compact='true'] .aq-marker { min-width: 0; width: 12px; height: 12px; padding: 0; border-width: 1.5px; font-size: 0; line-height: 0; }
+.aq-popup .maplibregl-popup-content {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-default);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-family-sans);
+}
+.aq-popup .maplibregl-popup-tip { border-top-color: var(--color-bg-surface); border-bottom-color: var(--color-bg-surface); }
+.aq-popup .maplibregl-popup-close-button { color: var(--color-fg-muted); font-size: 18px; padding: 2px 8px; }
+.aq-pop { display: grid; gap: 3px; min-width: 180px; }
+.aq-pop-name { font-size: var(--font-size-sm); padding-right: 18px; }
+.aq-pop-area, .aq-pop-time { font-size: var(--font-size-xs); color: var(--color-fg-muted); }
+.aq-pop-value { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.aq-pop-value strong { font-family: var(--font-family-display); font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.aq-pop-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.aq-pop-unit { font-size: var(--font-size-xs); color: var(--color-fg-muted); }
+.aq-pop-level { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+.aq-pop-go { margin-top: 6px; min-height: 32px; font-size: var(--font-size-xs); justify-self: start; }
