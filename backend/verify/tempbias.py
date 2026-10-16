@@ -33,6 +33,37 @@ SHRINK_N = 10.0  # pseudo-pairs of "no bias": a station with 10 pairs at an hour
 MIN_N = 5  # fewer pairs at an hour: no correction there
 
 
+def load_applied(conn: sqlite3.Connection, since: datetime | None) -> dict[str, dict]:
+    """run_id → the learned correction the run applied at the stations (runs.temp_bias JSON)."""
+    out: dict[str, dict] = {}
+    q, args = "SELECT run_id, temp_bias FROM runs WHERE temp_bias IS NOT NULL", ()
+    if since is not None:
+        q, args = q + " AND run_time >= ?", (db.fmt_time(since - timedelta(days=3)),)
+    for r in conn.execute(q, args):
+        try:
+            out[r["run_id"]] = json.loads(r["temp_bias"])
+        except ValueError:
+            pass
+    return out
+
+
+def applied_correction(applied: dict | None, station: str, valid: datetime, run_time: str | None) -> float:
+    """What a run added at a station and time: hourly-bias runs store 24 values per station by Bangkok
+    hour; neural-network runs store {"t0", "steps": {station: [one per hourly step]}}."""
+    if not applied:
+        return 0.0
+    if "steps" in applied:
+        series = applied["steps"].get(station)
+        t0 = applied.get("t0") or run_time
+        if not series or not t0:
+            return 0.0
+        start = db.parse_time(t0) if "T" in t0 and len(t0) == 16 else datetime.fromisoformat(t0)
+        i = round((valid - start).total_seconds() / 3600)
+        return float(series[i]) if 0 <= i < len(series) else 0.0
+    series = applied.get(station)
+    return float(series[(valid.hour + 7) % 24]) if series and len(series) == 24 else 0.0
+
+
 def _smooth(values: np.ndarray) -> np.ndarray:
     """Circular 1-2-1 smoothing over the hours: a bias does not jump from one hour to the next."""
     return 0.25 * np.roll(values, 1) + 0.5 * values + 0.25 * np.roll(values, -1)
@@ -42,15 +73,8 @@ def fit(conn: sqlite3.Connection, now: datetime | None = None, days: int = WINDO
     now = now or datetime.now(UTC)
     since = now - timedelta(days=days)
     held = holdout.load(conn)
-    applied: dict[str, dict[str, list[float]]] = {}
-    for r in conn.execute(
-        "SELECT run_id, temp_bias FROM runs WHERE run_time >= ?", (db.fmt_time(since - timedelta(days=3)),)
-    ):
-        if r["temp_bias"]:
-            try:
-                applied[r["run_id"]] = json.loads(r["temp_bias"])
-            except ValueError:
-                pass
+    applied = load_applied(conn, since)
+    run_times = {r["run_id"]: r["run_time"] for r in conn.execute("SELECT run_id, run_time FROM runs")}
     fc = conn.execute(
         "SELECT run_id, station, valid, t2m FROM forecasts WHERE source='fine' AND t2m IS NOT NULL "
         "AND lead_h BETWEEN ? AND ? AND valid >= ? AND valid <= ?",
@@ -72,7 +96,9 @@ def fit(conn: sqlite3.Connection, now: datetime | None = None, days: int = WINDO
         if o is None:
             continue
         hour = (int(r["valid"][11:13]) + 7) % 24
-        raw = r["t2m"] - (applied.get(r["run_id"], {}).get(r["station"]) or [0.0] * 24)[hour]
+        raw = r["t2m"] - applied_correction(
+            applied.get(r["run_id"]), r["station"], db.parse_time(r["valid"]), run_times.get(r["run_id"])
+        )
         sums[r["station"]][hour] += raw - o
         counts[r["station"]][hour] += 1
         pairs += 1

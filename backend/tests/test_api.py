@@ -69,3 +69,17 @@ def test_static_layers_and_geo(client):
     assert len(client.get("/api/v1/static/hillshade").content) == 751 * 421
     geo = client.get("/api/v1/geo/provinces").json()
     assert len(geo["features"]) == 77
+
+
+def test_verification_report_is_served_once_written(client, run_dir):
+    import json
+
+    report = run_dir / "verification" / "report.json"
+    report.unlink(missing_ok=True)
+    assert client.get("/api/v1/verification").status_code == 404
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text(json.dumps({"generated": "2026-10-16T12:00", "temperature": {"matched": 3}}), encoding="utf-8")
+    r = client.get("/api/v1/verification")
+    assert r.status_code == 200 and r.json()["temperature"]["matched"] == 3
+    assert "max-age=300" in r.headers["cache-control"]
+    report.unlink()

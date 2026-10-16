@@ -517,3 +517,60 @@ def render_markdown(report: Report) -> str:
             "ถ้าเชื่อถือได้ สองคอลัมน์ขวาควรใกล้กัน · การปรับเทียบ (`verify calibrate`, ทุกวัน) ฟิตบนค่าดิบ",
         ]
     return "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------------------------- json
+def _metrics_json(m: Metrics) -> dict:
+    return {"n": m.n, "bias": m.bias, "mae": m.mae, "rmse": m.rmse}
+
+
+def _rows_json(rows: list[Row]) -> list[dict]:
+    return [
+        {"label": r.label, "n": r.n, "metrics": {s: _metrics_json(m) for s, m in r.metrics.items()}, "extra": r.extra}
+        for r in rows
+    ]
+
+
+def to_json(report: Report) -> dict:
+    """The report as data, for the site's verification page (same numbers as the Markdown)."""
+    return {
+        "since": report.since.isoformat() if report.since else None,
+        "until": report.until.isoformat(),
+        "sources": report.sources,
+        "counts": {"runs": report.n_runs, "stations": report.n_stations, "observations": report.n_obs},
+        "temperature": {
+            "matched": report.temp_matched,
+            "overall": {s: _metrics_json(m) for s, m in report.temp_overall.items()},
+            "by_lead": _rows_json(report.by_lead),
+            "by_hour": _rows_json(report.by_hour),
+            "by_elevation": _rows_json(report.by_elevation),
+            "by_station": _rows_json(report.by_station),
+            "holdout": report.holdout_ids,
+            "correction_effect": _rows_json(report.effect),
+        },
+        "rain": {
+            "threshold_mm": RAIN_THRESHOLD_MM,
+            "windows": report.rain_windows,
+            "by_source": {
+                s: {
+                    "hits": c.hits,
+                    "misses": c.misses,
+                    "false_alarms": c.false_alarms,
+                    "correct_negatives": c.correct_negatives,
+                    "pod": c.pod,
+                    "far": c.far,
+                    "csi": c.csi,
+                    "freq_bias": c.freq_bias,
+                    "brier": report.brier.get(s),
+                }
+                for s, c in report.rain.items()
+            },
+        },
+        "pop": {
+            "hours": report.pop_hours,
+            "rate": report.pop_rate,
+            "brier_shown": report.pop_brier_shown,
+            "brier_raw": report.pop_brier_raw,
+            "reliability": [{"bin": b, "n": n, "forecast": f, "observed": o} for b, n, f, o in report.pop_reliability],
+        },
+    }

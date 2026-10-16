@@ -99,20 +99,25 @@ def save(data_dir: str | Path, tb: TempBias) -> None:
     tmp.replace(p)
 
 
+def kernel(s: StationBias, grid: Grid, elev: np.ndarray) -> np.ndarray:
+    """How much a station speaks for each cell: Gaussian in distance (40 km) and in height (300 m)."""
+    lat2 = grid.lats[:, None]
+    lon2 = grid.lons[None, :]
+    dy = (lat2 - s.lat) * KM_PER_DEG
+    dx = (lon2 - s.lon) * KM_PER_DEG * np.cos(np.radians(s.lat))
+    z = s.elevation if s.elevation is not None else float(elev[grid.index(s.lat, s.lon)])
+    return (np.exp(-(dx**2 + dy**2) / LENGTH_KM**2) * np.exp(-((elev - z) ** 2) / HEIGHT_M**2)).astype(np.float32)
+
+
 def fields(tb: TempBias, grid: Grid, elev: np.ndarray) -> np.ndarray | None:
     """The correction to add, per Bangkok hour: shape (24, ny, nx), °C (minus the spread bias)."""
     inside = [s for s in tb.stations if grid.contains(s.lat, s.lon)]
     if not inside or tb.empty:
         return None
-    lat2 = grid.lats[:, None]
-    lon2 = grid.lons[None, :]
     num = np.zeros((24, *grid.shape), dtype=np.float32)
     den = np.full(grid.shape, SHRINK, dtype=np.float32)
     for s in inside:
-        dy = (lat2 - s.lat) * KM_PER_DEG
-        dx = (lon2 - s.lon) * KM_PER_DEG * np.cos(np.radians(s.lat))
-        z = s.elevation if s.elevation is not None else float(elev[grid.index(s.lat, s.lon)])
-        w = (np.exp(-(dx**2 + dy**2) / LENGTH_KM**2) * np.exp(-((elev - z) ** 2) / HEIGHT_M**2)).astype(np.float32)
+        w = kernel(s, grid, elev)
         den += w
         for h in range(24):
             if s.bias[h]:

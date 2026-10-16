@@ -33,6 +33,7 @@ from ..sources.base import CoarseForecast
 from ..store import RunStore
 from . import observations as obsmod
 from . import tempbias as tbmod
+from . import tempmlp
 from .calibration import PopCalibration
 from .layers import encodings_record
 from .physics import (
@@ -110,12 +111,15 @@ class Downscaler:
         members: int = 8,
         pop_calibration: PopCalibration | None = None,
         temp_bias: tbmod.TempBias | None = None,
+        temp_mlp: tempmlp.Model | None = None,
     ) -> None:
         self.static = static
         self.members = members
         # chance of rain recalibrated against the stations (calibration.py); the identity until fitted
         self.pop_calibration = pop_calibration or PopCalibration()
         self.temp_bias = temp_bias or tbmod.TempBias()
+        # the neural network replaces the hourly bias once verify has switched it on
+        self.temp_mlp = temp_mlp
 
     # ------------------------------------------------------------------ run
     def run(
@@ -146,7 +150,8 @@ class Downscaler:
         acc: DayAccumulator | None = None
         correction = None
         # the stations' learned warm / cold bias by hour of day (verify tempbias), at every lead time
-        bias_fields = tbmod.fields(self.temp_bias, fine, static.elev_land)
+        mlp = tempmlp.Applier(self.temp_mlp, fine, coarse.grid, static.elev_land) if self.temp_mlp else None
+        bias_fields = None if mlp else tbmod.fields(self.temp_bias, fine, static.elev_land)
         obs_used = 0
         obs_stations: list[str] = []
 
@@ -159,7 +164,11 @@ class Downscaler:
 
                 # -- temperature & humidity
                 temp, _ = downscale_temperature(f["t2m"], ctx.terrain, rg)
-                if bias_fields is not None:
+                if mlp is not None:
+                    corr = mlp.field(temp, c["t2m"], t, (t - times[0]).total_seconds() / 3600)
+                    if corr is not None:
+                        temp = temp + corr
+                elif bias_fields is not None:
                     temp = temp + bias_fields[tbmod.bkk_hour(t)]
                 if i == 0 and observations:
                     # one report per station (closest to t0) so a station is not over-weighted
@@ -257,7 +266,13 @@ class Downscaler:
             "encodings": encodings_record(),
             # None when nothing was learned yet; `applied` lets the next fit add the correction back
             "temp_bias": (
-                {**self.temp_bias.record(), "applied": tbmod.applied_at_stations(bias_fields, self.temp_bias, fine)}
+                mlp.record(times[0])
+                if mlp is not None
+                else {
+                    **self.temp_bias.record(),
+                    "kind": "hourly",
+                    "applied": tbmod.applied_at_stations(bias_fields, self.temp_bias, fine),
+                }
                 if bias_fields is not None
                 else None
             ),

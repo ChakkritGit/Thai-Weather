@@ -3,6 +3,7 @@ from __future__ import annotations
 import binascii
 import math
 import time
+from pathlib import Path as FsPath
 from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import cache
@@ -192,6 +193,21 @@ def point(
         },
         "temperature_components": explanation["temperature_components"],
     }
+
+
+# ---------------------------------------------------------- verification
+@router.get(
+    "/verification", tags=["status"], summary="How accurate the forecast has been: the latest verification report"
+)
+def verification() -> Response:
+    """The verify service's hourly report as data (forecast vs. station reports over 30 days, and what
+    the forecast has learned from them). 404 until the first report exists."""
+    p = FsPath(get_settings().data_dir) / "verification" / "report.json"
+    try:
+        body = p.read_bytes()
+    except OSError as exc:
+        raise HTTPException(404, detail="no verification report yet") from exc
+    return Response(body, media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
 
 
 # ------------------------------------------------------------- provinces

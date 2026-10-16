@@ -63,3 +63,34 @@ def test_learned_bias_is_subtracted_and_recorded(static, coarse, tmp_path):
     rec = fixed.meta["temp_bias"]
     assert rec["stations"] == 1 and len(rec["applied"]["BKK"]) == 24
     assert plain.meta["temp_bias"] is None
+
+
+def test_an_active_network_replaces_the_hourly_bias(static, coarse, tmp_path):
+    from app.downscale import tempbias as tbmod
+    from app.downscale import tempmlp
+
+    # a "network" that always says +1 °C: zero weights, output bias 1
+    n = tempmlp.N_FEATURES
+    weights = [np.zeros((n, 4)).tolist(), [0.0] * 4, np.zeros((4, 1)).tolist(), [1.0]]
+    model = tempmlp.Model(
+        {
+            "weights": weights,
+            "mean": [0.0] * n,
+            "std": [1.0] * n,
+            "fitted_at": "t",
+            "pairs": 1,
+            "days": 1,
+            "metrics": None,
+            "stations": [{"id": "BKK", "lat": LAT, "lon": LON, "elevation": 5.0, "model_elevation": 5.0}],
+        }
+    )
+    hourly = tbmod.TempBias("t", 30, 720, [tbmod.StationBias("BKK", LAT, LON, None, [3.0] * 24, [30] * 24)])
+    plain = _run(static, coarse, tmp_path / "a", None)
+    store = RunStore(tmp_path / "b")
+    Downscaler(static, members=2, temp_bias=hourly, temp_mlp=model).run(coarse, store, None)
+    run = store.latest()
+    iy, ix = run.fine_grid.index(LAT, LON)
+    diff = np.array(run.series("fine", "temp", iy, ix)) - np.array(plain.series("fine", "temp", iy, ix))
+    assert np.all((diff > 0.6) & (diff < 1.3))  # the network's +1, not the hourly bias's -3
+    rec = run.meta["temp_bias"]
+    assert rec["kind"] == "mlp" and len(rec["applied"]["steps"]["BKK"]) == len(run.meta["times"])

@@ -10,6 +10,7 @@ kills the loop.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -22,6 +23,7 @@ import httpx
 from . import calibrate as calibrate_mod
 from . import collect as collect_mod
 from . import db, holdout, observe, score, stations
+from . import mlp as mlp_mod
 from . import push as push_mod
 from . import tempbias as tempbias_mod
 
@@ -84,11 +86,37 @@ def run_score(conn, args: argparse.Namespace) -> str:
         since = _date(args.since)
     else:
         since = until - timedelta(days=args.days)
-    md = score.render_markdown(score.score(conn, since, until))
+    report = score.score(conn, since, until)
+    md = score.render_markdown(report)
     out = Path(args.out) if args.out else data_dir() / "report.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md, encoding="utf-8")
+    # the same numbers as data for the site's /verification page, plus what the forecast has learned
+    data = {**score.to_json(report), "generated": until.isoformat(timespec="minutes"), "learning": learning_status()}
+    tmp = out.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(out.with_suffix(".json"))
     return md
+
+
+def learning_status() -> dict:
+    root = Path(os.environ.get("THWX_DATA_DIR") or "var")
+    from app.downscale import calibration as pop_cal
+    from app.downscale import tempbias as tb
+
+    pop = pop_cal.load(root)
+    bias = tb.load(root)
+    return {
+        "pop_calibration": {
+            **pop.record(),
+            "events": pop.events,
+            "brier_raw": pop.brier_raw,
+            "brier_cal": pop.brier_cal,
+            "identity": pop.identity,
+        },
+        "temp_bias": bias.record() if bias.stations else None,
+        "temp_mlp": mlp_mod.load_status(root),
+    }
 
 
 def run_calibrate(conn, args: argparse.Namespace):
@@ -99,6 +127,11 @@ def run_calibrate(conn, args: argparse.Namespace):
 def run_tempbias(conn, args: argparse.Namespace):
     root = Path(os.environ.get("THWX_DATA_DIR") or "var")
     return tempbias_mod.refit(conn, root, days=getattr(args, "window_days", tempbias_mod.WINDOW_DAYS))
+
+
+def run_mlp(conn, args: argparse.Namespace):
+    root = Path(os.environ.get("THWX_DATA_DIR") or "var")
+    return mlp_mod.refit(conn, root)
 
 
 def run_loop(conn, args: argparse.Namespace) -> None:
@@ -115,6 +148,7 @@ def run_loop(conn, args: argparse.Namespace) -> None:
         if time.monotonic() - last_calibrate >= CALIBRATE_EVERY_S:
             steps.append(("calibrate", lambda: run_calibrate(conn, args)))
             steps.append(("tempbias", lambda: run_tempbias(conn, args)))
+            steps.append(("mlp", lambda: run_mlp(conn, args)))
             last_calibrate = time.monotonic()
         if time.monotonic() - last_score >= SCORE_EVERY_S:
             steps.append(("score", lambda: run_score(conn, score_args)))
@@ -158,6 +192,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tb.add_argument("--window-days", type=int, default=tempbias_mod.WINDOW_DAYS, help="rolling window (default 30)")
 
+    sub.add_parser(
+        "mlp", help="train the temperature neural network; it switches itself on once it beats the hourly bias"
+    )
+
     lp = sub.add_parser("loop", help="observe + push + collect (+ hourly score, daily calibrate) forever")
     lp.add_argument("--interval-min", type=float, default=15.0)
     lp.add_argument("--days", type=int, default=30, help="report window in days")
@@ -187,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"a={cal.a:.3f} b={cal.b:.3f} from {cal.pairs} hours ({cal.events} wet)"
                 + (" – identity, not enough data" if cal.identity else "")
             )
+        elif args.cmd == "mlp":
+            st = run_mlp(conn, args)
+            print(json.dumps({k: st.get(k) for k in ("active", "reason", "pairs", "days", "metrics")}))
         elif args.cmd == "tempbias":
             rec = run_tempbias(conn, args).record()
             print(f"{rec['pairs']} pairs, {rec['stations']} stations, mean |bias| {rec['mean_abs']:.2f} °C")
