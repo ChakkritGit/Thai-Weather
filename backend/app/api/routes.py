@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import binascii
 import json
-import math
-import time
 from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import cache
@@ -26,8 +24,6 @@ from ..nowcast.service import LEADS, RADAR_ENCODING, STALE_AFTER_MIN
 from ..products.aggregate import thai_date, thai_hhmm
 from ..products.alerts import is_partial, normalise_day, province_alerts
 from ..products.scales import weather_scales
-from ..push.messages import with_label
-from ..push.sender import PushFailed, PushGone
 from ..push.service import PushService
 from ..push.store import MAX_ENDPOINT_LEN, MAX_LABEL_LEN, Prefs, PushError, auth_matches, validate_endpoint
 from ..push.vapid import b64url_decode
@@ -616,41 +612,6 @@ def push_unsubscribe(body: PushSubscription, request: Request) -> dict:
     if not auth_matches(stored, body.keys.auth):
         raise HTTPException(403, detail="subscription credentials do not match")
     return {"ok": True, "deleted": service.store.delete(stored.id)}
-
-
-@router.post("/push/test", dependencies=[Depends(_limit_body)], include_in_schema=False)
-def push_test(body: PushSubscription, request: Request) -> dict:
-    """Send a test notification to this one subscription (at most once a minute)."""
-    service = _push(request)
-    _checked(body)
-    stored = service.store.by_endpoint(body.endpoint)
-    if stored is None:
-        raise HTTPException(404, detail="subscription not found")
-    if not auth_matches(stored, body.keys.auth):
-        raise HTTPException(403, detail="subscription credentials do not match")
-    wait = service.store.claim_test(stored.id, time.time())
-    if wait > 0:
-        raise HTTPException(
-            429,
-            detail="test notifications are limited to one per minute",
-            headers={"Retry-After": str(math.ceil(wait))},
-        )
-    payload = {
-        "title": "ทดสอบการแจ้งเตือน",
-        "body": with_label(stored.label, "ฟ้าละเอียดจะแจ้งเตือนตามประเภทที่คุณเลือกไว้สำหรับตำแหน่งนี้"),
-        "lang": "th",
-        "url": f"/?lat={stored.lat:.2f}&lon={stored.lon:.2f}",
-        "tag": f"thwx-test-{stored.id[:8]}",
-        "kind": "test",
-    }
-    try:
-        service.sender(stored, payload, ttl=300, urgent=False)
-    except PushGone:
-        service.store.delete(stored.id)
-        raise HTTPException(410, detail="subscription expired") from None
-    except PushFailed:
-        raise HTTPException(502, detail="push service rejected the notification") from None
-    return {"ok": True}
 
 
 @router.get("/push/status", dependencies=[Depends(require_admin)], include_in_schema=False)

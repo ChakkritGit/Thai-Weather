@@ -32,7 +32,6 @@
 .push-note { margin: 0; font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-fg-subtle); }
 .push-msg { margin: 0; font-size: var(--font-size-xs); }
 .push-msg[data-kind='error'] { color: var(--color-severity-3-fg); }
-.push-msg[data-kind='ok'] { color: var(--color-fg-muted); }
 
 /* settings section on the alerts page (components/PushSettings.tsx) */
 .push-settings { display: grid; gap: var(--space-3); scroll-margin-top: var(--space-4); }

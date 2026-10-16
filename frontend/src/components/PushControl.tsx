@@ -42,12 +42,10 @@ export function PushControl({ lat, lon, push }: { lat: number; lon: number; push
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
   const [prefs, setPrefs] = useState<PushPrefs>(DEFAULT_PREFS);
-  const [note, setNote] = useState<string | null>(null);
 
   const here = !!stored && Math.abs(stored.lat - roundCoord(lat)) < 0.015 && Math.abs(stored.lon - roundCoord(lon)) < 0.015;
 
   const openForm = () => {
-    setNote(null);
     setPrefs(stored?.prefs ?? DEFAULT_PREFS);
     setLabel(here ? (stored?.label ?? '') : '');
     setOpen(true);
@@ -99,23 +97,13 @@ export function PushControl({ lat, lon, push }: { lat: number; lon: number; push
     const clean: PushPrefs = quietOn ? prefs : { ...prefs, quiet_start: 0, quiet_end: 0 };
     if (await push.save(roundCoord(lat), roundCoord(lon), label.trim(), clean)) {
       setOpen(false);
-      setNote(null);
     }
-  };
-
-  const test = async () => {
-    setNote(null);
-    if (await push.sendTest()) setNote(t('pushTestSent'));
   };
 
   const errorText = error ? t(ERRORS[error]) : null;
   const msg = errorText ? (
     <p className="push-msg" data-kind="error" role="alert">
       {errorText}
-    </p>
-  ) : note ? (
-    <p className="push-msg" data-kind="ok" role="status">
-      {note}
     </p>
   ) : null;
 
@@ -146,9 +134,6 @@ export function PushControl({ lat, lon, push }: { lat: number; lon: number; push
         <div className="push-actions">
           <button type="button" className="btn" onClick={openForm} disabled={busy}>
             {here ? t('pushUpdate') : t('pushMove')}
-          </button>
-          <button type="button" className="btn" onClick={test} disabled={busy}>
-            {t('pushTest')}
           </button>
           <button type="button" className="btn btn--ghost" onClick={() => void push.remove()} disabled={busy}>
             {t('pushCancel')}

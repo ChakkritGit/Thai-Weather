@@ -35,5 +35,4 @@ export const pushApi = {
   subscribe: (subscription: SerializedSubscription, lat: number, lon: number, label: string, prefs: PushPrefs) =>
     post<PushRegistration>('/api/v1/push/subscribe', { subscription, lat, lon, label, prefs }),
   unsubscribe: (subscription: SerializedSubscription) => post<{ ok: boolean }>('/api/v1/push/unsubscribe', subscription),
-  test: (subscription: SerializedSubscription) => post<{ ok: boolean }>('/api/v1/push/test', subscription),
 };

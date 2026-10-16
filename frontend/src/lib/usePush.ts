@@ -76,7 +76,6 @@ export interface PushController {
   /** Subscribe this device to a location, or update the existing subscription (also moves it). */
   save: (lat: number, lon: number, label: string, prefs: PushPrefs) => Promise<boolean>;
   remove: () => Promise<void>;
-  sendTest: () => Promise<boolean>;
 }
 
 export function usePush(): PushController {
@@ -163,26 +162,5 @@ export function usePush(): PushController {
     }
   }, [currentSubscription]);
 
-  const sendTest = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const json = await currentSubscription();
-      if (!json) throw new ApiError(404, 'no subscription');
-      await pushApi.test(json);
-      return true;
-    } catch (e) {
-      const err = toError(e);
-      if (err === 'gone') {
-        writeStored(null); // the server no longer knows this subscription
-        setStored(null);
-      }
-      setError(err);
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, [currentSubscription]);
-
-  return { support, stored, busy, error, save, remove, sendTest };
+  return { support, stored, busy, error, save, remove };
 }

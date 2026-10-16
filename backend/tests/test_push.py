@@ -111,16 +111,14 @@ def test_store_rounds_persists_and_checks_credentials(tmp_path):
     assert err.value.status == 403
 
 
-def test_store_limit_and_test_rate_limit(tmp_path):
+def test_store_limit(tmp_path):
     store = SubscriptionStore(tmp_path, limit=2)
     p, a = _creds()
-    subs = [store.upsert(f"https://fcm.googleapis.com/{i}", p, a, 13, 100, "", Prefs()) for i in range(2)]
+    for i in range(2):
+        store.upsert(f"https://fcm.googleapis.com/{i}", p, a, 13, 100, "", Prefs())
     with pytest.raises(PushError) as err:
         store.upsert("https://fcm.googleapis.com/3", p, a, 13, 100, "", Prefs())
     assert err.value.status == 503
-    assert store.claim_test(subs[0].id, 1000.0) == 0.0
-    assert store.claim_test(subs[0].id, 1030.0) == pytest.approx(30.0)
-    assert store.claim_test(subs[0].id, 1061.0) == 0.0
 
 
 # ------------------------------------------------------------------ sender
@@ -440,33 +438,8 @@ def test_subscribe_update_unsubscribe_roundtrip(client):
     assert client.post("/api/v1/push/unsubscribe", json=sub).json() == {"ok": True, "deleted": False}
 
 
-def test_test_notification_is_rate_limited_per_subscription(client):
-    creds = _creds()
-    ep = "https://fcm.googleapis.com/fcm/send/testing"
-    _subscribe(client, ep, creds)
-    sub = {"endpoint": ep, "keys": {"p256dh": creds[0], "auth": creds[1]}}
-    r = client.post("/api/v1/push/test", json=sub)
-    assert r.status_code == 200 and client.sender.calls[-1][1]["kind"] == "test"
-    limited = client.post("/api/v1/push/test", json=sub)
-    assert limited.status_code == 429 and int(limited.headers["retry-after"]) > 0
-    unknown = {"endpoint": "https://fcm.googleapis.com/fcm/send/none", "keys": sub["keys"]}
-    assert client.post("/api/v1/push/test", json=unknown).status_code == 404
-
-
-def test_test_notification_to_expired_subscription_deletes_it(client):
-    creds = _creds()
-    ep = "https://fcm.googleapis.com/fcm/send/expiring"
-    _subscribe(client, ep, creds)
-    sub = {"endpoint": ep, "keys": {"p256dh": creds[0], "auth": creds[1]}}
-    client.sender.error = PushGone()
-    try:
-        assert client.post("/api/v1/push/test", json=sub).status_code == 410
-    finally:
-        client.sender.error = None
-    assert client.app.state.push.store.by_endpoint(ep) is None
-
-
 def test_status_needs_the_admin_token(client):
+    _subscribe(client, "https://fcm.googleapis.com/fcm/send/status", _creds())
     assert client.get("/api/v1/push/status").status_code == 401
     d = client.get("/api/v1/push/status", headers={"Authorization": "Bearer secret"}).json()
     assert d["enabled"] is True and d["subscriptions"] >= 1 and d["limit"] == 5000

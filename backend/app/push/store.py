@@ -96,7 +96,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     quiet_start INTEGER NOT NULL DEFAULT 22,
     quiet_end INTEGER NOT NULL DEFAULT 6,
     last_sent TEXT NOT NULL DEFAULT '{}',
-    last_test REAL NOT NULL DEFAULT 0,
     heat INTEGER NOT NULL DEFAULT 0
 )
 """
@@ -217,16 +216,3 @@ class SubscriptionStore:
             sent = {k: v for k, v in sent.items() if v[0] >= horizon}
             self._db.execute("UPDATE subscriptions SET last_sent = ? WHERE id = ?", (json.dumps(sent), sub_id))
             self._db.commit()
-
-    def claim_test(self, sub_id: str, now: float, min_interval: float = 60.0) -> float:
-        """Reserve a test notification; returns 0 when allowed, else the seconds still to wait."""
-        with self._lock:
-            r = self._db.execute("SELECT last_test FROM subscriptions WHERE id = ?", (sub_id,)).fetchone()
-            if r is None:
-                return 0.0
-            wait = min_interval - (now - r["last_test"])
-            if wait > 0:
-                return wait
-            self._db.execute("UPDATE subscriptions SET last_test = ? WHERE id = ?", (now, sub_id))
-            self._db.commit()
-            return 0.0
