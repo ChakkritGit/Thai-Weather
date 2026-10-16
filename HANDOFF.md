@@ -1,6 +1,6 @@
 # HANDOFF
 
-Updated 2026-10-17 (Bangkok) by Claude, for the next agent (Codex or another). Read this file and
+Updated 2026-10-17 (Bangkok) by Codex, for the next agent. Read this file and
 `AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
 `deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
@@ -135,19 +135,20 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   restricted-scope verification, which the owner declined). The Picker/`drive.file` code is kept; it failed
   in iPhone Safari (third-party cookies).
 
-### Can be built next (the owner asked for these on 2026-10-17)
-- **City search in the weather app** (not started). Plan: places from GeoNames
-  (`https://download.geonames.org/export/dump/TH.zip`, CC BY 4.0 — credit "GeoNames"): provinces (ADM1),
-  districts (ADM2) and populated places (feature class P), with the Thai name taken from the
-  `alternatenames` column (Thai script, U+0E00–U+0E7F). Build a compact JSON in `backend/app/data/`
-  with a script under `backend/scripts/` (do not commit the dump), serve `GET /api/v1/places?q=` (prefix +
-  contains match, Thai and English, top 10, rate-limited like the rest of the API), and add a search box
-  on the map page that flies to the place and opens its point forecast (`setSelected` in `views/MapPage.tsx`).
-  Keep it working on the iPhone (input font ≥ 16 px so Safari does not zoom).
-- **Drive Music skeletons** (not started): it shows spinners ("Loading…") in `DriveBrowser.tsx` and the
-  `(app)/layout.tsx` session gate. Replace them with skeletons shaped like the real lists (folders/tracks,
-  playlists, library). Pages are behind a Google login: verify what you can (build, unit tests, a dev-only
-  route or Storybook-like render) and ask the owner to check on the iPhone.
+### Implemented from the owner's request of 2026-10-17
+- **City search in the weather app**: `PlaceSearch.tsx` on the map, Thai/English with keyboard and touch
+  selection, debounced/abortable requests, flies to the result and opens its point forecast. The local
+  GeoNames index contains 88,259 places (77 provinces, 928 districts); `GET /api/v1/places?q=` returns up
+  to 10 exact/prefix/contains matches under the existing API rate limit, independently of forecast runs.
+  GeoNames credit is in the UI/API; `/developers` documents the endpoint. Regenerate with
+  `backend/scripts/build_places.py` using a dump outside the repo; see `backend/app/data/places.md`.
+- **Drive Music skeletons**: `LoadingSkeletons.tsx` covers the session gate, route transitions, Drive
+  folder/track fetches, playlists and the local library. IndexedDB readiness prevents false empty or
+  missing-playlist states; previous folder rows are hidden while fetching. Reduced motion is supported.
+  Verified production builds and unit tests, plus Chromium/WebKit iPhone emulation and desktop layouts;
+  Drive tests use mocked auth and file responses, never the owner's real Google data.
+
+### Other follow-up work
 - Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
 - `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
@@ -160,6 +161,7 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   queries; `/settings` still calls `getUser()` on purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
+- New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.

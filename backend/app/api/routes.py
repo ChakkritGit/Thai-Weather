@@ -13,6 +13,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
+from ..core.places import ATTRIBUTION as PLACES_ATTRIBUTION
+from ..core.places import search_places
 from ..core.provinces_meta import REGIONS
 from ..core.static import DATA_DIR, load_static
 from ..downscale.layers import LAYERS, run_encoding
@@ -89,6 +91,14 @@ def meta(request: Request) -> dict:
         "scales": weather_scales(),
         "fine_grid": static.grid.describe(),
     }
+
+
+@router.get("/places", tags=["locations"], summary="Search Thai provinces, districts and populated places (GeoNames)")
+def places(
+    response: Response, q: str = Query("", max_length=80, description="Thai or English name, at least 2 characters")
+) -> dict:
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return {"places": search_places(q), "attribution": PLACES_ATTRIBUTION}
 
 
 # ---------------------------------------------------------------- layers

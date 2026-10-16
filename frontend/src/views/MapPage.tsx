@@ -19,6 +19,7 @@ import { Legend, MapCredit } from '../components/Legend';
 import { RadarControl } from '../components/RadarControl';
 import { OverviewPanel } from '../components/OverviewPanel';
 import { PointPanel } from '../components/PointPanel';
+import { PlaceSearch } from '../components/PlaceSearch';
 import { Timeline } from '../components/Timeline';
 import type { MapPoint } from '../components/WeatherMap';
 
@@ -604,6 +605,13 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             setLayerId(id);
           }}
         />
+
+        <PlaceSearch onSelect={(place) => {
+          const point = { lat: place.lat, lon: place.lon };
+          setPeek(false);
+          setSelected(point);
+          flyTo(point, place.kind === 'province' ? 8 : 10);
+        }} />
 
         <div className="map-tools" data-cta={canLocate && !selected && !compare ? 'true' : undefined}>
           <button

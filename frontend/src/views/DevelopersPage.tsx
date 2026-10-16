@@ -26,6 +26,17 @@ const LATLON: Param[] = [
 
 const ENDPOINTS: Endpoint[] = [
   {
+    path: '/places',
+    example: '/places?q=Chiang%20Mai',
+    th: 'ค้นหาจังหวัด อำเภอ/เขต และเมือง/หมู่บ้านในประเทศไทย ด้วยชื่อไทยหรืออังกฤษ (GeoNames, CC BY 4.0)',
+    en: 'Search Thai provinces, districts and cities/villages by Thai or English name (GeoNames, CC BY 4.0)',
+    params: [{ name: 'q', req: true, th: 'ชื่ออย่างน้อย 2 ตัวอักษร สูงสุด 80 ตัวอักษร', en: 'name, 2–80 characters' }],
+    fields: [
+      { name: 'places[]', th: 'สูงสุด 10 แห่ง: id, name_th, name_en, lat, lon, kind, province_th/en, district_th/en — name_th ว่างเมื่อแหล่งข้อมูลไม่มีชื่อไทย', en: 'up to 10 matches: id, name_th, name_en, lat, lon, kind, province_th/en, district_th/en; name_th is empty when unavailable' },
+      { name: 'attribution', th: 'เครดิต GeoNames และใบอนุญาต CC BY 4.0', en: 'GeoNames credit and CC BY 4.0 license' },
+    ],
+  },
+  {
     path: '/forecast',
     example: '/forecast?lat=18.79&lon=98.98',
     th: 'ชุดเดียวจบสำหรับแอปสภาพอากาศ: ตอนนี้, 48 ชั่วโมง, 10 วัน, รหัสสภาพอากาศสำหรับไอคอน, ดวงอาทิตย์ ดวงจันทร์ และ PM2.5',

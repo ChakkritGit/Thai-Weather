@@ -219,8 +219,8 @@ export class ApiError extends Error {
   }
 }
 
-async function getJson<T>(path: string): Promise<T> {
-  const r = await fetch(`${BASE}${path}`);
+async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, signal ? { signal } : undefined);
   if (!r.ok) {
     let detail = r.statusText;
     try {
@@ -334,7 +334,22 @@ export interface AirForecast {
   units: string; times: string[]; frames: string[]; attribution: { name: string; url: string; license?: string };
 }
 
+export interface Place {
+  id: number;
+  name_th: string;
+  name_en: string;
+  lat: number;
+  lon: number;
+  kind: 'province' | 'district' | 'place';
+  province_th: string;
+  province_en: string;
+  district_th: string;
+  district_en: string;
+}
+
 export const api = {
+  places: (query: string, signal?: AbortSignal) =>
+    getJson<{ places: Place[] }>(`/api/v1/places?q=${encodeURIComponent(query)}`, signal),
   airForecast: () => getJson<AirForecast>('/api/v1/air/forecast'),
   airStations: () => getJson<{ updated: string | null; stations: AirStation[] }>('/api/v1/air/stations'),
   forecast: (lat: number, lon: number) =>

@@ -653,6 +653,47 @@ button {
   font-weight: var(--font-weight-semibold);
 }
 
+.place-search {
+  position: absolute;
+  top: 56px;
+  left: var(--space-3);
+  width: min(360px, calc(100% - 84px));
+  z-index: var(--zIndex-popover);
+}
+.place-search-field {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding-left: var(--space-3);
+  gap: var(--space-2);
+  border-radius: var(--radius-lg);
+}
+.place-search-field > svg { width: var(--size-iconMd); height: var(--size-iconMd); flex: none; color: var(--color-fg-muted); }
+.place-search input {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--space-2) 0 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-fg-default);
+  font: inherit;
+  font-size: 16px; /* prevent Safari zooming on focus */
+}
+.place-search input::-webkit-search-cancel-button { display: none; }
+.place-search-clear { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.place-search-clear svg { width: var(--size-iconMd); height: var(--size-iconMd); }
+.place-search-popup { margin-top: var(--space-2); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-bg-surface); }
+.place-search-popup ul { margin: 0; padding: 0; list-style: none; max-height: min(320px, 40dvh); overflow-y: auto; overscroll-behavior: contain; }
+.place-search-popup li { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); cursor: pointer; }
+.place-search-popup li + li { border-top: 1px solid var(--color-border-subtle); }
+.place-search-popup li:hover, .place-search-popup li[aria-selected='true'] { background: var(--color-bg-subtle); }
+.place-search-popup strong { font-weight: var(--font-weight-semibold); }
+.place-search-popup small { color: var(--color-fg-muted); font-size: var(--font-size-xs); }
+.place-search-status, .place-search-credit { padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs); color: var(--color-fg-muted); }
+.place-search-credit { padding-top: 0; }
+
 .map-tools {
   position: absolute;
   top: 56px;
@@ -879,7 +920,7 @@ button {
 /* Tags sit in slots either side of the split handle so they never leave the stage. */
 .compare-slot {
   position: absolute;
-  top: 60px;
+  top: 108px;
   z-index: 3;
   display: flex;
   pointer-events: none;
@@ -1140,7 +1181,7 @@ button {
   .locate-float {
     display: flex;
     position: absolute;
-    top: 56px;
+    top: 108px;
     left: var(--space-3);
     z-index: var(--zIndex-overlay);
     width: auto;
@@ -1160,7 +1201,7 @@ button {
   .locate-float .locate-cta-icon svg { width: 16px; height: 16px; }
     .locate-float[data-error='true'] .locate-cta-hint { display: block; }
   .map-tools { top: 56px; }
-  .compare-slot { top: 56px; }
+  .compare-slot { top: 108px; }
   .map-tools[data-cta='true'] .btn--locate { display: none; }
   .map-loading { top: 100px; }
   .legend { width: 100%; padding: 6px var(--space-3) 2px; }
