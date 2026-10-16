@@ -10,6 +10,8 @@ export interface Result {
 export interface Service {
   status: 'up' | 'slow' | 'down' | 'unknown'
   fails: number
+  /** Consecutive answers over the slow threshold. */
+  slowRuns?: number
   since: number
   ms: number
   reason?: FailureReason

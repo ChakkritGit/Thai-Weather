@@ -57,6 +57,7 @@ async function save(file = STATE_FILE) {
 /** One scheduled run, as the Worker's `scheduled` handler did it. */
 export async function tick(scheduledTime: number, e: typeof env = env, file = STATE_FILE) {
   const results = await runChecks(e, scheduledTime)
+  for (const r of results) if (r.ok && r.ms > 3000) console.log('slow', r.id, `${r.ms} ms`)
   const out = apply(state, results, Date.now())
   state = out.state
   await save(file)

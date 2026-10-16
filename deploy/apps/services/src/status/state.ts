@@ -17,7 +17,8 @@ export interface Alert {
   minutes?: number
 }
 
-// Two failures in a row before "down": one blip should not wake a phone.
+// Two failures in a row before "down": one blip should not wake a phone. Likewise two slow answers in a
+// row before "slow": one late answer (a deploy's build, the forecast run paging memory) is not the site.
 export function apply(prev: State, results: Result[], now: number): { state: State; alerts: Alert[] } {
   const services = { ...prev.services }
   const days = { ...prev.days }
@@ -39,7 +40,8 @@ export function apply(prev: State, results: Result[], now: number): { state: Sta
         if (open) open.end = now
         alerts.push({ id: r.id, kind: 'up', minutes: Math.round((now - old.since) / MIN) })
       }
-      set(r.ms > SLOW_MS ? 'slow' : 'up')
+      s.slowRuns = r.ms > SLOW_MS ? (old.slowRuns ?? 0) + 1 : 0
+      set(s.slowRuns >= 2 || (s.slowRuns === 1 && old.status === 'slow') ? 'slow' : 'up')
     } else {
       s.fails += 1
       if (s.fails === 2 && old.status !== 'down') {

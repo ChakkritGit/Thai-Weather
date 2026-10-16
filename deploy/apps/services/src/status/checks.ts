@@ -22,12 +22,14 @@ const TIMEOUT_MS = 10_000
 export const retry = { delayMs: 5000 }
 const pause = () => (retry.delayMs > 0 ? new Promise((r) => setTimeout(r, retry.delayMs)) : Promise.resolve())
 
-/** Preserve the actual elapsed time and a safe failure category for diagnostics.
- * Only read-only probes opt into one retry for a transient transport failure. */
+/** The answer time of the last attempt (a retry's pause and the failed try are not the site being slow)
+ * and a safe failure category for diagnostics. Only read-only probes opt into one retry for a transient
+ * transport failure. */
 export async function httpCheck(id: CheckId, url: string, init: RequestInit, isOk: (res: Response) => Promise<boolean | FailureReason>, retries = 0): Promise<Result> {
-  const t0 = Date.now()
+  let t0 = Date.now()
   let result: Result = { id, ok: false, ms: 0 }
   for (let attempt = 0; attempt <= retries; attempt++) {
+    t0 = Date.now()
     try {
       const response = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) })
       if (!response.ok) {
@@ -68,10 +70,11 @@ const remindersOk = async (r: Response): Promise<boolean | FailureReason> => {
  * socket the probe opened and closed was counted against the room as an error.
  */
 export async function roomsCheck(rooms: Internal, url: string): Promise<Result> {
-  const t0 = Date.now()
+  let t0 = Date.now()
   let ok = false
   for (let attempt = 0; attempt < 2 && !ok; attempt++) {
     if (attempt) await pause()
+    t0 = Date.now()
     try {
       const res = await rooms.fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
       ok = res.ok && (await res.text()).trim() === 'ok'
@@ -84,10 +87,11 @@ export async function roomsCheck(rooms: Internal, url: string): Promise<Result> 
 
 /** The sync container's /health, on the internal network. */
 export async function musicSyncCheck(sync: Internal): Promise<Result> {
-  const t0 = Date.now()
+  let t0 = Date.now()
   let ok = false
   for (let attempt = 0; attempt < 2 && !ok; attempt++) {
     if (attempt) await pause()
+    t0 = Date.now()
     try {
       const response = await sync.fetch('https://drive-music-sync/health', { signal: AbortSignal.timeout(TIMEOUT_MS) })
       const body = await response.json() as { status?: unknown; service?: unknown; protocol?: unknown }

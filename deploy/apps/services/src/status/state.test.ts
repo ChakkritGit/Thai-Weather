@@ -43,11 +43,15 @@ test('recovery: up, alert with minutes, incident closed', () => {
   assert.equal(r.state.incidents[0].end, T + 25 * MIN)
 })
 
-test('slow is above 3000 ms and raises no alert', () => {
-  const r = run(emptyState(), [ok(3001)], T)
+test('slow is two answers in a row above 3000 ms and raises no alert', () => {
+  const once = run(emptyState(), [ok(3001)], T)
+  assert.equal(once.state.services.portfolio!.status, 'up')
+  const r = run(once.state, [ok(3001)], T + 5 * MIN)
   assert.equal(r.state.services.portfolio!.status, 'slow')
   assert.equal(r.alerts.length, 0)
-  assert.equal(run(emptyState(), [ok(3000)], T).state.services.portfolio!.status, 'up')
+  assert.equal(run(r.state, [ok(3000)], T + 10 * MIN).state.services.portfolio!.status, 'up')
+  const s2 = run(emptyState(), [ok(3000)], T).state
+  assert.equal(run(s2, [ok(3000)], T + 5 * MIN).state.services.portfolio!.status, 'up')
 })
 
 test('an id not in results is untouched and not counted', () => {

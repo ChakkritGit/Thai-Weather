@@ -28,6 +28,30 @@ test('httpCheck: ok, a non-200, a throw, and ok:false in the body', async () => 
   assert.equal((await httpCheck('portfolio', 'https://x', {}, jsonOk)).ok, false)
 })
 
+test('a retry\'s pause and the failed try are not counted as answer time', async () => {
+  retry.delayMs = 600
+  try {
+    let calls = 0
+    stub(async () => {
+      if (++calls === 1) {
+        await new Promise((r) => setTimeout(r, 300))
+        return json({}, 502)
+      }
+      return json({ ok: true })
+    })
+    const r = await httpCheck('portfolio', 'https://x', {}, jsonOk, 1)
+    assert.equal(r.ok, true)
+    assert.ok(r.ms < 300, `ms ${r.ms}`)
+    let tries = 0
+    const rooms = { fetch: async () => (++tries === 1 ? new Response('no', { status: 503 }) : new Response('ok')) } as never
+    const room = await roomsCheck(rooms, 'https://x/__health')
+    assert.equal(room.ok, true)
+    assert.ok(room.ms < 300, `rooms ms ${room.ms}`)
+  } finally {
+    retry.delayMs = 0
+  }
+})
+
 test('fresh: within 26 hours only', () => {
   const now = Date.parse('2026-10-02T12:00:00Z')
   assert.equal(fresh(new Date(now - 25 * 3600_000).toISOString(), now), true)
