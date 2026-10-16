@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Restore a server bundle made in Dock → สำรองข้อมูล (thai-weather-backup-YYYYMMDD-HHMM.zip).
+# Restore a server bundle made in Dock → สำรองข้อมูล (chakkritton-server-backup-YYYYMMDD-HHMM.zip).
 #
-#   unzip thai-weather-backup-*.zip -d restore && cd restore
+#   unzip chakkritton-server-backup-*.zip -d restore && cd restore
 #   sudo bash restore.sh --check      # decrypt and verify everything, change nothing
 #   sudo bash restore.sh              # put everything back (asks for confirmation)
 #

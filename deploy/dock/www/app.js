@@ -1081,7 +1081,7 @@ async function backupView(token) {
       form),
     h('h2', { class: 'section-title' }, 'ไฟล์ที่มี (เก็บ 5 ไฟล์ล่าสุด)'), list,
     card('กู้คืน', 'บนเครื่องเดิมหรือ Ubuntu 24.04 เครื่องใหม่',
-      h('pre', { class: 'logs backup-steps' }, 'unzip thai-weather-backup-*.zip -d restore\ncd restore\nsudo bash restore.sh --check   # ตรวจก่อน ไม่เปลี่ยนอะไร\nsudo bash restore.sh           # กู้คืนทั้งหมด')));
+      h('pre', { class: 'logs backup-steps' }, 'unzip chakkritton-server-backup-*.zip -d restore\ncd restore\nsudo bash restore.sh --check   # ตรวจก่อน ไม่เปลี่ยนอะไร\nsudo bash restore.sh           # กู้คืนทั้งหมด')));
   shell(topBar('สำรองข้อมูล', { back: '#/more', onRefresh: () => load() }), body, tabs('#/more'));
 
   const load = async () => {
@@ -1093,8 +1093,8 @@ async function backupView(token) {
     list.replaceChildren(...(bundles.length ? bundles.map((b) => h('div', { class: 'row' },
       h('div', { class: 'row-main' },
         h('span', { class: 'row-title' }, fmtDate.format(new Date(b.created))),
-        h('span', { class: 'row-sub' }, fmtBytes(b.size)),
-        h('span', { class: 'backup-file' }, b.name)),
+        h('span', { class: 'backup-file' }, b.name),
+        h('span', { class: 'row-sub' }, fmtBytes(b.size))),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onclick: async () => {
           try {

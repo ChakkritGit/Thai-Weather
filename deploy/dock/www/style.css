@@ -281,7 +281,7 @@ table.data .mono { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace
 .backup-form .btn { justify-self: start; }
 .backup-text { margin: 0 0 6px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 /* the file name on its own line, whole: it was squeezed after the size and cut off */
-.backup-file { display: block; margin-top: 4px; color: var(--muted); font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.backup-file { display: block; margin: 4px 0 2px; color: var(--muted); font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .row-actions { display: flex; gap: 8px; flex: none; }
 /* one line each: "ดาวน์โหลด" broke into two lines when the row was tight */
 .row-actions .btn { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }

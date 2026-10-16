@@ -34,7 +34,8 @@ const RESTORE = process.env.RESTORE_SCRIPT ?? '/app/backup/restore.sh'
 const README = process.env.RESTORE_README ?? '/app/backup/README.txt'
 const DB_HOST = process.env.DB_HOST ?? 'apps-db'
 const KEEP = Number(process.env.KEEP ?? 5)
-const NAME_RE = /^thai-weather-backup-\d{8}-\d{4}\.zip$/
+// the whole server, every app (bundles made before 2026-10-16 were named thai-weather-backup-…)
+const NAME_RE = /^(chakkritton-server|thai-weather)-backup-\d{8}-\d{4}\.zip$/
 
 /** Volumes left out: per-app build caches, anonymous volumes, and the raw Postgres files (dumped logically). */
 export function includeVolume(name: string): boolean {
@@ -83,7 +84,7 @@ function stamp(d = new Date()) {
   return `${bkk.slice(0, 10).replaceAll('-', '')}-${bkk.slice(11, 16).replace(':', '')}`
 }
 
-export async function makeBundle(passphrase: string, name = `thai-weather-backup-${stamp()}.zip`) {
+export async function makeBundle(passphrase: string, name = `chakkritton-server-backup-${stamp()}.zip`) {
   job = { name, started: Date.now(), step: 'เริ่ม' }
   const work = join(OUT, `.work-${crypto.randomUUID()}`)
   try {

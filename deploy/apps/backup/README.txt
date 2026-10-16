@@ -8,9 +8,9 @@ Thai-Weather server backup
 
 กู้คืน (บนเซิร์ฟเวอร์เดิมเพื่อย้อนกลับ หรือบน Ubuntu 24.04 เครื่องใหม่):
 
-  scp thai-weather-backup-*.zip root@SERVER:/root/
+  scp chakkritton-server-backup-*.zip root@SERVER:/root/
   ssh root@SERVER
-  apt-get install -y unzip && unzip thai-weather-backup-*.zip -d restore && cd restore
+  apt-get install -y unzip && unzip chakkritton-server-backup-*.zip -d restore && cd restore
   bash restore.sh --check     # ตรวจไฟล์และรหัสผ่านก่อน ยังไม่เปลี่ยนอะไร
   bash restore.sh             # กู้คืนทั้งหมด (พิมพ์ RESTORE เพื่อยืนยัน)
 

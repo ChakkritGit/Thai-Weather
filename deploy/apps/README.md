@@ -30,7 +30,7 @@ Nightly dumps: `apps-db-backup.timer` → `/opt/apps/backups/<db>-<date>.dump` (
 
 ## Backups and restore
 
-Dock → สำรอง makes `thai-weather-backup-<date>.zip`: `restore.sh`, `README.txt`, and `payload.enc`
+Dock → สำรอง makes `chakkritton-server-backup-<date>.zip`: `restore.sh`, `README.txt`, and `payload.enc`
 (AES-256 with the passphrase typed in Dock) with both databases, every Docker volume except caches,
 the env files, the Origin certificate and each repo's commit. `restore.sh --check` verifies a bundle;
 `restore.sh` puts this server, or a fresh Ubuntu 24.04 one, back to it (auto-deploy is left off after).
