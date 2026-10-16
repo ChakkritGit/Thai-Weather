@@ -196,7 +196,8 @@ class Downscaler:
                 target = np.clip(f["precip"], 0, None) * factor / np.sqrt(np.maximum(local, 0.1))
                 shift = (steer_v * 3600 / 1000 / cell_km, steer_u * 3600 / 1000 / cell_km)
                 members = ens.step(target, f["cape"], shift)
-                rain = members.mean(axis=0)
+                # the members' wet area and amounts on the mean's pattern, not the mean's drizzle
+                rain = PrecipEnsemble.probability_matched_mean(members)
                 pop = self.pop_calibration.apply(PrecipEnsemble.exceedance(members, RAIN_THRESHOLD))
                 heavy = PrecipEnsemble.exceedance(members, HEAVY_THRESHOLD)
                 pconv = PrecipEnsemble.exceedance(members, CONVECTIVE_THRESHOLD, neighbourhood=5.0) / 100.0
