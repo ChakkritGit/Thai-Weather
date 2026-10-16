@@ -1,6 +1,6 @@
 # HANDOFF
 
-Updated 2026-10-16 (Bangkok) by Claude, for the next agent (Codex or another). Read this file and
+Updated 2026-10-17 (Bangkok) by Claude, for the next agent (Codex or another). Read this file and
 `AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
 `deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
@@ -44,7 +44,14 @@ others reset to defaults.
 
 VPS: ReadyIDC "VPS Game LG2XS+", Ubuntu 24.04, 4 vCPU / 6 GB / 60 GB (upgraded 2026-10-16). SSH alias `vps`
 (key-only, root). Postgres 17 (`apps-db`, max_connections=40) behind PostgREST + the `dbgw` gateway serves
-Spent-Cost and Portfolio data.
+Spent-Cost and Portfolio data. It needs no tuning at this size (checked 2026-10-17): both databases are ~8 MB,
+the buffer cache hit rate is 99.9 %, shared_buffers 64 MB already holds everything and the container uses
+~35 MB of its 384 MB limit. Revisit only if a database grows past a few hundred MB or the hit rate drops.
+
+Thai Weather data sources besides the forecast runs: Air4Thai (PM2.5 now, every 20 min), FMI SILAM
+(PM2.5 forecast field, 0.2°, 72 h, every 3 h — `backend/app/extras/pmforecast.py`), MET Norway (days 3–10).
+None of them use the Open-Meteo quota. Gusts and visibility are **estimates** derived from the run
+(`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
 `deploy/apps/services` (one Bun image, several containers): rooms (whiteboard), sync (Party Play),
 health, analytics (page views + Web Vitals for Dock), dbgw, media (portfolio uploads), chat (Dock chat,
@@ -128,18 +135,35 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   restricted-scope verification, which the owner declined). The Picker/`drive.file` code is kept; it failed
   in iPhone Safari (third-party cookies).
 
-### Can be built next
-- PM2.5 forecast field on the map (CAMS); today the map shows Air4Thai station dots.
-- City search in the weather app.
-- Gusts and visibility (no free source outside the Open-Meteo quota yet).
-- Drive Music has spinners, not skeletons; Whiteboard has none (fine today).
+### Can be built next (the owner asked for these on 2026-10-17)
+- **City search in the weather app** (not started). Plan: places from GeoNames
+  (`https://download.geonames.org/export/dump/TH.zip`, CC BY 4.0 — credit "GeoNames"): provinces (ADM1),
+  districts (ADM2) and populated places (feature class P), with the Thai name taken from the
+  `alternatenames` column (Thai script, U+0E00–U+0E7F). Build a compact JSON in `backend/app/data/`
+  with a script under `backend/scripts/` (do not commit the dump), serve `GET /api/v1/places?q=` (prefix +
+  contains match, Thai and English, top 10, rate-limited like the rest of the API), and add a search box
+  on the map page that flies to the place and opens its point forecast (`setSelected` in `views/MapPage.tsx`).
+  Keep it working on the iPhone (input font ≥ 16 px so Safari does not zoom).
+- **Drive Music skeletons** (not started): it shows spinners ("Loading…") in `DriveBrowser.tsx` and the
+  `(app)/layout.tsx` session gate. Replace them with skeletons shaped like the real lists (folders/tracks,
+  playlists, library). Pages are behind a Google login: verify what you can (build, unit tests, a dev-only
+  route or Storybook-like render) and ask the owner to check on the iPhone.
+- Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
 - `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
+
+### Watch after deploys of 2026-10-17
+- **Spent/Cost speed**: signed-in pages had TTFB p75 ≈ 2.1 s (Dock → สถิติเว็บ → expenses). The proxy and
+  server actions now verify the session with `supabase.auth.getClaims()` (local ES256 check) instead of
+  `getUser()` (a Supabase round trip per request). Confirm the owner can still sign in and use the app, and
+  that TTFB drops over the next days. If a deeper look is needed: `/` also runs `ensureMonth` and four
+  queries; `/settings` still calls `getUser()` on purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
+- The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
 ## 8. Where the sites stand (Lighthouse 13.5, mobile, 2026-10-16)
 
@@ -155,7 +179,7 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 16)
+## 9. Recent changes (2026-10-14 → 17)
 
 Everything moved off Vercel / Workers / Supabase DB to the VPS (2026-10-15). Since then: status page back on
 Cloudflare with the VPS health endpoint and e-mail fallback; VPS upgraded to 6 GB (swap use 670 MB → 0) and
@@ -164,5 +188,7 @@ swappiness 10; test-notification buttons removed from all apps; Thai Weather got
 1.2 s), accessibility 100; Portfolio hero images re-encoded and cached a month; Drive Music contrast/landmark
 fixes; Dock page-shaped skeletons, backup renaming; skeleton fixes in Thai Weather and Portfolio;
 bottom-nav scroll-to-top in all apps; Lighthouse accessibility + agentic browsing 100 on every site;
-map page server-rendered (LCP 5.7 → ~2–3.7 s); Bot Fight Mode off (best practices 100); Portfolio DB pool capped.
+map page server-rendered (LCP 5.7 → ~2–3.7 s); Bot Fight Mode off (best practices 100); Portfolio DB pool capped;
+Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SILAM) as its own view —
+picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
