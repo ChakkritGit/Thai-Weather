@@ -671,28 +671,30 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 }
 
 
-const AIR_LEVELS: [string, string, string][] = [
-  ['#3bccff', 'ดีมาก', 'Very good'],
-  ['#92d050', 'ดี', 'Good'],
-  ['#ffff00', 'ปานกลาง', 'Moderate'],
-  ['#ffa200', 'เริ่มมีผลฯ', 'Starting to affect'],
-  ['#f04646', 'มีผลต่อสุขภาพ', 'Affects health'],
+const AIR_LEVELS: [string, string, string, string][] = [
+  ['#3bccff', 'ดีมาก', 'Very good', 'คุณภาพอากาศดีมาก'],
+  ['#92d050', 'ดี', 'Good', 'คุณภาพอากาศดี'],
+  ['#ffff00', 'ปานกลาง', 'Moderate', 'ปานกลาง'],
+  ['#ffa200', 'เริ่มมีผล', 'Sensitive', 'เริ่มมีผลกระทบต่อสุขภาพ'],
+  ['#f04646', 'มีผล', 'Unhealthy', 'มีผลกระทบต่อสุขภาพ'],
 ];
 
 /** The PCD's PM2.5 levels, under the weather legend while the stations are shown. */
 function AirLegend({ lang, count }: { lang: 'th' | 'en'; count: number | null }) {
   const th = lang === 'th';
   return (
-    <div className="air-legend glass" role="note">
+    <div
+      className="air-legend glass"
+      role="note"
+      title={th ? 'PM2.5 ตอนนี้ (µg/m³) จากสถานี Air4Thai กรมควบคุมมลพิษ · ซูมเข้าเพื่อดูตัวเลข' : 'PM2.5 now (µg/m³), Air4Thai stations (Pollution Control Department) · zoom in for numbers'}
+    >
       <b>PM2.5</b>
-      {AIR_LEVELS.map(([c, t, e]) => (
-        <span key={c}>
+      {AIR_LEVELS.map(([c, t, e, full]) => (
+        <span key={c} title={th ? full : e}>
           <i style={{ background: c }} /> {th ? t : e}
         </span>
       ))}
-      <span className="subtle">
-        {count === null ? (th ? 'กำลังโหลด…' : 'Loading…') : th ? `${count} สถานี · Air4Thai กรมควบคุมมลพิษ` : `${count} stations · Air4Thai (PCD)`}
-      </span>
+      <span className="subtle">{count === null ? '…' : th ? `${count} สถานี` : `${count} stations`}</span>
     </div>
   );
 }

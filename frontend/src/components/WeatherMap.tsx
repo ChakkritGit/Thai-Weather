@@ -322,6 +322,11 @@ export function WeatherMap(props: Props) {
     airMarkers.current.forEach((m) => m.remove());
     airMarkers.current = [];
     if (!map || !ready || !air?.length) return;
+    // zoomed out, the numbers overlap (Bangkok has dozens of stations): plain dots until zoom 7
+    const box = map.getContainer();
+    const compact = () => (box.dataset.aqCompact = map.getZoom() < 7 ? 'true' : 'false');
+    compact();
+    map.on('zoomend', compact);
     for (const s of air) {
       const el = document.createElement('button');
       el.type = 'button';
@@ -338,6 +343,9 @@ export function WeatherMap(props: Props) {
       });
       airMarkers.current.push(new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map));
     }
+    return () => {
+      map.off('zoomend', compact);
+    };
   }, [air, ready, lang]);
 
   useEffect(() => {
