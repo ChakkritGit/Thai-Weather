@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { api, type AirStation, type LayerId, type Meta, type RunMeta } from '../lib/api';
 import { buildLut } from '../lib/color';
@@ -18,7 +19,14 @@ import { RadarControl } from '../components/RadarControl';
 import { OverviewPanel } from '../components/OverviewPanel';
 import { PointPanel } from '../components/PointPanel';
 import { Timeline } from '../components/Timeline';
-import { WeatherMap, type MapPoint } from '../components/WeatherMap';
+import type { MapPoint } from '../components/WeatherMap';
+
+/**
+ * Only the map itself needs the browser (MapLibre uses `window` and WebGL), so only it loads on the
+ * client: the rest of this page (sidebar, legend, timeline) is in the server's HTML and paints with
+ * the first frame. When the whole page was client-only, its largest text came ~5 s later on a phone.
+ */
+const WeatherMap = dynamic(() => import('../components/WeatherMap').then((m) => m.WeatherMap), { ssr: false });
 
 const STORE_KEY = 'thwx.layer';
 /** Phones: the point panel is a bottom sheet (see base.css, max-width 860px). */
@@ -70,7 +78,12 @@ function initialLayer(): LayerId {
 export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: RunMeta; initialPoint?: MapPoint | null }) {
   const { t, lang } = useT();
   const { theme } = useTheme();
-  const [layerId, setLayerId] = useState<LayerId>(initialLayer);
+  // the stored layer is read after hydration: the server cannot see it, and both renders must match
+  const [layerId, setLayerId] = useState<LayerId>('temp');
+  useEffect(() => {
+    const stored = initialLayer();
+    if (stored !== 'temp') setLayerId(stored);
+  }, []);
   // The clock behind "now": ticks every minute and again whenever the page comes back (an iPhone
   // resumes a home-screen app with its old state), so the current hour never goes stale.
   const [clock, setClock] = useState(() => Date.now());
@@ -183,7 +196,13 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const lut = useMemo(() => buildLut(layer), [layer]);
   const index = layer.daily ? day : step;
 
+  const layerSaved = useRef(false);
   useEffect(() => {
+    // not on the first render, which still shows the default before the stored layer is read
+    if (!layerSaved.current) {
+      layerSaved.current = true;
+      return;
+    }
     try {
       localStorage.setItem(STORE_KEY, layerId);
     } catch {
@@ -404,7 +423,9 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const canLocate = typeof navigator !== 'undefined' && 'geolocation' in navigator;
+  // known only in the browser: false in the server's HTML, then set after hydration
+  const [canLocate, setCanLocate] = useState(false);
+  useEffect(() => setCanLocate('geolocation' in navigator), []);
 
   // ------------------------------------------------------------ one playback for radar + forecast
   // With the radar on, Play runs the observed frames of the past hour up to the latest, then the
