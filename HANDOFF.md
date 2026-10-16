@@ -1,38 +1,168 @@
 # HANDOFF
-อัปเดต: 2026-10-14 ICT โดย Claude · งาน: deploy VPS + แผน docs/ui-radar-push-plan.md ครบ + คำขอเพิ่มของผู้ใช้
 
-## สถานะ
-- Production: VPS 117.18.127.246 (`ssh vps`), stack `deploy/docker-compose.yml` + `docker-compose.build.yml` (build บนเครื่อง เพราะ GHCR ยังไม่มี image — Images workflow รันเมื่อ push `main` เท่านั้น)
-- โดเมน (Cloudflare DNS only): thai-weather / nginx / portainer `.chakkritton.com` → NPM + Let's Encrypt, Force SSL, HSTS, HTTP/2
-- ความปลอดภัย VPS: ufw เปิดเฉพาะ 22(limit)/80/443, SSH key-only, fail2ban, unattended-upgrades, sysctl hardening, docker log rotation
-- รหัสแอดมิน NPM/Portainer: `/root/admin-credentials.txt` บน VPS และสำเนาบน Desktop ผู้ใช้ (ไม่อยู่ใน repo)
-- แผน 4 ข้อเสร็จ: Play เรดาร์ย้อนหลัง 1 ชม., ย้ายตั้งค่า Push ไป /alerts#notifications, Push ความร้อน (opt-in), เอาโลโก้/ชื่อออกจาก navbar
-- คำขอเพิ่มเสร็จ: แสดงตำแหน่งทันทีหลังรีเฟรช (เมื่อเคยอนุญาต), iOS apple-touch-icon + splash 44 ขนาด, OG/Twitter ครบทุกหน้า + การ์ดจังหวัด/จุด, แก้ pinch zoom บน iOS
+Updated 2026-10-16 (Bangkok) by Claude, for the next agent (Codex or another). Read this file and
+`AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
+`deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
-## ขั้นต่อไป
-1. ทดสอบบน iPhone จริง: pinch zoom แผนที่, ไอคอน/splash หลัง "เพิ่มไปยังหน้าจอโฮม" (ต้องลบไอคอนเดิมแล้วเพิ่มใหม่), Push heat
-2. ตั้ง `THWX_VAPID_SUBJECT` ใน `/opt/thai-weather/deploy/.env` เป็นอีเมลจริง
-3. ถ้าจะใช้ GHCR: merge เข้า `main` แล้วตั้ง package เป็น public
+## 1. Working with the owner
 
-- รอบแก้จาก iPhone (2026-10-14): แถบชั้นข้อมูลเลื่อนได้ (เลิก pointer-events:none), เรดาร์ไม่กระพริบ (canvas source แทน updateImage), ไอคอนมี ?v= ให้ iOS โหลดใหม่ + favicon PNG/.ico, robots/sitemap/การ์ด OG เรนเดอร์ตอน request (เดิมได้ localhost จากตอน build)
+- The owner writes Thai, often short. **Reply in Thai.** Code, commits, comments and docs stay English.
+- Work is pre-approved ("ทำได้เลย / อนุมัติ"): fix, test, commit, push and deploy without asking.
+  Ask first only for things that are hard to undo or outward-facing: deleting DNS records, certificates,
+  cloud projects, changing the VPS plan (ReadyIDC), security settings on Cloudflare, anything that sends
+  mail/pushes to real people.
+- After a change is verified, remove what it replaced (old services, files, images, caches) — the owner
+  asks for this every time ("ลบต้นทางเก่า", "เคลียร์อะไรที่ไม่ได้ใช้").
+- New services: **Bun + Elysia**. Next.js apps stay Next.js. The weather science stays Python.
+- Dependency and image versions: **exact pins, at least 14 days old** at the time you add them.
+- The owner tests on an **iPhone** (Safari + home-screen PWA). Check phone layouts, safe areas and iOS
+  behaviour before calling UI work done; say plainly what you could not test (pages behind a login).
+- This repo is **public**. Never commit secrets, the owner's e-mail, `.wrangler/` (its cache holds the
+  Cloudflare account name, which is the e-mail), or `.env` files.
 
-- รอบ 3: โอกาสฝนชั่วโมงปัจจุบันปรับด้วยเรดาร์ (docs/NOWCAST.md §4b); Play เดียวคุมทั้งเรดาร์+พยากรณ์ (เรดาร์ย้อนหลัง→ล่าสุด→ชั่วโมงถัดไป, เรดาร์โชว์เฉพาะชั่วโมงปัจจุบัน); ไอคอนเป็นไฟล์ static .png ใน public (apple-touch-icon.png, app-icons/) ICON_VERSION=3 — ยังต้องยืนยันบน iPhone
+## 2. What runs where
 
-- Dock (docker.chakkritton.com): UI มินิมอลบน Portainer API, คอนเทนเนอร์ `dock` ใน deploy/docker-compose.yml, ไฟล์ deploy/dock (ดู deploy/README.md §3b); Portainer เต็มแทรก viewport ผ่าน NPM advanced config
-- คำถามย้าย Vercel/Workers/Supabase → VPS: ผู้ใช้ให้พักไว้ก่อน (ประเมินแล้ว: Next.js ง่าย, Durable Objects ปานกลาง-ยาก, Workers AI/Supabase แนะนำคงไว้)
+| URL | What | Code | Runs on |
+|---|---|---|---|
+| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16), `backend/` (FastAPI + `verify/`) | VPS, stack `deploy/` |
+| chakkritton.com, www | Portfolio + blog, studio, Scrolly assistant | github.com/ChakkritGit/WebProfile | VPS, stack `deploy/apps` |
+| expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
+| whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
+| drive-music.chakkritton.com | Drive Music (Google Drive player, Party Play sync) | github.com/ChakkritGit/Drive-Music-Web | VPS (`apps`) |
+| docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, web stats, backups, chat + web push) | `deploy/dock/` (static www + nginx) and `deploy/apps/services` | VPS |
+| status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
+| health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/services/src/health.ts` | VPS |
+| nginx. / portainer.chakkritton.com | Nginx Proxy Manager / Portainer admin | images | VPS |
 
-- Security fixes (14 ต.ค.): Next 15.5.27 + security headers/CSP, ซ่อน /docs, rate limit ล็อกอินแอดมิน 6/นาที/IP, Cloudflare proxied + Full (strict), DOCKER-USER ให้ 80/443 รับเฉพาะ Cloudflare, default site 444, SSH algorithms สมัยใหม่ — รายละเอียด deploy/README.md §4b; L2 ย้ายรหัสแอดมินเข้า macOS Keychain + ลบไฟล์แล้ว, L4 maplibre-gl 6.11.2 (worker เสิร์ฟจาก public/maplibre ผ่าน scripts/copy-maplibre-worker.mjs) + Next 16.3.8 (Turbopack build; 16.3.7 มี 6 advisory) → npm audit prod = 0; L5 ลด capabilities NPM/Portainer; I2 ซ่อนเวอร์ชันจากผู้ไม่ได้ล็อกอิน (auth_request); ค้าง: L1 รหัส root (ผู้ใช้เปลี่ยนเอง)
+Also on Cloudflare: Worker `mr-worldwide` (Scrolly AI, Workers AI), DNS (all proxied, SSL Full strict,
+Origin CA cert in NPM), **Email Routing** on chakkritton.com (only used by the status Worker to e-mail the
+owner when the VPS is unreachable). **Bot Fight Mode and JS detections are OFF** (owner's decision,
+2026-10-16): their injected `/cdn-cgi/challenge-platform` script used a deprecated API and cost ~0.5 s of
+main thread on every page. Protection left: origin locked to Cloudflare IPs, ufw, fail2ban, per-IP rate
+limits in the apps and the API. Note: `cf bot-management update` is a PUT — send every field or the
+others reset to defaults.
 
-## การตัดสินใจ + เหตุผล
-- pinch บน iOS: ไม่มีเครื่อง iOS ให้ทดสอบ; ทำ 2 ทางที่รู้กันว่าแก้ปัญหานี้ — map page ไม่อยู่ใน scroll container (`.app-main:has(> .map-page)`) และ preventDefault `gesture*` ของ Safari บน container แผนที่; Chromium touch emulation ซูมได้
-- OG: satori ไม่ทำ mark positioning ภาษาไทย (วรรณยุกต์บนสระบนหาย) จึงใช้ harfbuzzjs 1.6.2 shaping → SVG; `og:url` ของจุดบนแผนที่ละไว้ เพราะ Next ตัด query ของ URL ราก
-- radar history: id = unix time ของเฟรม, รายการ+ภาพมาจาก snapshot เดียว, เลือกเฟรมย้อนหลังแล้ว poll ไม่ย้าย
-- heat: 41/54°C จาก design tokens, หน้าต่างชั่วโมงปัจจุบัน+3 ชม., cooldown 6 ชม., run เก่ากว่า 2×refresh+1 ชม. ไม่ใช้
+VPS: ReadyIDC "VPS Game LG2XS+", Ubuntu 24.04, 4 vCPU / 6 GB / 60 GB (upgraded 2026-10-16). SSH alias `vps`
+(key-only, root). Postgres 17 (`apps-db`, max_connections=40) behind PostgREST + the `dbgw` gateway serves
+Spent-Cost and Portfolio data.
 
-## คำสั่งตรวจ + ผลล่าสุด
-- backend: ruff ผ่าน, pytest 197 passed · frontend: typecheck ผ่าน, vitest 71 passed, `next build` ผ่าน
-- browser QA (Playwright 1.63 Chromium, desktop+iPhone, TH/EN): 51/51 ผ่าน, ไม่มี JS error
+`deploy/apps/services` (one Bun image, several containers): rooms (whiteboard), sync (Party Play),
+health, analytics (page views + Web Vitals for Dock), dbgw, media (portfolio uploads), chat (Dock chat,
+monthly report, web push), backup (Dock backups). `reminders` is built from the Spent-Cost repo.
 
-## สิ่งที่รันค้าง / ข้อควรระวัง
-- อัปเดต production: `ssh vps 'cd /opt/thai-weather && git pull && cd deploy && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build api web verify'`
-- stack สร้างจาก CLI: อย่า redeploy ทั้ง stack จาก Portainer
+## 3. Deploying
+
+- **App repos** (WebProfile, Spent-Cost, Whiteboard, Drive-Music-Web): push to `main` → `apps-autodeploy.timer`
+  (every 2 min) pulls, builds and rolls out without downtime (`deploy/rollout.sh`). A Drive-Music push also
+  rebuilds the `services` image. Check: `ssh vps 'journalctl -u apps-autodeploy --since "-15 min" | grep -E "deployed|!!"'`.
+- **This repo is NOT auto-deployed.** Branch in use: `claude/vigilant-ride-i3yr1m` (the VPS checkout tracks it).
+  - weather web: `ssh vps 'cd /opt/thai-weather && flock /run/apps-autodeploy.lock git pull -q && cd deploy && exec 9>/run/apps-autodeploy.lock && flock 9 && docker compose -p thai-weather -f docker-compose.yml -f docker-compose.build.yml build web && COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml ./rollout.sh web'`
+  - weather api + verify: same pull, then `build api` and `up -d --no-deps api verify`.
+  - Bun services: pull, then `cd deploy/apps && ./build.sh services && docker compose up -d --no-deps <svc>`;
+    the `backup` image is FROM the services image: `./build.sh services && ./build.sh backup` together.
+  - Dock: `deploy/dock/www` is a directory mount (live after `git pull`); its `nginx.conf` is a bind-mounted
+    **file** → `docker restart dock` after changing it (validate with a throwaway nginx first).
+  - Status Worker: `cd deploy/status-worker && npx -y wrangler@4.144.0 deploy` (wrangler is logged in on the
+    owner's Mac). New cron triggers take ~15 min to start firing.
+- One SSH connection per batch of commands: ufw allows **6 SSH connections per 30 s**; beyond that you get
+  "Connection refused" for ~30–60 s. Don't poll SSH in tight loops.
+- Cloudflare cache: `cf cache invalidate --zone chakkritton.com --body '{"purge_everything":true}' --force`.
+
+## 4. Secrets and access (no values here)
+
+- VPS env files: `/opt/apps/env/*.env` (mode 600) and `/opt/thai-weather/deploy/.env`. Never print them;
+  pipe values (e.g. `ssh vps 'grep ^X= …' | wrangler secret put X`).
+- Admin passwords: macOS Keychain on the owner's Mac — `security find-internet-password -s <host> -w`
+  for nginx.chakkritton.com, portainer.chakkritton.com, docker.chakkritton.com (user `admin` for the last
+  two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
+- Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, ALERT_TO.
+- Google Picker API key for Drive Music is commented out in `drive-music.env` (see §7).
+
+## 5. Rules that cost time to rediscover
+
+- **Never trigger extra forecast runs** (no manual `POST /runs`, avoid needless api restarts): one run uses
+  ~2,300 of Open-Meteo's 10,000 free calls/day; 4 scheduled runs ≈ 9,400. The api skips its start-up run if
+  the latest is < 6 h old.
+- **Tests must not touch the owner's real data**: don't post to Dock chat (`/api/chat`, `/chat/alert`), don't
+  send pushes or alert e-mails, delete test rows you create. A test once filled the owner's chat.
+- **Backups**: Dock → เพิ่มเติม → สำรองข้อมูล makes `chakkritton-server-backup-<date>.zip` (encrypted with the
+  owner's passphrase; `restore.sh` inside). Make sure one recent bundle exists before risky server work.
+  Nightly `pg_dump` too (`apps-db-backup.timer`, 14 days, `/opt/apps/backups`).
+- **Plan upgrades / re-provisioning** at ReadyIDC run cloud-init as a new instance: SSH host keys change and the
+  root password is reset to the panel's. Verify host keys from inside before trusting them; set the root
+  password back to the Keychain one.
+- Next.js app builds on the VPS need the host network + DB mapping (`build.sh`); without it Portfolio's ISR
+  pages prerender empty. Portfolio's Prisma pool is capped (2 while building, 5 at run time) because
+  `max_connections=40` is shared.
+- Pages scroll inside `.app-main` (Thai Weather) / `<main id="app-scroll">` (Drive Music), not the window.
+- iOS 27.2 shows letter tiles for every site in "Add to Home Screen" (github.com too) — an iOS bug. Don't
+  rework the icons again.
+
+## 6. How to check your work
+
+| Repo | Checks |
+|---|---|
+| this repo `backend/` | `.venv/bin/ruff check app tests && .venv/bin/ruff format --check app tests && .venv/bin/pytest -q` |
+| this repo `frontend/` | `npx tsc --noEmit && npx vitest run && npx next build` |
+| `deploy/apps/services` | `bun test` (`bunx tsc --noEmit -p .` — errors under `src/vendor/` are pre-existing) |
+| Spent-Cost | `npx tsc --noEmit && npx vitest run && npm run build`; reminders: `cd reminders && bun test server.test.ts` |
+| Drive-Music-Web | `npx tsc --noEmit && npx vitest run && npm run build` |
+| WebProfile | `npm run build` (`tsc` reports a missing type for `@/assets/ai/land.png` until a build has run — pre-existing) |
+
+Browser checks run against production with Playwright (Chromium/WebKit, iPhone 13 emulation). Lighthouse:
+`npx -y lighthouse@13.5.0 <url> --output=json` with Playwright's Chromium as `CHROME_PATH`.
+
+## 7. What is left
+
+### Waiting for data (nothing to do until then)
+- Temperature MLP switches itself on after 90 days + 20,000 pairs (≈ mid-January 2027); rain MLP after
+  2,000 station rain hours + 30 days (the dry season slows this). Progress: thai-weather…/verification.
+- ~2026-10-23: recheck rain-occurrence frequency bias (was 4.7–5×) after the probability-matched-mean change
+  (report section 6) and the chance-of-rain calibration (section 8).
+- ~mid-November: recheck the learned temperature bias (hold-out MAE in the report; baseline 1.31 °C).
+
+### Needs the owner's decision
+- **WRF 3 km**: not feasible on this VPS (full domain ~9–18 h per run even on the 14-core plan). Options: rent
+  compute per run, a smaller nested domain, or ingest an existing high-resolution model.
+- **Drive Music** stays on `drive.readonly` (Google shows a warning at login unless the app passes
+  restricted-scope verification, which the owner declined). The Picker/`drive.file` code is kept; it failed
+  in iPhone Safari (third-party cookies).
+
+### Can be built next
+- PM2.5 forecast field on the map (CAMS); today the map shows Air4Thai station dots.
+- City search in the weather app.
+- Gusts and visibility (no free source outside the Open-Meteo quota yet).
+- Drive Music has spinners, not skeletons; Whiteboard has none (fine today).
+- Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
+- `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
+
+### Ask the owner to confirm on the iPhone
+- Collapsed bottom sheet no longer covers the map controls (safe-area fix).
+- Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
+- The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
+
+## 8. Where the sites stand (Lighthouse 13.5, mobile, 2026-10-16)
+
+| Site | Perf | A11y | Best practices | SEO | Agentic |
+|---|---|---|---|---|---|
+| thai-weather (map) | 85–95 | 100 | 100 | 100 | 100 |
+| chakkritton.com | ~66–77 (hero art is chosen in the browser by design) | 100 | 100 | 100 | 100 |
+| expenses /login | ~85–91 | 100 | 100 | 100 | 100 |
+| drive-music | ~70–87 | 100 | 100 | 100 | 100 |
+| status | ~97 | 100 | 100 | 100 | 100 |
+
+Performance moves ±10 between runs. The map page renders on the server now; only `WeatherMap`
+(MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
+browser-only reads (localStorage, navigator) in effects so the two renders match.
+
+## 9. Recent changes (2026-10-14 → 16)
+
+Everything moved off Vercel / Workers / Supabase DB to the VPS (2026-10-15). Since then: status page back on
+Cloudflare with the VPS health endpoint and e-mail fallback; VPS upgraded to 6 GB (swap use 670 MB → 0) and
+swappiness 10; test-notification buttons removed from all apps; Thai Weather got PM2.5 station dots,
+10-day/details panel, free API + docs, verification page with MLP progress, self-hosted IBM Plex (FCP 3.6 →
+1.2 s), accessibility 100; Portfolio hero images re-encoded and cached a month; Drive Music contrast/landmark
+fixes; Dock page-shaped skeletons, backup renaming; skeleton fixes in Thai Weather and Portfolio;
+bottom-nav scroll-to-top in all apps; Lighthouse accessibility + agentic browsing 100 on every site;
+map page server-rendered (LCP 5.7 → ~2–3.7 s); Bot Fight Mode off (best practices 100); Portfolio DB pool capped.
+`git log` in each repo has the details and the reasons.

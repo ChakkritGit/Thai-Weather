@@ -118,7 +118,7 @@ docs/            เอกสารเทคนิค
 - [docs/API.md](docs/API.md) — REST API
 - [docs/DESIGN.md](docs/DESIGN.md) — design system และหลักการ UX
 - [deploy/README.md](deploy/README.md) — **deploy บน VPS**: Docker + Portainer + Nginx Proxy Manager (SSL) ใน compose เดียว
-- [docs/HANDOFF.md](docs/HANDOFF.md) — สถานะงาน สิ่งที่ต้องทำต่อ
+- [HANDOFF.md](HANDOFF.md) — สถานะงาน วิธี deploy กฎ และสิ่งที่ต้องทำต่อ
 - [CONTRIBUTING.md](CONTRIBUTING.md) — วิธีร่วมพัฒนา
 
 ## ⚠️ ข้อจำกัดความรับผิดชอบ
