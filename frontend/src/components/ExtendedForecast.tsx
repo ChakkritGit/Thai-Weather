@@ -126,7 +126,8 @@ export function TenDay({ fc, lang }: { fc: ForecastResponse; lang: Lang }) {
       <h3 id="tenday-h">{th ? `พยากรณ์ ${days.length} วัน` : `${days.length}-day forecast`}</h3>
       <ol className="tenday">
         {days.map((d, k) => {
-          const wet = (d.pop_max ?? 0) >= 30 || d.rain_mm >= 1;
+          // highlighted like the rain icon: a 30 % chance on 2.2 km days, 1 mm on MET days
+          const wet = d.pop_max != null ? d.pop_max >= 30 : d.rain_mm >= 1;
           return (
             <li key={d.date} className="tenday-row" data-source={d.source}>
               <span className="tenday-day">{k === 0 ? (th ? 'วันนี้' : 'Today') : fmtDay(d.date, lang).split(' ')[0]}</span>
