@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import '@/design/fonts.css';
 import '@/design/generated/tokens.css';
 import '@/design/base.css';
 import '@/design/data.css';
@@ -72,13 +73,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={lang} data-theme={theme ?? undefined} suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai+Looped:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"
-        />
+        {/* the body text's two files (Thai + Latin): fetched with the HTML instead of after the CSS */}
+        <link rel="preload" href="/fonts/plex/ibm-plex-sans-thai-400-thai.woff2" as="font" type="font/woff2" crossOrigin="" />
+        <link rel="preload" href="/fonts/plex/ibm-plex-sans-thai-400-latin.woff2" as="font" type="font/woff2" crossOrigin="" />
       </head>
       <body>
         <JsonLd data={websiteLd(siteUrl())} />

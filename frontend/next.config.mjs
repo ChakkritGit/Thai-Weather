@@ -7,13 +7,13 @@ const API = (process.env.THWX_API_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/
 
 /**
  * Security headers for every page. Next's own hydration scripts are inline, hence 'unsafe-inline'
- * for scripts; the rest is locked to this origin (+ Google Fonts), and the site cannot be framed.
+ * for scripts; the rest is locked to this origin (fonts included), and the site cannot be framed.
  */
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data: blob:",
   "connect-src 'self' data: blob:", // MapLibre fetches its image layers from data: URLs
   "worker-src 'self' blob:", // MapLibre's workers
@@ -49,6 +49,8 @@ const nextConfig = {
   async headers() {
     return [
       { source: '/:path*', headers: BASE_HEADERS },
+      // the font files never change under a name; a new cut gets a new file name
+      { source: '/fonts/plex/:file*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       {
         source:
           '/((?!_next/static|_next/image|app-icons|apple-touch-icon|favicon|splash|icons|og|maplibre|fonts|manifest\\.webmanifest).*)',

@@ -14,7 +14,7 @@ export function Num({ value, className }: { value: string; className?: string })
     if (ref.current) roll(ref.current, value);
   }, [value]);
   return (
-    <span ref={ref} className={className} aria-label={value}>
+    <span ref={ref} className={className}>
       {first}
     </span>
   );

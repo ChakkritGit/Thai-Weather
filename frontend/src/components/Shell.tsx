@@ -98,7 +98,7 @@ export function Header({ alertCount }: { alertCount: number }) {
         ))}
       </nav>
       <div className="header-actions">
-        <button type="button" className="icon-btn" onClick={() => setLang(lang === 'th' ? 'en' : 'th')} aria-label="Language / ภาษา">
+        <button type="button" className="icon-btn" onClick={() => setLang(lang === 'th' ? 'en' : 'th')} aria-label={`${lang === 'th' ? 'EN' : 'TH'} · Language / ภาษา`}>
           {lang === 'th' ? 'EN' : 'TH'}
         </button>
         <button type="button" className="icon-btn" onClick={toggle} aria-label={t('theme')}>

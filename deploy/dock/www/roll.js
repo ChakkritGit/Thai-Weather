@@ -25,12 +25,15 @@ export function roll(host, text) {
   const from = host.dataset.value ?? host.textContent;
   if (from === text && host.dataset.value !== undefined) return;
   host.dataset.value = text;
-  host.setAttribute('aria-label', text);
   const before = magnitude(from);
   const after = magnitude(text);
   const animate = !reduced.matches && host.isConnected && from !== text && Number.isFinite(before) && Number.isFinite(after) && before !== after;
   host.classList.add('roll');
-  host.replaceChildren();
+  // read as plain text: aria-label is not allowed on a span without a role
+  const spoken = document.createElement('span');
+  spoken.className = 'sr-only';
+  spoken.textContent = text;
+  host.replaceChildren(spoken);
   const a = [...from];
   const b = [...text];
   const offset = b.length - a.length; // right-aligned: units and decimals line up
