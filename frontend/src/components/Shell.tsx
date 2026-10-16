@@ -109,13 +109,33 @@ export function Header({ alertCount }: { alertCount: number }) {
   );
 }
 
+/** The pages scroll inside .app-main (the window does not), so a tab resets that. */
+function toTop(smooth: boolean) {
+  const behavior: ScrollBehavior = smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto';
+  document.querySelector('.app-main')?.scrollTo({ top: 0, behavior });
+  window.scrollTo({ top: 0, behavior });
+}
+
+/** Like Dock: the tab of the page you are on scrolls it to the top; another tab opens its page at the top. */
 export function BottomNav({ alertCount }: { alertCount: number }) {
   const { t } = useT();
   const active = useActive();
+  const pathname = usePathname() ?? '/';
   return (
     <nav className="bottom-nav" aria-label="main">
       {NAV.map((n) => (
-        <Link key={n.href} href={n.href} aria-current={active(n.href) ? 'page' : undefined} data-tab-bounce>
+        <Link
+          key={n.href}
+          href={n.href}
+          aria-current={active(n.href) ? 'page' : undefined}
+          data-tab-bounce
+          onClick={(e) => {
+            if (pathname === n.href) {
+              e.preventDefault();
+              toTop(true);
+            } else toTop(false);
+          }}
+        >
           <span className="tab-icon" data-tab-icon>
             <Icon name={n.icon} />
           </span>
