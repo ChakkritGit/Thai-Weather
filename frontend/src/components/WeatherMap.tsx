@@ -366,10 +366,23 @@ export function WeatherMap(props: Props) {
       return root;
     };
     // open downwards in the upper half: above a dot near the top the card sat under the layer chips
+    // hover: the card stays while the pointer travels from the dot into it
+    let hideTimer: number | undefined;
+    const keep = () => window.clearTimeout(hideTimer);
+    const hideSoon = () => {
+      keep();
+      hideTimer = window.setTimeout(() => {
+        if (!pinned) popup.remove();
+      }, 250);
+    };
     const show = (s: AirStation) => {
+      keep();
       const y = map.project([s.lon, s.lat]).y;
       popup.options.anchor = y < map.getContainer().clientHeight * 0.5 ? 'top' : 'bottom';
       popup.setLngLat([s.lon, s.lat]).setDOMContent(content(s)).addTo(map);
+      const el = popup.getElement();
+      el?.addEventListener('mouseenter', keep);
+      el?.addEventListener('mouseleave', hideSoon);
       setHover(null);
     };
 
@@ -386,8 +399,14 @@ export function WeatherMap(props: Props) {
         if (!pinned) show(s);
       });
       el.addEventListener('mouseleave', () => {
-        if (!pinned) popup.remove();
+        if (!pinned) hideSoon();
       });
+      // MapLibre makes its own map 'click' from the press and release on its container, so a tap on
+      // the dot also "clicked" the map: the card closed at once and the point panel opened instead.
+      // Stopping the press itself keeps the gesture on the dot.
+      for (const type of ['pointerdown', 'mousedown', 'touchstart', 'dblclick'] as const) {
+        el.addEventListener(type, (ev) => ev.stopPropagation());
+      }
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
         pinned = s.id;
@@ -397,6 +416,7 @@ export function WeatherMap(props: Props) {
     }
     return () => {
       map.off('zoomend', compact);
+      keep();
       popup.remove();
     };
   }, [air, ready, lang]);
