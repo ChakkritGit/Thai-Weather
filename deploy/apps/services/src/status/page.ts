@@ -86,7 +86,7 @@ function strip(state: State, id: CheckId, now: number): string {
     const failed = c ? c[1] - c[0] : 0
     const note = ratio === null ? 'ยังไม่มีข้อมูล' : down || failed ? `ล่มราว ${down || failed * 5} นาที` : 'ไม่มีช่วงที่ล่ม'
     const date = thaiDate(at)
-    out += `<i class="bar ${cls}" tabindex="0" data-d="${esc(date)}" data-u="${esc(pct)}" data-n="${esc(note)}" aria-label="${esc(`${date}: ${pct}, ${note}`)}"></i>`
+    out += `<i class="bar ${cls}" role="img" tabindex="0" data-d="${esc(date)}" data-u="${esc(pct)}" data-n="${esc(note)}" aria-label="${esc(`${date}: ${pct}, ${note}`)}"></i>`
   }
   return out
 }
@@ -164,7 +164,6 @@ ${detail ? `<p class="check-detail">${esc(detail)}</p>` : ''}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="60">
 <title>สถานะระบบ · chakkritton.com</title>
 <meta name="description" content="${esc(DESCRIPTION)}">
 <link rel="canonical" href="${SITE}/">
@@ -253,6 +252,9 @@ ${groups}
   document.addEventListener('pointerover', pick)
   document.addEventListener('focusin', pick)
   document.addEventListener('scroll', hide, { passive: true })
+  // fresh data every minute (was <meta refresh>, which reloads under the reader): only while the tab is
+  // visible and no day's tooltip is open, else it waits for the next minute
+  setInterval(() => { if (document.visibilityState === 'visible' && tip.hidden) location.reload() }, 60000)
 })()
 </script>
 </body>

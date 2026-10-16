@@ -41,7 +41,7 @@ test('a 95/100 day is an amber bar whose tooltip data says 95% and how many chec
   const s = allUp()
   s.days.portfolio = { [bangkokDay(NOW)]: [95, 100] }
   const html = render(s, NOW)
-  assert.match(html, /class="bar warn" tabindex="0" data-d="[^"]+" data-u="95%" data-n="ล่มราว 25 นาที"/)
+  assert.match(html, /class="bar warn" role="img" tabindex="0" data-d="[^"]+" data-u="95%" data-n="ล่มราว 25 นาที"/)
 })
 
 test('an incident inside a day shows as minutes down in that bar', () => {
