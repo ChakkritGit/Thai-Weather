@@ -463,3 +463,20 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 
 /* text for screen readers only (the rolling figures) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* page-shaped skeletons (app.js: bone, skelRows, skelTiles, skelCard, skelChat) */
+.bone { display: block; max-width: 100%; border-radius: 6px; background: color-mix(in srgb, var(--text) 10%, transparent); animation: pulse 1.2s ease-in-out infinite; }
+.bone-sub { margin-top: 7px; }
+.bone-value { margin: 8px 0 2px; }
+.bone-meter { margin-top: 10px; border-radius: 999px; }
+.bone-plot { margin-top: 12px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.bone-ic { flex: none; border-radius: 9px; }
+.bone-pill { border-radius: 999px; }
+.bone-btn { flex: 1; border-radius: 12px; }
+.bone-on-accent { background: color-mix(in srgb, var(--on-accent) 30%, transparent); }
+.row-side .bone { margin-left: auto; }
+.skel-heading { margin: 22px 4px 10px; }
+.top h1 .bone, .top .bone { display: inline-block; vertical-align: middle; }
+.msg.skel { min-width: 140px; }
+.list.skel { margin-bottom: 12px; }
+@media (prefers-reduced-motion: reduce) { .bone { animation: none; } }

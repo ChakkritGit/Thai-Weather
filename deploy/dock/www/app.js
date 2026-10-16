@@ -384,6 +384,33 @@ function shell(...children) {
 }
 const skeleton = (n = 4) => Array.from({ length: n }, () => h('div', { class: 'skeleton' }));
 
+// ---- skeletons shaped like each page: a bar per line of text, inside the same rows, tiles and cards,
+// so the page does not jump when the data arrives. Everything with .skel goes on the first render.
+const bone = (w, ht = 12, cls = '') => h('span', { class: `bone ${cls}`.trim(), style: `width:${w};height:${ht}px` });
+const W = (i, ws) => `${ws[i % ws.length]}%`;
+/** a .list of rows: [icon] title + sub on the left, value + sub on the right */
+const skelRows = (n, { icon: ic = false, side = true } = {}) => h('div', { class: 'list skel', 'aria-hidden': 'true' },
+  Array.from({ length: n }, (_, i) => h('div', { class: 'row' },
+    ic ? bone('32px', 32, 'bone-ic') : null,
+    h('div', { class: 'row-main' }, bone(W(i, [58, 44, 66, 50, 38]), 14), bone(W(i, [34, 26, 40, 30, 22]), 11, 'bone-sub')),
+    side ? h('div', { class: 'row-side' }, bone('56px', 13), bone('30px', 11, 'bone-sub')) : null)));
+/** stat tiles: label, big value, sub line, and the meter where the real tile has one */
+const skelTiles = (n, meter = false) => Array.from({ length: n }, (_, i) => h('div', { class: 'tile skel', 'aria-hidden': 'true' },
+  bone(W(i, [46, 58, 40, 52]), 11), bone(W(i, [62, 50, 70, 44]), 22, 'bone-value'), bone(W(i, [74, 60, 82, 66]), 11, 'bone-sub'),
+  meter ? bone('100%', 4, 'bone-meter') : null));
+/** a chart card: its title, then the plot */
+const skelCard = (plot = 150, title = '32%') => h('section', { class: 'card skel', 'aria-hidden': 'true' }, bone(title, 13), bone('100%', plot, 'bone-plot'));
+/** a section heading */
+const skelHeading = (w = '44%') => h('div', { class: 'skel skel-heading', 'aria-hidden': 'true' }, bone(w, 16));
+/** chat: a system report, your question, an answer */
+const skelChat = () => [
+  h('div', { class: 'msg system skel', 'aria-hidden': 'true' }, bone('30%', 10), bone('52%', 14, 'bone-sub'), bone('88%', 11, 'bone-sub'), bone('70%', 11, 'bone-sub')),
+  h('div', { class: 'msg user skel', 'aria-hidden': 'true' }, bone('120px', 12, 'bone-on-accent')),
+  h('div', { class: 'msg skel', 'aria-hidden': 'true' }, bone('200px', 12), bone('150px', 12, 'bone-sub')),
+];
+/** drops the placeholders once the real content is in */
+const clearSkel = (root) => root.querySelectorAll('.skel').forEach((e) => e.remove());
+
 // ------------------------------------------------------------------ views
 function loginView(message = '') {
   const err = h('p', { class: 'error', role: 'alert' }, message);
@@ -415,13 +442,14 @@ function loginView(message = '') {
 }
 
 async function containersView(token) {
-  const body = h('div', {}, skeleton());
-  const meta = h('p', { class: 'meta' }, ' ');
+  const body = h('div', {}, skelHeading('30%'), skelRows(4, { icon: true }), skelHeading('38%'), skelRows(3, { icon: true }));
+  const meta = h('p', { class: 'meta' }, bone('62%', 13, 'skel'));
   const rows = new Map(); // container id → its row and the parts that change
   const sections = new Map(); // group → its section
   const load = async () => {
     const [list, info] = await Promise.all([docker('/containers/json?all=1'), docker('/info')]);
     if (token !== viewToken) return;
+    clearSkel(body); clearSkel(meta);
     refreshStarts(list, (id) => {
       const r = rows.get(id);
       if (token === viewToken && r?.st && r.c?.State === 'running') setText(r.sub, `${r.st.label} · ${runningSince(startedAt.get(id))}`);
@@ -531,6 +559,15 @@ function parseLogs(buf, tty) {
 }
 
 async function containerView(token, id) {
+  // the page's shape while its details load (the list used to stay up until they came)
+  const stat = (i) => h('div', { class: 'stat skel', 'aria-hidden': 'true' }, bone(W(i, [40, 64, 56]), 11), bone(W(i, [62, 74, 70]), 20, 'bone-value'));
+  shell(
+    topBar(bone('52%', 22), { back: '#/containers' }),
+    h('p', { class: 'meta' }, bone('132px', 28, 'bone-pill')),
+    h('div', { class: 'actions', 'aria-hidden': 'true' }, bone('100%', 44, 'bone-btn'), bone('100%', 44, 'bone-btn')),
+    h('div', { class: 'stats' }, stat(0), stat(1), stat(2)),
+    skelHeading('34%'), h('div', { class: 'mini-grid' }, skelCard(140, '16%'), skelCard(140, '30%')),
+    tabs('#/containers'));
   const c = await docker(`/containers/${id}/json`);
   if (token !== viewToken) return;
   const name = nameOf(c);
@@ -634,8 +671,8 @@ async function containerView(token, id) {
 }
 
 async function imagesView(token) {
-  const body = h('div', {}, skeleton());
-  const meta = h('p', { class: 'meta' }, ' ');
+  const body = h('div', {}, skelRows(8));
+  const meta = h('p', { class: 'meta' }, bone('34%', 13, 'skel'));
   const load = async () => {
     const df = await docker('/system/df');
     if (token !== viewToken) return;
@@ -659,8 +696,8 @@ async function imagesView(token) {
 }
 
 async function volumesView(token) {
-  const body = h('div', {}, skeleton(3));
-  const meta = h('p', { class: 'meta' }, ' ');
+  const body = h('div', {}, skelRows(6));
+  const meta = h('p', { class: 'meta' }, bone('34%', 13, 'skel'));
   const load = async () => {
     const df = await docker('/system/df');
     if (token !== viewToken) return;
@@ -729,13 +766,13 @@ async function overviewView(token) {
       },
     }, label)));
   const live = h('span', { class: 'live' }, h('span', { class: 'dot ok' }), 'สด');
-  const hostLine = h('p', { class: 'meta' }, ' ');
-  const hostTiles = h('div', { class: 'tiles' }, skeleton(4));
-  const chartsGrid = h('div', { class: 'grid' });
-  const ngTiles = h('div', { class: 'tiles' });
-  const ngGrid = h('div', { class: 'grid' });
+  const hostLine = h('p', { class: 'meta' }, bone('92%', 13, 'skel'), bone('58%', 13, 'skel bone-sub'));
+  const hostTiles = h('div', { class: 'tiles' }, skelTiles(6, true));
+  const chartsGrid = h('div', { class: 'grid' }, skelCard(170, '22%'));
+  const ngTiles = h('div', { class: 'tiles' }, skelTiles(4));
+  const ngGrid = h('div', { class: 'grid' }, skelCard(150, '40%'));
   const ngTables = h('div', { class: 'grid' });
-  const ctrGrid = h('div', { class: 'ctr-groups' });
+  const ctrGrid = h('div', { class: 'ctr-groups' }, skelRows(4, { icon: true }));
   const groupGrids = new Map(); // group → { section, grid }
   const ctrMem = h('div', { class: 'grid' });
   const body = h('div', { class: 'overview' },
@@ -753,6 +790,7 @@ async function overviewView(token) {
     const [mx, list] = await Promise.all([metrics(overviewRange), docker('/containers/json?all=1')]);
     if (token !== viewToken) return;
     body.classList.remove('loading');
+    clearSkel(body);
     const { times, step, host: hs, snapshot: sn } = mx;
     const T = { times, step };
 
@@ -968,10 +1006,10 @@ async function webView(token) {
       onclick: () => { webDays = d; try { localStorage.setItem('dock.webDays', String(d)); } catch { /* ignore */ } route(); },
     }, label)));
   const sites = h('div', { class: 'segmented scroll', role: 'group', 'aria-label': 'เว็บไซต์' });
-  const tiles = h('div', { class: 'tiles' }, skeleton(4));
-  const chartGrid = h('div', { class: 'grid' });
-  const tables = h('div', { class: 'grid' });
-  const vitalsBox = h('div', {});
+  const tiles = h('div', { class: 'tiles' }, skelTiles(4));
+  const chartGrid = h('div', { class: 'grid' }, skelCard(190, '48%'));
+  const tables = h('div', { class: 'grid' }, skelRows(5));
+  const vitalsBox = h('div', {}, skelCard(110, '36%'));
   const body = h('div', { class: 'overview' },
     h('div', { class: 'filters' }, seg, sites),
     tiles, chartGrid,
@@ -986,6 +1024,7 @@ async function webView(token) {
     const st = await api(`/analytics?days=${webDays}${webHost ? `&host=${encodeURIComponent(webHost)}` : ''}`);
     if (token !== viewToken) return;
     body.classList.remove('loading');
+    clearSkel(body);
     sites.replaceChildren(...[['', 'ทุกเว็บ'], ...st.hosts.map((hn) => [hn, siteName(hn)])].map(([hn, label]) => h('button', {
       type: 'button', 'aria-pressed': hn === (st.host ?? '') ? 'true' : 'false',
       onclick: () => { webHost = hn; try { localStorage.setItem('dock.webHost', hn); } catch { /* ignore */ } route(); },
@@ -1074,7 +1113,7 @@ async function backupView(token) {
       handleError(err);
     }
   } }, pass1, pass2, create, status);
-  const list = h('div', { class: 'list no-enter' }, skeleton(2));
+  const list = h('div', { class: 'list no-enter' }, ...skelRows(1).children);
   const body = h('div', { class: 'stack' },
     card('สร้างไฟล์สำรองทั้งเซิร์ฟเวอร์', null,
       h('p', { class: 'backup-text' }, 'รวมฐานข้อมูล ข้อมูลใน Docker volume ทุกตัว ไฟล์ตั้งค่า และ commit ของโค้ด เป็น zip เดียว ข้อมูลข้างในเข้ารหัสด้วยรหัสผ่านนี้ — ลืมรหัสผ่าน = เปิดไฟล์ไม่ได้'),
@@ -1181,7 +1220,7 @@ function pushButton() {
 // (commands, or an LLM once one is configured in chat.env).
 const fmtTime = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 async function chatView(token) {
-  const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' }, skeleton(3));
+  const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' }, ...skelChat());
   const note = h('p', { class: 'chat-note' }, ' ');
   const input = h('textarea', { class: 'field chat-input', rows: 1, placeholder: 'พิมพ์ข้อความ…', maxlength: 4000, 'aria-label': 'ข้อความ' });
   const send = h('button', { class: 'icon-btn send', type: 'submit', 'aria-label': 'ส่ง', disabled: true }, icon('send'));
@@ -1255,6 +1294,7 @@ async function chatView(token) {
   const add = (msgs) => {
     const follow = atBottom();
     log.querySelector('.chat-empty')?.remove();
+    clearSkel(log);
     for (const m of msgs) if (m.id > lastId) { log.append(bubble(m)); lastId = m.id; if (!firstId) firstId = m.id; }
     if (follow) toBottom();
   };
@@ -1299,6 +1339,7 @@ async function chatView(token) {
     send.disabled = true;
     const typing = h('div', { class: 'msg assistant typing' }, h('div', { class: 'msg-text' }, 'กำลังตอบ…'));
     log.querySelector('.chat-empty')?.remove();
+    clearSkel(log);
     log.append(h('div', { class: 'msg user pending' }, h('div', { class: 'msg-text' }, text)), typing);
     toBottom();
     try {
