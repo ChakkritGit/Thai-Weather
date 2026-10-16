@@ -1560,7 +1560,7 @@ button {
 .verify-tile { display: grid; gap: 2px; font-size: var(--font-size-sm); }
 .verify-tile b { font-family: var(--font-family-display); font-size: 1.75rem; font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; }
 .verify-tile[data-source='fine'] b, .verify-tile--accent b { color: var(--color-accent-default); }
-.verify-section { display: grid; gap: var(--space-3); min-width: 0; }
+.verify-section { display: grid; gap: var(--space-3); min-width: 0; align-content: start; }
 .verify-section h2, .verify-section h3, .verify-section p { margin: 0; }
 .verify-section h3 { font-size: var(--font-size-md); }
 .verify-table tbody tr { cursor: default; }
@@ -1575,7 +1575,9 @@ button {
 .verify-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .verify-legend i { display: inline-block; width: 12px; height: 4px; border-radius: 2px; }
 .verify-chart { margin: 0; display: grid; gap: var(--space-2); }
-.verify-chart svg { width: 100%; height: auto; overflow: visible; }
+.verify-chart svg { width: 100%; max-width: 760px; height: auto; overflow: visible; }
+/* the chart scales with its box: keep the axis text near 11-13 px on a phone as on a desktop */
+@media (max-width: 600px) { .verify-chart:not(.verify-chart--square) .verify-axis { font-size: 20px; } }
 .verify-chart--square svg { max-width: 340px; }
 .verify-axis { fill: var(--color-fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .verify-note { font-size: var(--font-size-xs); }
