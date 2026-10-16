@@ -135,8 +135,8 @@ const ENDPOINTS: Endpoint[] = [
   {
     path: '/air/forecast',
     example: '/air/forecast',
-    th: 'พยากรณ์ PM2.5 เต็มพื้นที่ประเทศไทย รายชั่วโมง 72 ชั่วโมง จากแบบจำลอง FMI SILAM (กริด 0.2° ~22 กม.) อัปเดตทุก 3 ชั่วโมง',
-    en: 'PM2.5 forecast over all of Thailand, hourly for 72 hours, from the FMI SILAM model (0.2° grid, ~22 km), refreshed every 3 hours',
+    th: 'พยากรณ์ PM2.5 เต็มพื้นที่ประเทศไทย รายชั่วโมง 72 ชั่วโมง จากแบบจำลอง FMI SILAM (กริด 0.2° ~22 กม.) ปรับตามค่าล่าสุดของสถานี Air4Thai (ผลลดลงตามระยะห่างจากสถานีและตามเวลาที่พยากรณ์ล่วงหน้า) อัปเดตทุก 3 ชั่วโมง',
+    en: 'PM2.5 forecast over all of Thailand, hourly for 72 hours, from the FMI SILAM model (0.2° grid, ~22 km), adjusted to the latest Air4Thai readings (less with distance from stations and with lead time), refreshed every 3 hours',
     fields: [
       { name: 'lat0, lon0, dlat, dlon, nx, ny', th: 'กริด: จุดกึ่งกลางเซลล์ล่างซ้าย ระยะห่าง และขนาด', en: 'grid: south-west cell centre, spacing and size' },
       { name: 'times[], frames[]', th: 'หนึ่งเฟรมต่อชั่วโมง: base64 ไบต์ละเซลล์ (µg/m³ จำนวนเต็ม สูงสุด 255) เรียงแถวจากใต้ขึ้นเหนือ', en: 'one frame per hour: base64, one byte per cell (whole µg/m³, max 255), rows from south to north' },

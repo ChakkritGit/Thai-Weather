@@ -739,7 +739,7 @@ function AirLegend({ lang, count, forecast }: { lang: 'th' | 'en'; count: number
       ))}
       <span className="subtle">
         {count === null ? '…' : th ? `จุด = วัดจริง ${count} สถานี` : `dots = ${count} stations`}
-        {forecast ? (th ? ' · สี = พยากรณ์ FMI SILAM ~22 กม.' : ' · shading = FMI SILAM forecast, ~22 km') : ''}
+        {forecast ? (th ? ' · สี = พยากรณ์ FMI SILAM ~22 กม. ปรับตามค่าสถานี' : ' · shading = FMI SILAM forecast (~22 km) adjusted to the stations') : ''}
       </span>
       {/* the weather legend (and its credits) is hidden while the PM2.5 forecast has the map */}
       {forecast && <MapCredit lang={lang} />}
