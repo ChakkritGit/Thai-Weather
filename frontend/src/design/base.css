@@ -1687,3 +1687,6 @@ button {
 .aq-pop-unit { font-size: var(--font-size-xs); color: var(--color-fg-muted); }
 .aq-pop-level { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
 .aq-pop-go { margin-top: 6px; min-height: 32px; font-size: var(--font-size-xs); justify-self: start; }
+/* above the map's own controls (layer chips, legend, timeline sit at --zIndex-overlay): the card could
+   open under them and its button could not be pressed */
+.maplibregl-popup.aq-popup { z-index: var(--zIndex-popover); }
