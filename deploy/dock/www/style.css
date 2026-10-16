@@ -474,7 +474,8 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .bone-pill { border-radius: 999px; }
 .bone-btn { flex: 1; border-radius: 12px; }
 .bone-on-accent { background: color-mix(in srgb, var(--on-accent) 30%, transparent); }
-.row-side .bone { margin-left: auto; }
+.skel .row-side { display: flex; flex-direction: column; align-items: flex-end; }
+.bone-dot { flex: none; border-radius: 50%; }
 .skel-heading { margin: 22px 4px 10px; }
 .top h1 .bone, .top .bone { display: inline-block; vertical-align: middle; }
 .msg.skel { min-width: 140px; }

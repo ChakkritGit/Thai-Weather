@@ -393,7 +393,7 @@ const skelRows = (n, { icon: ic = false, side = true } = {}) => h('div', { class
   Array.from({ length: n }, (_, i) => h('div', { class: 'row' },
     ic ? bone('32px', 32, 'bone-ic') : null,
     h('div', { class: 'row-main' }, bone(W(i, [58, 44, 66, 50, 38]), 14), bone(W(i, [34, 26, 40, 30, 22]), 11, 'bone-sub')),
-    side ? h('div', { class: 'row-side' }, bone('56px', 13), bone('30px', 11, 'bone-sub')) : null)));
+    side === 'dot' ? bone('10px', 10, 'bone-dot') : side ? h('div', { class: 'row-side' }, bone('56px', 13), bone('30px', 11, 'bone-sub')) : null)));
 /** stat tiles: label, big value, sub line, and the meter where the real tile has one */
 const skelTiles = (n, meter = false) => Array.from({ length: n }, (_, i) => h('div', { class: 'tile skel', 'aria-hidden': 'true' },
   bone(W(i, [46, 58, 40, 52]), 11), bone(W(i, [62, 50, 70, 44]), 22, 'bone-value'), bone(W(i, [74, 60, 82, 66]), 11, 'bone-sub'),
@@ -442,7 +442,7 @@ function loginView(message = '') {
 }
 
 async function containersView(token) {
-  const body = h('div', {}, skelHeading('30%'), skelRows(4, { icon: true }), skelHeading('38%'), skelRows(3, { icon: true }));
+  const body = h('div', {}, skelHeading('30%'), skelRows(4, { icon: true, side: 'dot' }), skelHeading('38%'), skelRows(3, { icon: true, side: 'dot' }));
   const meta = h('p', { class: 'meta' }, bone('62%', 13, 'skel'));
   const rows = new Map(); // container id → its row and the parts that change
   const sections = new Map(); // group → its section
@@ -772,7 +772,7 @@ async function overviewView(token) {
   const ngTiles = h('div', { class: 'tiles' }, skelTiles(4));
   const ngGrid = h('div', { class: 'grid' }, skelCard(150, '40%'));
   const ngTables = h('div', { class: 'grid' });
-  const ctrGrid = h('div', { class: 'ctr-groups' }, skelRows(4, { icon: true }));
+  const ctrGrid = h('div', { class: 'ctr-groups' }, skelRows(4, { icon: true, side: 'dot' }));
   const groupGrids = new Map(); // group → { section, grid }
   const ctrMem = h('div', { class: 'grid' });
   const body = h('div', { class: 'overview' },
