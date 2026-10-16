@@ -1515,6 +1515,10 @@ button {
 @media (max-width: 860px) {
   .map-bottom { bottom: var(--space-2); }
   .map-page[data-sheet='peek'] .map-bottom { bottom: calc(96px + var(--space-2)); }
+  /* the sheet sits on the bottom navigation, which already clears the home indicator: its collapsed
+     height is 96 px, not 96 px + the safe area (that hid the bottom of the timeline under it) */
+  .map-sidebar { padding-bottom: 0; }
+  .map-sidebar[data-open='true'][data-peek='true'] { transform: translateY(calc(100% - 96px)); }
 }
 
 /* ---------------------------------------------------------------- /developers (free API docs) */

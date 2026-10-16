@@ -379,10 +379,15 @@ export function WeatherMap(props: Props) {
       keep();
       const y = map.project([s.lon, s.lat]).y;
       popup.options.anchor = y < map.getContainer().clientHeight * 0.5 ? 'top' : 'bottom';
-      popup.setLngLat([s.lon, s.lat]).setDOMContent(content(s)).addTo(map);
-      const el = popup.getElement();
-      el?.addEventListener('mouseenter', keep);
-      el?.addEventListener('mouseleave', hideSoon);
+      popup.setLngLat([s.lon, s.lat]).setDOMContent(content(s));
+      // addTo() on an open popup closes it first, and that 'close' unpinned the card: a tap after
+      // the hover (or the touch's emulated hover) left it to the next mouseleave, which hid it
+      if (!popup.isOpen()) {
+        popup.addTo(map);
+        const el = popup.getElement();
+        el?.addEventListener('mouseenter', keep);
+        el?.addEventListener('mouseleave', hideSoon);
+      }
       setHover(null);
     };
 
@@ -409,8 +414,8 @@ export function WeatherMap(props: Props) {
       }
       el.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        pinned = s.id;
         show(s);
+        pinned = s.id;
       });
       airMarkers.current.push(new maplibregl.Marker({ element: el }).setLngLat([s.lon, s.lat]).addTo(map));
     }
