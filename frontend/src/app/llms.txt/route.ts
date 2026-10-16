@@ -20,6 +20,7 @@ For a location, prefer the JSON API over scraping pages: no key, ${"60"} request
 - [Provinces / รายจังหวัด](${base}${paths.provinces}): daily forecast for all 77 provinces; each has its own page such as ${base}${paths.province({ name_en: "Chiang Mai" })}
 - [Alerts / แจ้งเตือน](${base}${paths.alerts}): heavy rain, thunderstorms, strong wind, heat, cold and frost by province and day
 - [Method / วิธีการ](${base}${paths.method}): why 2 km matters in the tropics, the processing pipeline, verification and limitations
+- [Accuracy / พยากรณ์แม่นแค่ไหน](${base}${paths.verification}): hourly verification against station reports, and what the forecast learns from them
 - [Free API docs / API ฟรี](${base}${paths.developers}): endpoints, limits, examples and terms
 
 ## API

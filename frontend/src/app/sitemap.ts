@@ -20,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "hourly" as const,
     priority: i === 0 ? 1 : 0.9,
   }));
-  const docs = [paths.method, paths.developers].map((p) => ({
+  const docs = [paths.method, paths.developers, paths.verification].map((p) => ({
     url: `${base}${p}`,
     lastModified: DOCS_UPDATED,
     changeFrequency: "monthly" as const,
