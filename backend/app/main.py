@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    load_static()  # fail fast if static data is missing
+    load_static()  # fail fast if static data is missing (and keep it loaded for the first request)
     store = RunStore(settings.data_dir)
     observations = ObservationBuffer()
     refresher = Refresher(settings, store, observations)
@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
     nowcast = NowcastService(settings)
     app.state.nowcast = nowcast
     app.state.push = PushService(settings, nowcast, latest_run=store.latest) if settings.push_enabled else None
+    store.latest()  # starts warming the current run's files, so the first visitor is not the one who waits
     refresher.start()
     nowcast.start()  # no-op when both radar and cyclones are disabled
     if app.state.push is not None:

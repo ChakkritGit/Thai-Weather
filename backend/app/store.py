@@ -103,6 +103,22 @@ class Run:
                 self._coarse_raw = {k: z[k] for k in z.files}
         return self._coarse_raw
 
+    def warm(self) -> None:
+        """Read the run's files once, front to back, so the OS keeps them in its page cache.
+
+        The arrays are memory-mapped (step, y, x): a point needs one value from each of 48 steps
+        per layer, scattered through ~150 MB. Cold, on the VPS disk, that was ~1 s for every new
+        place and 10.9 s for the first request after a restart; warm, ~0.1 s.
+        """
+        for f in sorted(self.path.glob("*.np[yz]")):
+            try:
+                with open(f, "rb") as fh:
+                    while fh.read(8 << 20):
+                        pass
+            except OSError:
+                pass
+        self.coarse_raw()
+
     def series(self, res: str, layer: str, iy: int, ix: int) -> list[float]:
         codes = np.asarray(self.array(res, layer)[:, iy, ix])
         return [round(float(v), 2) for v in run_encoding(self.meta, layer).decode(codes)]
@@ -129,4 +145,5 @@ class RunStore:
                 if not (path / "meta.json").exists():
                     return self._latest
                 self._latest = Run(path)
+                threading.Thread(target=self._latest.warm, name="warm-run", daemon=True).start()
             return self._latest
