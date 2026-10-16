@@ -1,0 +1,7 @@
+[Unit]
+Description=Snapshot the containers' state for the health service (deploy/apps/container-health.sh)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/thai-weather/deploy/apps/container-health.sh

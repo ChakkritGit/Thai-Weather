@@ -1,7 +1,8 @@
 // Run: bun test src/status/checks.test.ts   (from deploy/apps/services/)
 import { test, afterEach } from 'bun:test'
 import assert from 'node:assert/strict'
-import { fresh, httpCheck, jsonOk, retry, runChecks, musicSyncCheck, roomsCheck } from './checks'
+import { httpCheck, internalChecks, jsonOk, retry, runChecks } from './checks'
+import { fresh, musicSyncCheck, remindersCheck, roomsCheck } from './internal'
 
 retry.delayMs = 0
 
@@ -80,7 +81,6 @@ test('a read-only probe retries transport failures once, preserving error detail
 })
 
 test('reminder checks distinguish stale heartbeats and malformed responses without retrying', async () => {
-  const env = { HEALTH_TOKEN: 't', STATUS_SECRET: 's', SUPABASE_FUNCTION_URL: 'https://fn' } as never
   for (const [body, reason] of [
     [{ lastRun: new Date().toISOString() }, undefined],
     [{ lastRun: null }, 'heartbeat-stale'],
@@ -90,20 +90,57 @@ test('reminder checks distinguish stale heartbeats and malformed responses witho
   ] as const) {
     let calls = 0
     stub((url) => { if (url === 'https://fn') { calls++; return json(body) } return json({ ok: true }) })
-    const result = (await runChecks(env, Date.UTC(2026, 9, 12, 10, 5))).find((r) => r.id === 'reminders')!
+    const result = await remindersCheck('https://fn', 's')
     assert.equal(result.ok, reason === undefined)
     assert.equal(result.reason, reason)
     assert.equal(calls, 1)
   }
 })
 
+const env = { HEALTH_URL: 'https://h/health', PROBE_SECRET: 'p', HEALTH_TOKEN: 't' }
+const NOW = Date.UTC(2026, 9, 16, 10, 5)
+const report = (over: Record<string, unknown> = {}) => ({
+  at: NOW - 30_000,
+  containers: [{ name: 'apps-db', state: 'running', health: 'healthy' }, { name: 'dock', state: 'running', health: null }],
+  checks: [{ id: 'rooms', ok: true, ms: 3 }, { id: 'musicsync', ok: true, ms: 2 }, { id: 'reminders', ok: false, ms: 5, reason: 'heartbeat-stale' }],
+  ...over,
+})
+
 test('runChecks asks the model only in minutes 0-4', async () => {
-  stub(() => json({ ok: true }))
-  const env = { HEALTH_TOKEN: 't', STATUS_SECRET: 's', SUPABASE_FUNCTION_URL: 'https://fn' } as never
+  stub((url) => (url === env.HEALTH_URL ? json(report()) : json({ ok: true })))
   const ids = async (min: number) => (await runChecks(env, Date.UTC(2026, 9, 2, 10, min))).map((r) => r.id)
   for (const m of [0, 4]) assert.ok((await ids(m)).includes('ai'), `minute ${m}`)
   for (const m of [5, 59]) assert.ok(!(await ids(m)).includes('ai'), `minute ${m}`)
-  assert.equal((await ids(5)).length, 9)
+  assert.deepEqual((await ids(5)).sort(), ['assistant', 'expenses', 'music', 'musicauth', 'musicsync', 'portfolio', 'reminders', 'rooms', 'server', 'whiteboard'])
+})
+
+test('internal checks: one request with the probe secret answers for the server and the internal services', async () => {
+  let secret: string | null = null
+  globalThis.fetch = (async (_: string, init?: RequestInit) => {
+    secret = new Headers(init?.headers).get('x-probe-secret')
+    return json(report())
+  }) as never
+  const r = Object.fromEntries((await internalChecks(env, NOW)).map((x) => [x.id, x]))
+  assert.equal(secret, 'p')
+  assert.equal(r.server.ok, true)
+  assert.deepEqual([r.rooms.ok, r.musicsync.ok, r.reminders.ok, r.reminders.reason], [true, true, false, 'heartbeat-stale'])
+})
+
+test('internal checks: a stopped or unhealthy container, or an old snapshot, fails the server with the names', async () => {
+  stub(() => json(report({ containers: [{ name: 'apps-db', state: 'exited', health: null }, { name: 'apps-chat', state: 'running', health: 'unhealthy' }, { name: 'apps-sync', state: 'running', health: 'starting' }] })))
+  const server = (await internalChecks(env, NOW)).find((x) => x.id === 'server')!
+  assert.equal(server.ok, false)
+  assert.equal(server.detail, 'apps-db (exited), apps-chat (unhealthy)')
+  stub(() => json(report({ at: NOW - 10 * 60_000 })))
+  assert.equal((await internalChecks(env, NOW)).find((x) => x.id === 'server')!.ok, false)
+})
+
+test('internal checks: an unreachable VPS fails the server and every internal check', async () => {
+  stub(() => { throw new TypeError('fetch failed') })
+  const all = await internalChecks(env, NOW)
+  assert.deepEqual(all.map((x) => [x.id, x.ok, x.reason]), [['server', false, 'network'], ['rooms', false, 'network'], ['musicsync', false, 'network'], ['reminders', false, 'network']])
+  stub(() => json({ error: 'unauthorized' }, 401))
+  assert.equal((await internalChecks(env, NOW))[0].httpStatus, 401)
 })
 
 

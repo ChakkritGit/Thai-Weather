@@ -6,6 +6,7 @@ const DAY = 24 * 60 * 60_000
 type Check = (typeof CHECKS)[number]
 
 const GROUPS = [
+  { id: 'server', name: 'เซิร์ฟเวอร์' },
   { id: 'portfolio', name: 'Portfolio' },
   { id: 'spentcost', name: 'Spent-Cost' },
   { id: 'whiteboard', name: 'Whiteboard' },
@@ -38,7 +39,7 @@ export function summary(state: State, now: number, checks: Check[] = CHECKS) {
   return {
     services: checks.map((c) => {
       const s = state.services[c.id]
-      return { id: c.id, name: c.name, group: c.group, status: statusOf(state, c.id), ms: s?.ms ?? 0, since: s?.since ?? 0, uptime90: uptime90(state, c.id), reason: s?.reason ?? null, httpStatus: s?.httpStatus ?? null, checkedAt: s?.checkedAt ?? 0 }
+      return { id: c.id, name: c.name, group: c.group, status: statusOf(state, c.id), ms: s?.ms ?? 0, since: s?.since ?? 0, uptime90: uptime90(state, c.id), reason: s?.reason ?? null, httpStatus: s?.httpStatus ?? null, detail: s?.detail ?? null, checkedAt: s?.checkedAt ?? 0 }
     }),
     incidents: recent(state, now).map((i) => ({ name: nameOf(checks, i.id), start: i.start, end: i.end ?? null })),
     lastRun: state.lastRun,
@@ -93,7 +94,6 @@ function strip(state: State, id: CheckId, now: number): string {
 const SITE = 'https://status.chakkritton.com'
 const DESCRIPTION = 'สถานะการทำงานและ uptime ย้อนหลัง 90 วันของทุกแอปบน chakkritton.com ตรวจทุก 5 นาที'
 /** share image (1200×630), shipped next to this file */
-const OG_PNG = await Bun.file(new URL('./og.png', import.meta.url)).arrayBuffer()
 const ROBOTS = `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`
 const SITEMAP = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${SITE}/</loc><changefreq>always</changefreq></url></urlset>\n`
 const llms = (checks: Check[]) => `# สถานะระบบ · chakkritton.com
@@ -142,7 +142,7 @@ export function render(state: State, now: number, checks: Check[] = CHECKS): str
         const up = uptime90(state, c.id)
         const service = state.services[c.id]
         const ms = service?.ms
-        const detail = service?.reason ? `${REASON[service.reason]}${service.httpStatus ? ` (HTTP ${service.httpStatus})` : ''}` : ''
+        const detail = service?.reason ? `${REASON[service.reason]}${service.httpStatus ? ` (HTTP ${service.httpStatus})` : ''}${service.detail ? `: ${service.detail}` : ''}` : ''
         return `<li class="row">
 <div class="head"><b>${esc(c.name)}</b><span class="st ${st}">${esc(LABEL[st])}${st !== 'unknown' && ms ? ` <small>${esc(ms)} ms</small>` : ''}</span></div>
 ${detail ? `<p class="check-detail">${esc(detail)}</p>` : ''}
@@ -259,7 +259,8 @@ ${groups}
 </html>`
 }
 
-export function handle(req: Request, state: State, now: number): Response {
+/** `og` is the share image's bytes (the Worker bundles og.png). */
+export function handle(req: Request, state: State, now: number, og?: ArrayBuffer): Response {
   const path = new URL(req.url).pathname
   if (path === '/api/status') {
     return new Response(JSON.stringify(summary(state, now)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } })
@@ -267,7 +268,7 @@ export function handle(req: Request, state: State, now: number): Response {
   if (path === '/favicon.svg' || path === '/favicon.ico') {
     return new Response(LOGO, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' } })
   }
-  if (path === '/og.png') return new Response(OG_PNG, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } })
+  if (path === '/og.png' && og) return new Response(og, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } })
   if (path === '/robots.txt') return text(ROBOTS, 'text/plain')
   if (path === '/sitemap.xml') return text(SITEMAP, 'application/xml')
   if (path === '/llms.txt') return text(llms(CHECKS), 'text/plain')

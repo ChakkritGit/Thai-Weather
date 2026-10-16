@@ -28,7 +28,7 @@ export function apply(prev: State, results: Result[], now: number): { state: Sta
 
   for (const r of results) {
     const old: Service = services[r.id] ?? { status: 'unknown', fails: 0, since: now, ms: 0, checkedAt: 0 }
-    const s: Service = { ...old, ms: r.ms, checkedAt: now, reason: r.reason, httpStatus: r.httpStatus }
+    const s: Service = { ...old, ms: r.ms, checkedAt: now, reason: r.reason, httpStatus: r.httpStatus, detail: r.detail }
     const set = (status: Service['status']) => {
       if (status !== s.status) s.since = now
       s.status = status

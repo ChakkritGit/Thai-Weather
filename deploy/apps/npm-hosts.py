@@ -65,7 +65,7 @@ HOSTS = [
     (["expenses.chakkritton.com"], "apps-expenses", 3000, proxied("/data/", "apps-dbgw:8791", "the app's data API (database gateway → PostgREST / reminders)")),
     (["whiteboard.chakkritton.com"], "apps-whiteboard", 3000, ws("/rooms/", "apps-rooms:8787", "Yjs rooms (was the whiteboard-rooms Worker)")),
     (["drive-music.chakkritton.com"], "apps-drive-music", 3000, ws("/parties/", "apps-sync:8788", "Party Play sync (was the drive-music-sync Worker)")),
-    (["status.chakkritton.com"], "apps-status", 8789, ""),
+    (["health.chakkritton.com"], "apps-health", 8789, ""),  # the status Worker's view inside the VPS
 ]
 
 HTTP_TOP_EXTRA = "limit_req_zone $binary_remote_addr zone=beacon:10m rate=60r/m;\n"

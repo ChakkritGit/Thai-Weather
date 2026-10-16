@@ -1,4 +1,5 @@
 // Run: bun test src/status/page.test.ts   (from deploy/apps/services/)
+import { readFileSync } from 'node:fs'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { CHECKS } from './checks'
@@ -65,7 +66,7 @@ test('a name with markup is escaped', () => {
 test('routes: json, page, and 404', async () => {
   const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW)
   const j = (await get('/api/status').json()) as { services: unknown[]; incidents: unknown[]; lastRun: number }
-  assert.equal(j.services.length, 10)
+  assert.equal(j.services.length, 11)
   assert.equal(get('/api/status').headers.get('Cache-Control'), 'public, max-age=60')
   assert.equal(get('/').status, 200)
   assert.equal(get('/nope').status, 404)
@@ -89,7 +90,8 @@ test('share tags and the files crawlers ask for', async () => {
   assert.match(html, /<meta property="og:image" content="https:\/\/status\.chakkritton\.com\/og\.png">/)
   assert.match(html, /<meta name="description" content="[^"]+">/)
   assert.match(html, /<link rel="canonical" href="https:\/\/status\.chakkritton\.com\/">/)
-  const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW)
+  const png = readFileSync(new URL('./og.png', import.meta.url)).buffer
+  const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW, png)
   const og = get('/og.png')
   assert.equal(og.headers.get('content-type'), 'image/png')
   assert.ok((await og.arrayBuffer()).byteLength > 10_000)

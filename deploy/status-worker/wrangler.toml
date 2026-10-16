@@ -1,0 +1,28 @@
+# status.chakkritton.com on Cloudflare, off the VPS it watches (code: ../apps/services/src/status/).
+# Deploy: npx wrangler@4.144.0 deploy   (from this directory)
+# Secrets (wrangler secret put): PROBE_SECRET (= PROBE_SECRET in /opt/apps/env/health.env), HEALTH_TOKEN,
+# ALERT_TO (Email Routing's verified destination address).
+name = "status"
+main = "../apps/services/src/status/worker.ts"
+compatibility_date = "2026-09-01"
+routes = [{ pattern = "status.chakkritton.com", custom_domain = true }]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[rules]]
+type = "Data"
+globs = ["**/*.png"]
+fallthrough = true
+
+[[kv_namespaces]]
+binding = "STATUS"
+id = "8dc6b3bc42b54664977989f336061782"
+
+# alert e-mail when Dock cannot be reached (Email Routing on chakkritton.com)
+[[send_email]]
+name = "EMAIL"
+
+[vars]
+HEALTH_URL = "https://health.chakkritton.com/health"
+ALERT_FROM = "status@chakkritton.com"

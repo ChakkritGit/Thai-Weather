@@ -7,7 +7,7 @@
 #     rooms      Bun       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
 #     sync       Bun       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
-#   status       Bun       status.chakkritton.com            (was the status Worker, checks every 5 min)
+#   health       Bun       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Bun       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
@@ -128,28 +128,30 @@ services:
       timeout: 5s
       retries: 3
 
-  status:
+  # health.chakkritton.com: what the status Worker on Cloudflare cannot see from outside, in one answer:
+  # every container's state + Docker health (a snapshot the host writes every 30 s, apps-container-health
+  # timer; no Docker socket here) and the internal services. Also relays the Worker's alerts to Dock's chat.
+  health:
     <<: *bun
-    container_name: apps-status
-    command: ["bun", "src/status.ts"]
+    container_name: apps-health
+    command: ["bun", "src/health.ts"]
     pull_policy: never
-    depends_on: [rooms]
     environment:
       PORT: "8789"
-      STATUS_STATE: /data/status.json
+      CONTAINERS_FILE: /host/containers.tsv
       ROOMS_URL: http://apps-rooms:8787
       SYNC_URL: http://apps-sync:8788
-    env_file: ${ENVS:-/opt/apps/env}/status.env
+      REMINDERS_URL: http://apps-reminders:8792/
+      ALERT_URL: http://apps-chat:8795/chat/alert
+    env_file: ${ENVS:-/opt/apps/env}/health.env
     volumes:
-      - status-data:/data
-    # needs the internet (it probes the public sites) and the internal services
+      - /run/apps-health:/host:ro
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8789/api/status"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8789/ping"]
       interval: 30s
       timeout: 5s
       retries: 3
-
 
   # Portfolio uploads (was a Supabase Storage bucket): public at chakkritton.com/media/, written by the
   # portfolio server on the internal network with MEDIA_TOKEN.
@@ -343,7 +345,6 @@ volumes:
   whiteboard-cache:
   drive-music-cache:
   sync-data:
-  status-data:
   chat-data:
   analytics-data:
   db-data:
