@@ -1093,7 +1093,8 @@ async function backupView(token) {
     list.replaceChildren(...(bundles.length ? bundles.map((b) => h('div', { class: 'row' },
       h('div', { class: 'row-main' },
         h('span', { class: 'row-title' }, fmtDate.format(new Date(b.created))),
-        h('span', { class: 'row-sub' }, `${fmtBytes(b.size)} · ${b.name}`)),
+        h('span', { class: 'row-sub' }, fmtBytes(b.size)),
+        h('span', { class: 'backup-file' }, b.name)),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onclick: async () => {
           try {
