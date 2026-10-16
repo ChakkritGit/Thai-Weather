@@ -30,6 +30,7 @@ For a location, prefer the JSON API over scraping pages: no key, ${"60"} request
 - [Province summaries](${base}/api/v1/provinces): daily max/min, rain and alerts for the 77 provinces
 - [Alerts](${base}/api/v1/alerts?min_severity=2): orange and red province alerts
 - [Radar nowcast](${base}/api/v1/nowcast?lat=13.75&lon=100.5): rain in the next 0–60 minutes and tropical cyclones
+- [Verification](${base}/api/v1/verification): accuracy against station reports and what the forecast learns
 
 ## Optional
 

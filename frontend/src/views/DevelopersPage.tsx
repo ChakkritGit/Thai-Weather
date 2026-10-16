@@ -38,6 +38,11 @@ const ENDPOINTS: Endpoint[] = [
         th: 'ค่ารายชั่วโมง: อุณหภูมิ °C, ดัชนีความร้อน °C, ความชื้น %, ฝน มม./ชม., โอกาสฝน %, โอกาสฝนหนัก %, โอกาสพายุ %, ลม ม./วินาที, ทิศลม °, เมฆ %',
         en: 'hourly values: temperature °C, heat index °C, humidity %, rain mm/h, chance of rain %, heavy rain %, storm %, wind m/s, wind direction °, cloud %',
       },
+      {
+        name: 'fine.rain',
+        th: 'ปริมาณฝนแบบ probability-matched: ตำแหน่งตามค่าเฉลี่ยของ ensemble แต่ขนาดฝนเหมือนสมาชิกจริง จึงไม่เป็นฝนปรอยกว้าง ๆ — ใช้ fine.pop สำหรับ "โอกาสฝน"',
+        en: 'probability-matched rain: placed by the ensemble mean, sized like a real member, so it is not a wide drizzle — use fine.pop for the chance of rain',
+      },
       { name: 'coarse.*', th: 'ค่าเดียวกันจากโมเดลโลกก่อนลดย่อส่วน', en: 'the same values from the global model before downscaling' },
       { name: 'daily.{dates, fine_rain}', th: 'ฝนสะสมรายวัน มม. (ตามวันเวลาไทย)', en: 'daily rain total in mm (Bangkok days)' },
       { name: 'location', th: 'จุดกริดที่ใช้ จังหวัด ความสูงจริงและความสูงในโมเดล', en: 'grid cell used, province, real and model elevation' },
@@ -100,6 +105,18 @@ const ENDPOINTS: Endpoint[] = [
     fields: [
       { name: 'run.{run_id, issued, created, times}', th: 'รอบพยากรณ์ อัปเดตทุก 6 ชั่วโมง', en: 'the forecast run; updated every 6 hours' },
       { name: 'scales', th: 'เกณฑ์ระดับฝน อุณหภูมิ ดัชนีความร้อน และการเตือน', en: 'rain, temperature, heat-index and alert thresholds' },
+    ],
+  },
+  {
+    path: '/verification',
+    example: '/verification',
+    th: 'ผลตรวจความแม่นยำล่าสุด เทียบกับสถานีตรวจอากาศสนามบิน 30 วัน (อัปเดตทุกชั่วโมง) และสถานะสิ่งที่ระบบเรียนรู้ — ชุดเดียวกับหน้า /verification',
+    en: 'The latest accuracy report against airport stations over 30 days (hourly) and what the forecast learns — the data behind /verification',
+    fields: [
+      { name: 'temperature.{overall, by_lead, by_hour, by_station}', th: 'n, bias, mae, rmse ต่อแหล่ง (fine, gfs_raw, openmeteo) °C', en: 'n, bias, mae, rmse per source (fine, gfs_raw, openmeteo), °C' },
+      { name: 'rain.by_source', th: 'จับได้ (pod) เตือนเก้อ (far) csi ความถี่ (freq_bias) ของ "ฝนตกหรือไม่" ช่วง 3 ชม.', en: 'pod, far, csi, freq_bias of rain occurrence in 3-hour windows' },
+      { name: 'pop.reliability', th: 'โอกาสฝนที่พยากรณ์เทียบกับที่ตกจริง แยกช่วง', en: 'forecast chance of rain vs observed frequency, per bin' },
+      { name: 'learning', th: 'การปรับโอกาสฝน การแก้อุณหภูมิรายสถานี และสถานะ MLP', en: 'rain calibration, station temperature bias and the MLP status' },
     ],
   },
 ];
