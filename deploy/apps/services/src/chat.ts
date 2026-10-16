@@ -28,7 +28,8 @@ import { timingSafeEqual } from 'node:crypto'
 const PORT = Number(process.env.PORT ?? 8795)
 const METRICS_URL = process.env.METRICS_URL ?? 'http://dock-metrics:9100'
 const ANALYTICS_URL = process.env.ANALYTICS_URL ?? 'http://apps-analytics:8790'
-const STATUS_URL = process.env.STATUS_URL ?? 'http://apps-status:8789'
+// the status page runs on Cloudflare (deploy/status-worker); its JSON is public
+const STATUS_URL = process.env.STATUS_URL ?? 'https://status.chakkritton.com'
 const BACKUP_URL = process.env.BACKUP_URL ?? 'http://apps-backup:8794'
 const MAX_TEXT = 4000
 const HOUR = 3_600_000
