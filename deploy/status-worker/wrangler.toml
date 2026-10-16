@@ -5,6 +5,7 @@
 name = "status"
 main = "../apps/services/src/status/worker.ts"
 compatibility_date = "2026-09-01"
+workers_dev = false
 routes = [{ pattern = "status.chakkritton.com", custom_domain = true }]
 
 [triggers]

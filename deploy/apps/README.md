@@ -8,7 +8,7 @@
 | `rooms` | Bun + Elysia, Yjs relay | whiteboard.chakkritton.com/rooms/ | Worker `whiteboard-rooms` |
 | `drive-music` | Next.js (repo Drive-Music-Web) | drive-music.chakkritton.com | Vercel `drive-music` |
 | `sync` | Bun + Elysia, Party Play (runs the repo's own `SyncServer` on a partyserver shim, SQLite storage) | drive-music.chakkritton.com/parties/ | Worker `drive-music-sync` |
-| `status` | Bun + Elysia, checks every 5 min | status.chakkritton.com | Worker `status` (cron + KV) |
+| `health` | Bun + Elysia: every container's Docker health (host snapshot every 30 s) + the internal checks, for the status Worker; relays its alerts to Dock | health.chakkritton.com (needs `x-probe-secret`) | – |
 | `analytics` | Bun + Elysia, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |
 
 | `db` | Postgres 17 (`expenses`, `portfolio`) | internal only | Supabase databases |
@@ -38,7 +38,7 @@ the env files, the Origin certificate and each repo's commit. `restore.sh --chec
 ## Layout on the VPS
 
 - `/opt/apps/repos/<app>`: clones of the app repos (main branch)
-- `/opt/apps/env/<app>.env`, `sync.env`, `status.env`: secrets, mode 600, not in git
+- `/opt/apps/env/<app>.env`, `sync.env`, `health.env`: secrets, mode 600, not in git
 - this folder: `docker-compose.yml` (runs everything), `build.sh` (builds one image),
   `autodeploy.sh` + `apps-autodeploy.timer` (auto-deploy on push, every 2 min)
 
@@ -84,3 +84,14 @@ projects `web-profile`, `spent-cost`, `whiteboard`, `drive-music` and the domain
 `status`, `whiteboard-rooms`, `drive-music-sync` and the status KV namespace. There is no rollback to them;
 recovery means redeploying from the repos (they still hold the Vercel/Wrangler setup).
 The cert is NPM certificate "Cloudflare Origin CA *.chakkritton.com" (valid to 2041; key in `/root/origin-ca`).
+
+## Status page (back on Cloudflare since 2026-10-16)
+
+status.chakkritton.com runs as the Worker `status` (`../status-worker/wrangler.toml`, code in
+`services/src/status/`): a 5-minute cron that probes the public sites, reads `health.chakkritton.com/health`
+for the containers and the internal services, keeps its state in KV and serves the page. It ran on this
+VPS for a day, which meant a VPS that was down or rebooting showed nothing and alerted no one.
+Alerts go to Dock through the health service; when that cannot be reached they are e-mailed (Email
+Routing on chakkritton.com, from status@chakkritton.com to the account's verified address).
+The container snapshot comes from `container-health.sh` (`apps-container-health.timer`, every 30 s).
+Deploy the Worker with `npx wrangler@4.144.0 deploy` from `../status-worker`.
