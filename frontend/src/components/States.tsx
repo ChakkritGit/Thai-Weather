@@ -116,8 +116,43 @@ export function CardGridSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
+/** A text page (method, developers): a few cards of paragraph lines. */
+function ArticleSkeleton() {
+  return (
+    <div className="skel-stack-lg" aria-busy="true">
+      {[5, 4, 6].map((lines, i) => (
+        <div className="card card-pad skel-stack" key={i}>
+          <div className="skeleton skeleton--text" style={{ width: '40%', height: 20 }} />
+          {Array.from({ length: lines }, (_, j) => (
+            <div className="skeleton skeleton--text" key={j} style={{ width: `${[96, 88, 92, 70, 84, 60][j % 6]}%` }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The verification report: a row of score tiles, then chart cards. */
+function ReportSkeleton() {
+  return (
+    <div className="skel-stack-lg" aria-busy="true">
+      <div className="skel-grid">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div className="skeleton skeleton--block" key={i} style={{ height: 96 }} />
+        ))}
+      </div>
+      {[180, 240].map((h, i) => (
+        <div className="card card-pad skel-stack" key={i}>
+          <div className="skeleton skeleton--text" style={{ width: '45%', height: 20 }} />
+          <div className="skeleton skeleton--block" style={{ height: h }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Route-level placeholder used by `loading.tsx` files. */
-export function PageSkeleton({ variant = 'table' }: { variant?: 'table' | 'cards' }) {
+export function PageSkeleton({ variant = 'table' }: { variant?: 'table' | 'cards' | 'article' | 'report' }) {
   const { t } = useT();
   return (
     <div className="page" role="status" aria-label={t('loading')}>
@@ -126,7 +161,7 @@ export function PageSkeleton({ variant = 'table' }: { variant?: 'table' | 'cards
           <div className="skeleton skeleton--title" />
           <div className="skeleton skeleton--text" style={{ width: 'min(520px, 80%)' }} />
         </div>
-        {variant === 'cards' ? <CardGridSkeleton /> : <TableSkeleton />}
+        {variant === 'cards' ? <CardGridSkeleton /> : variant === 'article' ? <ArticleSkeleton /> : variant === 'report' ? <ReportSkeleton /> : <TableSkeleton />}
       </div>
     </div>
   );
