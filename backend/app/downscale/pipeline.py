@@ -32,8 +32,8 @@ from ..products.alerts import is_partial
 from ..sources.base import CoarseForecast
 from ..store import RunStore
 from . import observations as obsmod
+from . import rainmlp, tempmlp
 from . import tempbias as tbmod
-from . import tempmlp
 from .calibration import PopCalibration
 from .layers import encodings_record
 from .physics import (
@@ -112,6 +112,8 @@ class Downscaler:
         pop_calibration: PopCalibration | None = None,
         temp_bias: tbmod.TempBias | None = None,
         temp_mlp: tempmlp.Model | None = None,
+        rain_mlp: rainmlp.Model | None = None,
+        stations: list[dict] | None = None,
     ) -> None:
         self.static = static
         self.members = members
@@ -120,6 +122,9 @@ class Downscaler:
         self.temp_bias = temp_bias or tbmod.TempBias()
         # the neural network replaces the hourly bias once verify has switched it on
         self.temp_mlp = temp_mlp
+        # the chance-of-rain network replaces the logistic calibration once verify switched it on
+        self.rain_mlp = rain_mlp
+        self.stations = stations or []
 
     # ------------------------------------------------------------------ run
     def run(
@@ -150,6 +155,8 @@ class Downscaler:
         acc: DayAccumulator | None = None
         correction = None
         # the stations' learned warm / cold bias by hour of day (verify tempbias), at every lead time
+        rain_grids = rainmlp.Grids(fine, static.elev_land) if self.rain_mlp else None
+        raw_pop_at = rainmlp.RawAtStations(self.stations, fine)
         mlp = tempmlp.Applier(self.temp_mlp, fine, coarse.grid, static.elev_land) if self.temp_mlp else None
         bias_fields = None if mlp else tbmod.fields(self.temp_bias, fine, static.elev_land)
         obs_used = 0
@@ -207,7 +214,12 @@ class Downscaler:
                 members = ens.step(target, f["cape"], shift)
                 # the members' wet area and amounts on the mean's pattern, not the mean's drizzle
                 rain = PrecipEnsemble.probability_matched_mean(members)
-                pop = self.pop_calibration.apply(PrecipEnsemble.exceedance(members, RAIN_THRESHOLD))
+                raw_pop = PrecipEnsemble.exceedance(members, RAIN_THRESHOLD)
+                raw_pop_at.add(raw_pop)
+                if rain_grids is not None:
+                    pop = rain_grids.apply(self.rain_mlp, raw_pop, rain, t, (t - times[0]).total_seconds() / 3600)
+                else:
+                    pop = self.pop_calibration.apply(raw_pop)
                 heavy = PrecipEnsemble.exceedance(members, HEAVY_THRESHOLD)
                 pconv = PrecipEnsemble.exceedance(members, CONVECTIVE_THRESHOLD, neighbourhood=5.0) / 100.0
                 storm = thunder_probability(f["cape"], pconv)
@@ -262,7 +274,13 @@ class Downscaler:
             "ensemble_members": self.members,
             "observations_used": obs_used,
             "observation_stations": obs_stations,
-            "pop_calibration": self.pop_calibration.record(),
+            "pop_calibration": (
+                {"kind": "mlp", "a": None, "b": None, **self.rain_mlp.record}
+                if self.rain_mlp
+                else {"kind": "logistic", **self.pop_calibration.record()}
+            ),
+            # the raw chance of rain at the verification stations, so verify can always refit on raw values
+            "pop_raw": raw_pop_at.record(times[0]),
             "encodings": encodings_record(),
             # None when nothing was learned yet; `applied` lets the next fit add the correction back
             "temp_bias": (

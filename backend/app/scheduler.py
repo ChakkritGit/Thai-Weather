@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from .config import Settings
 from .core.static import load_static
-from .downscale import calibration, tempbias, tempmlp
+from .downscale import calibration, rainmlp, tempbias, tempmlp
 from .downscale.observations import Observation
 from .downscale.pipeline import Downscaler
 from .sources.base import Source
@@ -84,9 +84,11 @@ class Refresher:
             temp_bias = tempbias.load(self.settings.data_dir)
             # the neural network, only once `verify` found it better than the hourly bias
             temp_mlp = tempmlp.load(self.settings.data_dir)
-            run_id = Downscaler(load_static(), self.settings.ensemble_members, pop_cal, temp_bias, temp_mlp).run(
-                coarse, self.store, self.observations.snapshot()
-            )
+            rain_mlp = rainmlp.load(self.settings.data_dir)
+            stations = rainmlp.load_stations(self.settings.data_dir)
+            run_id = Downscaler(
+                load_static(), self.settings.ensemble_members, pop_cal, temp_bias, temp_mlp, rain_mlp, stations
+            ).run(coarse, self.store, self.observations.snapshot())
             self.status.update(state="idle", last_error=None, last_success=datetime.now(UTC).isoformat())
             return run_id
         except Exception as exc:

@@ -31,6 +31,11 @@ export interface VerificationReport {
       required_pairs: number; required_days: number; test_days: number;
       metrics: { test_pairs: number; mae_raw: number; mae_hourly_bias: number; mae_mlp: number; epochs: number } | null;
     } | null;
+    rain_mlp?: {
+      fitted_at: string; active: boolean; reason: string | null; pairs: number; events: number; days: number;
+      required_events: number; required_days: number; test_days: number;
+      metrics: { test_hours: number; test_rain_hours: number; brier_raw: number; brier_logistic: number; brier_mlp: number; epochs: number } | null;
+    } | null;
   };
 }
 
@@ -324,18 +329,51 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
 
 function Learning({ l, th, date }: { l: VerificationReport['learning']; th: boolean; date: (iso: string) => string }) {
   const m = l.temp_mlp;
+  const r = l.rain_mlp;
   const pct = (a: number, b: number) => `${Math.min(100, Math.round((a / b) * 100))}%`;
   return (
     <div className="verify-learning">
       <div>
         <h3>{th ? 'ปรับโอกาสฝน' : 'Chance-of-rain calibration'}</h3>
         <p className="muted">
-          {l.pop_calibration.identity
+          {r?.active
+            ? th ? 'สำรองไว้: ตอนนี้ใช้ MLP โอกาสฝนแทน' : 'On standby: the chance-of-rain MLP is in use'
+            : l.pop_calibration.identity
             ? th ? 'ยังไม่ใช้: ข้อมูลยังน้อย' : 'Not used yet: too little data'
             : th
               ? `ปรับทุกวันจาก ${l.pop_calibration.pairs.toLocaleString()} ชั่วโมง (${l.pop_calibration.events} ชั่วโมงที่ฝนตก) · Brier ${n1(l.pop_calibration.brier_raw, 3)} → ${n1(l.pop_calibration.brier_cal, 3)} (ต่ำกว่า = ดีกว่า)`
               : `Refitted daily on ${l.pop_calibration.pairs.toLocaleString()} hours (${l.pop_calibration.events} wet) · Brier ${n1(l.pop_calibration.brier_raw, 3)} → ${n1(l.pop_calibration.brier_cal, 3)} (lower is better)`}
         </p>
+      </div>
+      <div>
+        <h3>{th ? 'โอกาสฝน: โครงข่ายประสาทเทียม (MLP)' : 'Chance of rain: neural network (MLP)'}</h3>
+        {!r ? (
+          <p className="muted">{th ? 'ยังไม่เริ่ม' : 'Not started'}</p>
+        ) : r.active ? (
+          <p className="muted">
+            {th
+              ? `ใช้งานอยู่แทนการปรับแบบ logistic · ทดสอบ ${r.test_days} วันล่าสุด Brier ${n1(r.metrics?.brier_mlp, 4)} เทียบ ${n1(r.metrics?.brier_logistic, 4)}`
+              : `In use instead of the logistic calibration · last ${r.test_days} days: Brier ${n1(r.metrics?.brier_mlp, 4)} vs ${n1(r.metrics?.brier_logistic, 4)}`}
+          </p>
+        ) : (
+          <>
+            <p className="muted">
+              {r.reason === 'waiting for data'
+                ? th
+                  ? 'ฝนเกิดไม่บ่อย จึงรอให้มีชั่วโมงที่ฝนตกจริงครบก่อน แล้วจะเรียนและเปิดใช้เองถ้า Brier ดีกว่าการปรับแบบ logistic'
+                  : 'Rain is rare, so it waits for enough hours with rain; then it trains and switches itself on if its Brier score beats the logistic calibration'
+                : th
+                  ? `ข้อมูลครบแล้วแต่ยังไม่ดีกว่าการปรับแบบ logistic (Brier ${n1(r.metrics?.brier_mlp, 4)} vs ${n1(r.metrics?.brier_logistic, 4)}) จึงยังไม่ใช้`
+                  : `Enough data, but not better than the logistic calibration yet (Brier ${n1(r.metrics?.brier_mlp, 4)} vs ${n1(r.metrics?.brier_logistic, 4)}), so not used`}
+            </p>
+            <div className="verify-progress">
+              <span>{th ? `ชั่วโมงฝนตก ${r.events.toLocaleString()}/${r.required_events.toLocaleString()}` : `Rain hours ${r.events.toLocaleString()}/${r.required_events.toLocaleString()}`}</span>
+              <i><b style={{ width: pct(r.events, r.required_events) }} /></i>
+              <span>{th ? `วัน ${r.days}/${r.required_days}` : `Days ${r.days}/${r.required_days}`}</span>
+              <i><b style={{ width: pct(r.days, r.required_days) }} /></i>
+            </div>
+          </>
+        )}
       </div>
       <div>
         <h3>{th ? 'อุณหภูมิ: ร้อน/เย็นเกินจริงรายสถานีรายชั่วโมง' : 'Temperature: each station’s bias by hour'}</h3>

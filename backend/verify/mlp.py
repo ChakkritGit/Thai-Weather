@@ -116,8 +116,8 @@ def build(conn: sqlite3.Connection, now: datetime | None = None) -> tuple[Sample
 
 
 # ------------------------------------------------------------------ network
-def _init(n_in: int, rng: np.random.Generator) -> list[np.ndarray]:
-    sizes = [n_in, *HIDDEN, 1]
+def _init(n_in: int, rng: np.random.Generator, hidden: tuple[int, ...] = HIDDEN) -> list[np.ndarray]:
+    sizes = [n_in, *hidden, 1]
     params = []
     for a, b in zip(sizes[:-1], sizes[1:], strict=True):
         params += [rng.normal(0, 1 / math.sqrt(a), (a, b)), np.zeros(b)]
@@ -125,6 +125,7 @@ def _init(n_in: int, rng: np.random.Generator) -> list[np.ndarray]:
 
 
 def _forward(params: list[np.ndarray], x: np.ndarray) -> tuple[np.ndarray, list[np.ndarray]]:
+    """tanh hidden layers, a linear output (a logit when classifying)."""
     acts = [x]
     h = x
     n = len(params) // 2
@@ -135,10 +136,20 @@ def _forward(params: list[np.ndarray], x: np.ndarray) -> tuple[np.ndarray, list[
     return h[:, 0], acts
 
 
-def _grads(params: list[np.ndarray], x: np.ndarray, y: np.ndarray) -> list[np.ndarray]:
-    """Backpropagation of the mean squared error plus the L2 penalty."""
-    pred, acts = _forward(params, x)
-    delta = (2.0 / len(y)) * (pred - y)[:, None]
+def sigmoid(z: np.ndarray) -> np.ndarray:
+    return 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
+
+
+def predict(params: list[np.ndarray], x: np.ndarray, classify: bool = False) -> np.ndarray:
+    out = _forward(params, x)[0]
+    return sigmoid(out) if classify else out
+
+
+def _grads(params: list[np.ndarray], x: np.ndarray, y: np.ndarray, classify: bool = False) -> list[np.ndarray]:
+    """Backpropagation of the mean squared error (or, classifying, the binary cross-entropy of a
+    sigmoid output, whose gradient at the logit is p - y) plus the L2 penalty."""
+    out, acts = _forward(params, x)
+    delta = ((sigmoid(out) - y) / len(y) if classify else (2.0 / len(y)) * (out - y))[:, None]
     grads: list[np.ndarray] = [np.zeros(0)] * len(params)
     n = len(params) // 2
     for i in reversed(range(n)):
@@ -150,33 +161,43 @@ def _grads(params: list[np.ndarray], x: np.ndarray, y: np.ndarray) -> list[np.nd
     return grads
 
 
-def train(x: np.ndarray, y: np.ndarray, epochs: int | None = None, val: tuple[np.ndarray, np.ndarray] | None = None):
-    """Adam on minibatches. With ``val``: early stopping, returns (params, best epoch count)."""
+def train(
+    x: np.ndarray,
+    y: np.ndarray,
+    epochs: int | None = None,
+    val: tuple[np.ndarray, np.ndarray] | None = None,
+    hidden: tuple[int, ...] = HIDDEN,
+    classify: bool = False,
+    max_epochs: int | None = None,
+):
+    """Adam on minibatches. With ``val``: early stopping on the validation MAE (Brier score when
+    classifying), returns (params, best epoch count)."""
     rng = np.random.default_rng(SEED)
-    params = _init(x.shape[1], rng)
+    params = _init(x.shape[1], rng, hidden)
     m = [np.zeros_like(p) for p in params]
     v = [np.zeros_like(p) for p in params]
     t = 0
     best, best_params, best_epoch, waited = math.inf, [p.copy() for p in params], 0, 0
-    for epoch in range(1, (epochs or MAX_EPOCHS) + 1):
+    for epoch in range(1, (epochs or max_epochs or MAX_EPOCHS) + 1):
         order = rng.permutation(len(y))
         for s in range(0, len(y), BATCH):
             idx = order[s : s + BATCH]
-            g = _grads(params, x[idx], y[idx])
+            g = _grads(params, x[idx], y[idx], classify)
             t += 1
             for k, p in enumerate(params):
                 m[k] = 0.9 * m[k] + 0.1 * g[k]
                 v[k] = 0.999 * v[k] + 0.001 * g[k] ** 2
                 p -= LR * (m[k] / (1 - 0.9**t)) / (np.sqrt(v[k] / (1 - 0.999**t)) + 1e-8)
         if val is not None:
-            loss = float(np.mean(np.abs(_forward(params, val[0])[0] - val[1])))
-            if loss < best - 1e-4:
+            pred = predict(params, val[0], classify)
+            loss = float(np.mean((pred - val[1]) ** 2) if classify else np.mean(np.abs(pred - val[1])))
+            if loss < best - 1e-5:
                 best, best_params, best_epoch, waited = loss, [p.copy() for p in params], epoch, 0
             else:
                 waited += 1
                 if waited >= PATIENCE:
                     break
-    return (best_params, best_epoch) if val is not None else (params, epochs or MAX_EPOCHS)
+    return (best_params, best_epoch) if val is not None else (params, epochs or max_epochs or MAX_EPOCHS)
 
 
 def _hourly_bias(train: Samples) -> dict[tuple[str, int], float]:

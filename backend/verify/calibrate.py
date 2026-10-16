@@ -8,6 +8,7 @@ into raw ones before fitting: the fit is always raw → observed, never a fit on
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 from datetime import UTC, datetime, timedelta
@@ -30,6 +31,18 @@ def _epoch_min(s: str) -> int:
     return int(db.parse_time(s).timestamp() // 60)
 
 
+def raw_at(record: dict | None, station: str, valid: str) -> float | None:
+    """The raw chance of rain a run recorded at a station for a step ({"t0", "steps": {station: [...]}})."""
+    if not record:
+        return None
+    series = (record.get("steps") or {}).get(station)
+    t0 = record.get("t0")
+    if not series or not t0:
+        return None
+    i = round((db.parse_time(valid) - datetime.fromisoformat(t0)).total_seconds() / 3600)
+    return float(series[i]) if 0 <= i < len(series) else None
+
+
 def hourly_pairs(
     conn: sqlite3.Connection, since: datetime, until: datetime | None = None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -44,7 +57,14 @@ def hourly_pairs(
         m = _epoch_min(r["valid"])
         k = (r["station"], -(-m // 60) * 60)  # the hour ending at or after the report
         rained[k] = rained.get(k, False) or flag
-    params = {r["run_id"]: (r["pop_a"], r["pop_b"]) for r in conn.execute("SELECT run_id, pop_a, pop_b FROM runs")}
+    params, raws = {}, {}
+    for r in conn.execute("SELECT run_id, pop_a, pop_b, pop_raw, pop_mlp FROM runs"):
+        params[r["run_id"]] = (r["pop_a"], r["pop_b"], bool(r["pop_mlp"]))
+        if r["pop_raw"]:
+            try:
+                raws[r["run_id"]] = json.loads(r["pop_raw"])
+            except ValueError:
+                pass
     raw, shown, obs = [], [], []
     for r in conn.execute(
         "SELECT run_id, station, valid, pop FROM forecasts WHERE source = 'fine' AND pop IS NOT NULL AND valid > ? AND valid <= ?",
@@ -53,9 +73,19 @@ def hourly_pairs(
         o = rained.get((r["station"], _epoch_min(r["valid"])))
         if o is None:
             continue
-        a, b = params.get(r["run_id"], (None, None))
-        cal = calibration.PopCalibration(a=a, b=b) if a is not None and b is not None else calibration.PopCalibration()
-        raw.append(float(cal.invert(np.array([r["pop"]]))[0]))
+        a, b, by_network = params.get(r["run_id"], (None, None, False))
+        stored = raw_at(raws.get(r["run_id"]), r["station"], r["valid"])
+        if stored is not None:
+            raw.append(stored)  # recorded by the run itself
+        elif by_network:
+            continue  # a network's output cannot be turned back into the raw value
+        else:
+            cal = (
+                calibration.PopCalibration(a=a, b=b)
+                if a is not None and b is not None
+                else calibration.PopCalibration()
+            )
+            raw.append(float(cal.invert(np.array([r["pop"]]))[0]))
         shown.append(r["pop"])
         obs.append(1.0 if o else 0.0)
     return np.array(raw), np.array(shown), np.array(obs)

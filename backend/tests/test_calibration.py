@@ -103,5 +103,5 @@ def test_runs_apply_and_record_the_calibration(static, coarse, tmp_path):
     raw_run, raw_mean = run(None, tmp_path / "a")
     cal_run, cal_mean = run(PopCalibration(a=-2.0, b=0.4), tmp_path / "b")
     assert raw_run.meta["pop_calibration"]["b"] == 1.0
-    assert cal_run.meta["pop_calibration"] == {"a": -2.0, "b": 0.4, "pairs": 0, "fitted_at": None}
+    assert cal_run.meta["pop_calibration"] == {"kind": "logistic", "a": -2.0, "b": 0.4, "pairs": 0, "fitted_at": None}
     assert cal_mean != raw_mean

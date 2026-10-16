@@ -143,8 +143,8 @@ def collect(
             [(run_id, *row) for row in rows],
         )
         conn.execute(
-            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations, pop_a, pop_b, temp_bias) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok, obs_used, obs_stations, pop_a, pop_b, "
+            "temp_bias, pop_raw, pop_mlp) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 run_id,
                 db.fmt_time(t0),
@@ -160,6 +160,8 @@ def collect(
                 json.dumps((run.get("temp_bias") or {}).get("applied"))
                 if (run.get("temp_bias") or {}).get("applied")
                 else None,
+                json.dumps(run["pop_raw"]) if run.get("pop_raw") else None,
+                1 if (run.get("pop_calibration") or {}).get("kind") == "mlp" else 0,
             ),
         )
         conn.commit()

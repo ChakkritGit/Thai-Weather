@@ -102,6 +102,21 @@ the station). Each run stores what it applied at the stations (`runs.temp_bias`)
 that back, so it always learns the raw model's bias instead of its own correction. Hold-out
 stations are never fitted, so the report's hold-out rows show whether it helps.
 
+## Neural networks that switch themselves on / โครงข่ายประสาทเทียมที่เปิดใช้เอง
+
+Two small MLPs (numpy, backpropagation, Adam, L2, early stopping on the latest training days) train
+daily inside `loop` and are used only after they beat the method in place on the last 14 days:
+
+- `verify mlp` (temperature, 11 → 24 → 12 → 1): waits for 90 days and 20,000 pairs; must beat the
+  hourly station bias by 0.05 °C and 3 % MAE. Applied at the stations and spread like the bias.
+- `verify rainmlp` (chance of rain, 10 → 16 → 8 → 1, sigmoid, binary cross-entropy): waits for 2,000
+  station hours with rain and 30 days; must beat both the raw chance and the logistic calibration by
+  2 % Brier. Applied to every cell. Every run records the raw chance at the stations
+  (`runs.pop_raw`, from `calibration/stations.json`), so the archive stays refittable after the
+  network's output replaces the invertible logistic one.
+
+Status and progress: `report.json` → `learning`, shown on the site's /verification page.
+
 ## Reading the report / อ่านรายงาน
 
 1. Check **N** first. Below 500 matched temperature samples the report warns; collect

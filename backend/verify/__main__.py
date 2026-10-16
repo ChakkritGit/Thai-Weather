@@ -25,6 +25,7 @@ from . import collect as collect_mod
 from . import db, holdout, observe, score, stations
 from . import mlp as mlp_mod
 from . import push as push_mod
+from . import rainmlp as rainmlp_mod
 from . import tempbias as tempbias_mod
 
 log = logging.getLogger("verify")
@@ -116,6 +117,7 @@ def learning_status() -> dict:
         },
         "temp_bias": bias.record() if bias.stations else None,
         "temp_mlp": mlp_mod.load_status(root),
+        "rain_mlp": rainmlp_mod.load_status(root),
     }
 
 
@@ -134,6 +136,11 @@ def run_mlp(conn, args: argparse.Namespace):
     return mlp_mod.refit(conn, root)
 
 
+def run_rainmlp(conn, args: argparse.Namespace):
+    root = Path(os.environ.get("THWX_DATA_DIR") or "var")
+    return rainmlp_mod.refit(conn, root)
+
+
 def run_loop(conn, args: argparse.Namespace) -> None:
     interval = max(1.0, args.interval_min) * 60.0
     score_args = argparse.Namespace(since=None, days=args.days, out=None)
@@ -149,6 +156,7 @@ def run_loop(conn, args: argparse.Namespace) -> None:
             steps.append(("calibrate", lambda: run_calibrate(conn, args)))
             steps.append(("tempbias", lambda: run_tempbias(conn, args)))
             steps.append(("mlp", lambda: run_mlp(conn, args)))
+            steps.append(("rainmlp", lambda: run_rainmlp(conn, args)))
             last_calibrate = time.monotonic()
         if time.monotonic() - last_score >= SCORE_EVERY_S:
             steps.append(("score", lambda: run_score(conn, score_args)))
@@ -193,6 +201,9 @@ def build_parser() -> argparse.ArgumentParser:
     tb.add_argument("--window-days", type=int, default=tempbias_mod.WINDOW_DAYS, help="rolling window (default 30)")
 
     sub.add_parser(
+        "rainmlp", help="train the chance-of-rain network; it switches itself on once it beats the calibration"
+    )
+    sub.add_parser(
         "mlp", help="train the temperature neural network; it switches itself on once it beats the hourly bias"
     )
 
@@ -225,6 +236,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"a={cal.a:.3f} b={cal.b:.3f} from {cal.pairs} hours ({cal.events} wet)"
                 + (" – identity, not enough data" if cal.identity else "")
             )
+        elif args.cmd == "rainmlp":
+            st = run_rainmlp(conn, args)
+            print(json.dumps({k: st.get(k) for k in ("active", "reason", "pairs", "events", "days", "metrics")}))
         elif args.cmd == "mlp":
             st = run_mlp(conn, args)
             print(json.dumps({k: st.get(k) for k in ("active", "reason", "pairs", "days", "metrics")}))

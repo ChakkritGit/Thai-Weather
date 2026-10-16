@@ -55,6 +55,8 @@ RUNS_COLUMNS = (
     ("pop_a", "REAL"),
     ("pop_b", "REAL"),
     ("temp_bias", "TEXT"),  # the learned temperature correction the run applied per station and hour (JSON)
+    ("pop_raw", "TEXT"),  # the raw chance of rain at the stations per step (JSON), before any calibration
+    ("pop_mlp", "INTEGER"),  # 1: the run's chance of rain came from the network (not invertible)
 )
 
 
