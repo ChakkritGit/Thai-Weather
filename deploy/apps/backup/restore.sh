@@ -133,22 +133,29 @@ for d in "$P"/db/*.dump; do
 done
 
 say "Starting the apps"
+# the health service reads this snapshot of the containers (the status Worker checks the server through it)
+install -m 755 -d /run/apps-health
+"$APPS"/container-health.sh || true
 (cd "$APPS" && docker compose up -d)
 
 say "Timers"
-cp "$APPS"/apps-autodeploy.service "$APPS"/apps-autodeploy.timer "$APPS"/apps-db-backup.service "$APPS"/apps-db-backup.timer /etc/systemd/system/
+cp "$APPS"/apps-autodeploy.service "$APPS"/apps-autodeploy.timer "$APPS"/apps-db-backup.service "$APPS"/apps-db-backup.timer \
+  "$APPS"/apps-container-health.service "$APPS"/apps-container-health.timer /etc/systemd/system/
 cp "$WX"/hardening/cf-origin-lock.service "$WX"/hardening/cf-origin-lock.timer /etc/systemd/system/ 2>/dev/null || true
 systemctl daemon-reload
-systemctl enable --now apps-db-backup.timer cf-origin-lock.timer >/dev/null 2>&1 || true
+systemctl enable --now apps-db-backup.timer apps-container-health.timer cf-origin-lock.timer >/dev/null 2>&1 || true
+# 6 GB RAM: drop file cache before pushing idle apps into swap (they answered slowly after being paged out)
+echo "vm.swappiness = 10" > /etc/sysctl.d/60-swappiness.conf && sysctl -q -p /etc/sysctl.d/60-swappiness.conf || true
 # Left off on purpose: it would immediately deploy the newest commits on main over the restored code.
 systemctl disable --now apps-autodeploy.timer >/dev/null 2>&1 || true
 
 say "Checking"
 sleep 20
 docker ps --format '{{.Names}}\t{{.Status}}' | sort
-for h in thai-weather.chakkritton.com chakkritton.com expenses.chakkritton.com whiteboard.chakkritton.com drive-music.chakkritton.com status.chakkritton.com docker.chakkritton.com; do
+for h in thai-weather.chakkritton.com chakkritton.com expenses.chakkritton.com whiteboard.chakkritton.com drive-music.chakkritton.com docker.chakkritton.com; do
   printf '%-32s %s\n' "$h" "$(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "$h:443:127.0.0.1" "https://$h/")"
 done
+printf '%-32s %s\n' "health.chakkritton.com/ping" "$(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "health.chakkritton.com:443:127.0.0.1" "https://health.chakkritton.com/ping")"
 
 cat <<MSG
 
@@ -156,6 +163,8 @@ Done. Notes:
   * Auto-deploy is OFF so the restored code stays. Turn it back on when you want the newest commits:
       systemctl enable --now apps-autodeploy.timer
   * A different server? Point the Cloudflare DNS records (chakkritton.com, www, thai-weather, expenses,
-    whiteboard, drive-music, status, docker, nginx, portainer) at this server's IP, proxied.
+    whiteboard, drive-music, health, docker, nginx, portainer) at this server's IP, proxied.
+    status.chakkritton.com is a Cloudflare Worker (deploy/status-worker): leave its DNS alone; it reads
+    health.chakkritton.com with PROBE_SECRET from the restored health.env, so nothing to change there.
   * Logins (Nginx Proxy Manager, Portainer) are the same as when the bundle was made.
 MSG
