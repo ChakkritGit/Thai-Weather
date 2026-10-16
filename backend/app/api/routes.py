@@ -3,10 +3,10 @@ from __future__ import annotations
 import binascii
 import math
 import time
-from pathlib import Path as FsPath
 from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import cache
+from pathlib import Path as FsPath
 
 import numpy as np
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request, Response
