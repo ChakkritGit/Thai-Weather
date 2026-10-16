@@ -199,7 +199,7 @@ function upFor(s) {
   return hrs ? `${d} วัน ${hrs} ชั่วโมง` : `${d} วัน`;
 }
 /** "ทำงานมา 1 วัน 7 ชั่วโมง" or "ทำงานตั้งแต่ 15 ก.ย. 2569 10:20" */
-function uptimeText(startedMs) {
+function runningSince(startedMs) {
   const s = Math.max(0, (Date.now() - startedMs) / 1000);
   return s >= MONTH_S ? `ทำงานตั้งแต่ ${fmtStarted.format(startedMs)}` : `ทำงานมา ${upFor(s)}`;
 }
@@ -423,7 +423,7 @@ async function containersView(token) {
     if (token !== viewToken) return;
     refreshStarts(list, (id) => {
       const r = rows.get(id);
-      if (token === viewToken && r?.st && r.c?.State === 'running') setText(r.sub, `${r.st.label} · ${uptimeText(startedAt.get(id))}`);
+      if (token === viewToken && r?.st && r.c?.State === 'running') setText(r.sub, `${r.st.label} · ${runningSince(startedAt.get(id))}`);
     });
     const running = list.filter((c) => c.State === 'running');
     const metaText = `${running.length}/${list.length}| ทำงาน · ${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`;
@@ -463,7 +463,7 @@ async function containersView(token) {
         r.dot.title = st.label;
         r.c = c; r.st = st;
         const started = c.State === 'running' ? startedAt.get(c.Id) : null;
-        setText(r.sub, `${st.label} · ${started ? uptimeText(started) : statusText(c.Status)}`);
+        setText(r.sub, `${st.label} · ${started ? runningSince(started) : statusText(c.Status)}`);
         if (c.State !== 'running') { setText(r.cpu, ''); setText(r.mem, ''); }
         if (sec.list.children[i] !== r.el) sec.list.insertBefore(r.el, sec.list.children[i] ?? null); // moves only what is out of place
       });
