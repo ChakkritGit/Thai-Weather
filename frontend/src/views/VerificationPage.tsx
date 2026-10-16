@@ -322,6 +322,8 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
   const x = (v: number) => L + ((W - L - R) * v) / 100;
   const y = (v: number) => H - B - ((H - T - B) * v) / 100;
   const maxN = Math.max(...bins.map((b) => b.n), 1);
+  const minN = Math.min(...bins.map((b) => b.n));
+  const dot = (n: number) => 3 + 5 * Math.sqrt(n / maxN);
   return (
     <figure className="verify-chart" ref={ref}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={th ? 'ความน่าเชื่อถือของโอกาสฝน' : 'chance of rain reliability'}>
@@ -337,13 +339,21 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
         <text transform={`translate(12 ${T + (H - T - B) / 2}) rotate(-90)`} textAnchor="middle" className="verify-axis-title">{th ? 'ฝนตกจริง (%)' : 'Rained (%)'}</text>
         <polyline fill="none" stroke="var(--color-chart-fine)" strokeWidth={2} points={bins.map((b) => `${x(b.forecast)},${y(b.observed)}`).join(' ')} />
         {bins.map((b) => (
-          <circle key={b.bin} cx={x(b.forecast)} cy={y(b.observed)} r={3 + 5 * Math.sqrt(b.n / maxN)} fill="var(--color-chart-fine)" stroke="var(--color-bg-surface)" strokeWidth={2}>
+          <circle key={b.bin} cx={x(b.forecast)} cy={y(b.observed)} r={dot(b.n)} fill="var(--color-chart-fine)" stroke="var(--color-bg-surface)" strokeWidth={2}>
             <title>{`${b.bin}%: ${th ? 'พยากรณ์' : 'forecast'} ${b.forecast.toFixed(0)}% · ${th ? 'ตกจริง' : 'observed'} ${b.observed.toFixed(1)}% · ${b.n.toLocaleString()} ${th ? 'ชม.' : 'h'}`}</title>
           </circle>
         ))}
       </svg>
-      <figcaption className="muted verify-note">
-        {th ? 'จุดใหญ่ = มีชั่วโมงมาก' : 'Bigger dot = more hours'}
+      <figcaption className="verify-legend verify-size-legend">
+        <span>{th ? 'ขนาดจุด = จำนวนชั่วโมงที่พยากรณ์ช่วงนั้น' : 'Dot size = hours forecast in that range'}</span>
+        {[minN, maxN].map((n) => (
+          <span key={n}>
+            <svg width={2 * dot(maxN) + 4} height={2 * dot(maxN) + 4} aria-hidden="true">
+              <circle cx={dot(maxN) + 2} cy={dot(maxN) + 2} r={dot(n)} fill="var(--color-chart-fine)" />
+            </svg>
+            {n.toLocaleString()} {th ? 'ชม.' : 'h'}
+          </span>
+        ))}
       </figcaption>
     </figure>
   );
