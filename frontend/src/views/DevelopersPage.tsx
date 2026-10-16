@@ -26,6 +26,20 @@ const LATLON: Param[] = [
 
 const ENDPOINTS: Endpoint[] = [
   {
+    path: '/forecast',
+    example: '/forecast?lat=18.79&lon=98.98',
+    th: 'ชุดเดียวจบสำหรับแอปสภาพอากาศ: ตอนนี้, 48 ชั่วโมง, 10 วัน, รหัสสภาพอากาศสำหรับไอคอน, ดวงอาทิตย์ ดวงจันทร์ และ PM2.5',
+    en: 'Everything a weather app needs in one call: now, 48 hours, 10 days, condition codes for icons, sun, moon and PM2.5',
+    params: LATLON,
+    fields: [
+      { name: 'current, hourly[]', th: 'temp, feels_like, rh, dew_point, rain, pop, storm, wind, wind_dir, cloud, pressure (hPa), uv_clear_sky, condition', en: 'temp, feels_like, rh, dew_point, rain, pop, storm, wind, wind_dir, cloud, pressure (hPa), uv_clear_sky, condition' },
+      { name: 'condition.code', th: 'clear, mostly_clear, partly_cloudy, mostly_cloudy, cloudy, fog, drizzle, rain, heavy_rain, thunderstorm (+ night สำหรับไอคอนกลางคืน)', en: 'clear, mostly_clear, partly_cloudy, mostly_cloudy, cloudy, fog, drizzle, rain, heavy_rain, thunderstorm (+ night for night icons)' },
+      { name: 'daily[]', th: 'tmin, tmax, rain_mm, pop_max, uv_clear_sky_max, condition, sunrise, sunset, moon (ข้างขึ้นข้างแรม) — source: "fine" = 2.2 กม. (2 วันแรก), "met" = MET Norway (วันที่ 3–10, ~9 กม., ไม่มี pop_max)', en: 'tmin, tmax, rain_mm, pop_max, uv_clear_sky_max, condition, sunrise, sunset, moon — source: "fine" = 2.2 km (first 2 days), "met" = MET Norway (days 3–10, ~9 km, no pop_max)' },
+      { name: 'air', th: 'PM2.5 (µg/m³), AQI และระดับสีของกรมควบคุมมลพิษ จากสถานี Air4Thai ใกล้ที่สุดภายใน 50 กม. (null ถ้าไม่มี)', en: 'PM2.5 (µg/m³), AQI and the PCD colour level from the nearest Air4Thai station within 50 km (null if none)' },
+      { name: 'uv_clear_sky', th: 'UV เมื่อฟ้าเปิด (ยังไม่หักเมฆ) จึงเป็นค่าสูงสุดที่เป็นไปได้', en: 'UV for a clear sky (clouds not subtracted), so an upper bound' },
+    ],
+  },
+  {
     path: '/point',
     example: '/point?lat=18.79&lon=98.98',
     th: 'พยากรณ์รายชั่วโมง 48 ชั่วโมงที่ความละเอียด 2.2 กม. ณ จุดที่ระบุ พร้อมค่าจากโมเดลโลก (~28 กม.) ไว้เทียบ',
@@ -241,7 +255,7 @@ X-RateLimit-Remaining: 0
               <li>
                 {th ? 'ต้องให้เครดิต: ' : 'Attribution required: '}
                 <code>Thai Weather HD · Open-Meteo (CC BY 4.0)</code>
-                {th ? ' และ RainViewer / GDACS เมื่อใช้ /nowcast' : ', plus RainViewer / GDACS when using /nowcast'}
+                {th ? ' และ RainViewer / GDACS เมื่อใช้ /nowcast · MET Norway (CC BY 4.0) และ Air4Thai กรมควบคุมมลพิษ เมื่อใช้ /forecast' : ', plus RainViewer / GDACS when using /nowcast, and MET Norway (CC BY 4.0) and Air4Thai (Pollution Control Department) when using /forecast'}
               </li>
               <li>
                 {th

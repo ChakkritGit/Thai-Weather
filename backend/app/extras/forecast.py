@@ -89,7 +89,12 @@ def build(
             "daylight_h": round((sset - rise).total_seconds() / 3600, 2) if rise and sset else None,
             "moon": astro.moon(datetime(d.year, d.month, d.day, 12, tzinfo=UTC) - BKK),
         }
-        uv = [s.instant.get("ultraviolet_index_clear_sky") for s in met_steps if _bkk_date(s.time) == d]
+        # the day's UV peak, only when MET has a value around midday (its later 6-hour steps may not)
+        uv = [
+            s.instant.get("ultraviolet_index_clear_sky")
+            for s in met_steps
+            if _bkk_date(s.time) == d and 10 <= (s.time + BKK).hour <= 15
+        ]
         uv_max = max((u for u in uv if u is not None), default=None)
         if idx and (len(idx) >= FULL_DAY_H or k == 0):
             day_codes = [h["condition"]["code"] for h in (hourly[i] for i in idx) if not h["condition"]["night"]]

@@ -291,7 +291,39 @@ async function getRadarFrame(id: string, frameTime: string): Promise<RadarFrame 
   }
 }
 
+export type ConditionCode =
+  | 'clear' | 'mostly_clear' | 'partly_cloudy' | 'mostly_cloudy' | 'cloudy'
+  | 'fog' | 'drizzle' | 'rain' | 'heavy_rain' | 'thunderstorm';
+export interface Condition { code: ConditionCode; night: boolean; label_th: string; label_en: string }
+export interface ForecastHour {
+  time: string; temp: number; feels_like: number; rh: number; dew_point: number; rain: number; pop: number;
+  storm: number; wind: number; wind_dir: number; cloud: number; pressure: number | null; uv_clear_sky: number | null;
+  condition: Condition;
+}
+export interface Moon { phase: number; illumination: number; age_days: number; code: string; label_th: string; label_en: string; thai_day: string }
+export interface ForecastDay {
+  date: string; source: 'fine' | 'met'; partial: boolean; tmax: number | null; tmin: number | null;
+  feels_like_max: number | null; rain_mm: number; pop_max: number | null; storm_max: number | null; wind_max: number | null;
+  uv_clear_sky_max: number | null; condition: Condition; sunrise: string | null; sunset: string | null;
+  daylight_h: number | null; moon: Moon;
+}
+export interface AirNow {
+  pm25: number; aqi: number | null; level: number | null; label_th: string; label_en: string; color: string | null; time: string;
+  station: { id: string; name_th: string; name_en: string; area_th: string; distance_km: number };
+}
+export interface ForecastResponse {
+  run_id: string;
+  location: { lat: number; lon: number; elevation: number; province: ProvinceInfo | null };
+  current: ForecastHour | null;
+  hourly: ForecastHour[];
+  daily: ForecastDay[];
+  air: AirNow | null;
+  attribution: { name: string; url: string; license?: string }[];
+}
+
 export const api = {
+  forecast: (lat: number, lon: number) =>
+    getJson<ForecastResponse>(`/api/v1/forecast?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),
   meta: () => getJson<Meta>('/api/v1/meta'),
   layer: (runId: string, layer: LayerId, index: number, res: 'fine' | 'coarse', daily: boolean) =>
     getGrid(`/api/v1/layers/${layer}?${daily ? 'day' : 'step'}=${index}&res=${res}&run=${encodeURIComponent(runId)}`),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api, type PointForecast } from '../lib/api';
+import { api, type ForecastResponse, type PointForecast } from '../lib/api';
 import { categorise } from '../lib/color';
 import { compass, fmtDay, fmtKm, fmtNum, fmtStep } from '../lib/format';
 import { radarRainChance, rainClassPhrase } from '../lib/nowcastText';
@@ -13,6 +13,8 @@ import { LevelBadge } from './SeverityBadge';
 import { ChartLegend, TimeSeriesChart } from './TimeSeriesChart';
 import type { MapPoint } from './WeatherMap';
 import { Num } from './Num';
+import { ConditionIcon } from './ConditionIcon';
+import { DetailsGrid, TenDay, hourAt } from './ExtendedForecast';
 
 interface Props {
   point: MapPoint;
@@ -32,6 +34,20 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
   const samePoint = forecast?.lat === point.lat && forecast.lon === point.lon;
   const data = samePoint ? forecast.data : null;
   const error = samePoint ? forecast.error : null;
+
+  // the app view (10 days, details, PM2.5); optional: the panel works without it
+  const [extended, setExtended] = useState<{ lat: number; lon: number; data: ForecastResponse } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .forecast(point.lat, point.lon)
+      .then((data) => !cancelled && setExtended({ lat: point.lat, lon: point.lon, data }))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [point.lat, point.lon]);
+  const fc = extended?.lat === point.lat && extended.lon === point.lon ? extended.data : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +108,8 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         ? t('radarPopArriving', { cls: rainClassPhrase(radarPop.cls!, lang), min: radarPop.minutes!, model: radarPop.model })
         : t('radarPopClear', { model: radarPop.model });
 
+  const hour = hourAt(fc, data.times[i]);
+
   const parts = [
     { key: 'lapse', label: t('lapse'), v: comps.lapse[i] },
     { key: 'valley', label: t('valley'), v: comps.valley[i] },
@@ -116,6 +134,12 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         <p className="forecast-time">{fmtStep(data.times[i], lang)}</p>
         <div className="hero">
           <div className="hero-temp"><Num value={`${fmtNum(f.temp[i], 0)}°`} /></div>
+          {hour && (
+            <div className="hero-cond">
+              <ConditionIcon code={hour.condition.code} night={hour.condition.night} size={40} />
+              <span>{lang === 'th' ? hour.condition.label_th : hour.condition.label_en}</span>
+            </div>
+          )}
           <div className="hero-meta">
             <span>
               {labels.comparison}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
@@ -142,6 +166,9 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
           <Stat label={t('thunder')} value={fmtNum(f.storm[i], 0)} unit="%" sub={`${t('humidity')} ${fmtNum(f.rh[i], 0)}%`} />
         </div>
       </section>
+
+      {fc && <TenDay fc={fc} lang={lang} />}
+      {fc && <DetailsGrid fc={fc} hour={hour} lang={lang} />}
 
       <section className="panel-section" aria-labelledby="why-h">
         <h3 id="why-h">{t('why', { km: coarseKmText })}</h3>

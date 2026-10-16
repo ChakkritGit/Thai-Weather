@@ -26,6 +26,7 @@ For a location, prefer the JSON API over scraping pages: no key, ${"60"} request
 ## API
 
 - [OpenAPI schema](${base}/api/v1/openapi.json)
+- [App forecast](${base}/api/v1/forecast?lat=13.75&lon=100.5): now, 48 hours, 10 days, condition codes, sun, moon and PM2.5 in one call
 - [Point forecast](${base}/api/v1/point?lat=13.75&lon=100.5): hourly temp, heat index, humidity, rain, chance of rain, storms, wind, cloud at one location
 - [Province summaries](${base}/api/v1/provinces): daily max/min, rain and alerts for the 77 provinces
 - [Alerts](${base}/api/v1/alerts?min_severity=2): orange and red province alerts
