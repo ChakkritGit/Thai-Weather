@@ -14,6 +14,13 @@ export const CHECKS: { id: CheckId; group: 'portfolio' | 'spentcost' | 'whiteboa
 ]
 
 const TIMEOUT_MS = 10_000
+/**
+ * A failed probe is tried once more after this pause before it counts. Deploys restart containers,
+ * and a check that landed in that second or two marked five minutes down (Whiteboard rooms' 98%).
+ * Tests set it to 0.
+ */
+export const retry = { delayMs: 5000 }
+const pause = () => (retry.delayMs > 0 ? new Promise((r) => setTimeout(r, retry.delayMs)) : Promise.resolve())
 
 /** Preserve the actual elapsed time and a safe failure category for diagnostics.
  * Only read-only probes opt into one retry for a transient transport failure. */
@@ -36,6 +43,7 @@ export async function httpCheck(id: CheckId, url: string, init: RequestInit, isO
     const transient = result.reason === 'timeout' || result.reason === 'network' ||
       (result.reason === 'http-error' && [502, 503, 504].includes(result.httpStatus ?? 0))
     if (result.ok || !transient) break
+    if (attempt < retries) await pause()
   }
   return { ...result, ms: Date.now() - t0 }
 }
@@ -62,11 +70,14 @@ const remindersOk = async (r: Response): Promise<boolean | FailureReason> => {
 export async function roomsCheck(rooms: Internal, url: string): Promise<Result> {
   const t0 = Date.now()
   let ok = false
-  try {
-    const res = await rooms.fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-    ok = res.ok && (await res.text()).trim() === 'ok'
-  } catch {
-    ok = false
+  for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+    if (attempt) await pause()
+    try {
+      const res = await rooms.fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+      ok = res.ok && (await res.text()).trim() === 'ok'
+    } catch {
+      ok = false
+    }
   }
   return { id: 'rooms', ok, ms: Date.now() - t0 }
 }
@@ -75,11 +86,14 @@ export async function roomsCheck(rooms: Internal, url: string): Promise<Result> 
 export async function musicSyncCheck(sync: Internal): Promise<Result> {
   const t0 = Date.now()
   let ok = false
-  try {
-    const response = await sync.fetch('https://drive-music-sync/health', { signal: AbortSignal.timeout(TIMEOUT_MS) })
-    const body = await response.json() as { status?: unknown; service?: unknown; protocol?: unknown }
-    ok = response.ok && body.status === 'ok' && body.service === 'drive-music-sync' && body.protocol === 2
-  } catch {}
+  for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+    if (attempt) await pause()
+    try {
+      const response = await sync.fetch('https://drive-music-sync/health', { signal: AbortSignal.timeout(TIMEOUT_MS) })
+      const body = await response.json() as { status?: unknown; service?: unknown; protocol?: unknown }
+      ok = response.ok && body.status === 'ok' && body.service === 'drive-music-sync' && body.protocol === 2
+    } catch {}
+  }
   return { id: 'musicsync', ok, ms: Date.now() - t0 }
 }
 
@@ -88,10 +102,10 @@ export async function runChecks(env: Env, scheduledTime: number): Promise<Result
   const hourly = new Date(scheduledTime).getUTCMinutes() < 5
   const site = 'https://chakkritton.com'
   return Promise.all([
-    httpCheck('portfolio', `${site}/api/health`, {}, jsonOk),
-    httpCheck('assistant', `${site}/api/assistant/health`, {}, jsonOk),
+    httpCheck('portfolio', `${site}/api/health`, {}, jsonOk, 1),
+    httpCheck('assistant', `${site}/api/assistant/health`, {}, jsonOk, 1),
     ...(hourly ? [httpCheck('ai', `${site}/api/assistant/health?ai=1`, { headers: { 'x-health-token': env.HEALTH_TOKEN } }, jsonOk)] : []),
-    httpCheck('expenses', 'https://expenses.chakkritton.com/api/health', {}, jsonOk),
+    httpCheck('expenses', 'https://expenses.chakkritton.com/api/health', {}, jsonOk, 1),
     httpCheck(
       'reminders',
       env.SUPABASE_FUNCTION_URL,
@@ -99,14 +113,14 @@ export async function runChecks(env: Env, scheduledTime: number): Promise<Result
       remindersOk,
       1, // The health read is safe to retry; no notifications are sent by this request.
     ),
-    httpCheck('whiteboard', 'https://whiteboard.chakkritton.com/', {}, async (r) => r.status === 200),
+    httpCheck('whiteboard', 'https://whiteboard.chakkritton.com/', {}, async (r) => r.status === 200, 1),
     // On the internal network: the rooms health probe is not exposed publicly.
     roomsCheck(env.ROOMS, 'https://whiteboard-rooms/__health'),
     musicSyncCheck(env.MUSIC_SYNC),
-    httpCheck('music', 'https://drive-music.chakkritton.com/', {}, async (r) => r.status === 200),
+    httpCheck('music', 'https://drive-music.chakkritton.com/', {}, async (r) => r.status === 200, 1),
     // NextAuth's own endpoint: proves the serverless side and its Google provider are configured.
     httpCheck('musicauth', 'https://drive-music.chakkritton.com/api/auth/providers', {}, async (r) =>
-      r.ok && 'google' in ((await r.json().catch(() => ({}))) as object),
+      r.ok && 'google' in ((await r.json().catch(() => ({}))) as object), 1,
     ),
   ])
 }

@@ -1,7 +1,9 @@
 // Run: bun test src/status/checks.test.ts   (from deploy/apps/services/)
 import { test, afterEach } from 'bun:test'
 import assert from 'node:assert/strict'
-import { fresh, httpCheck, jsonOk, runChecks, musicSyncCheck, roomsCheck } from './checks'
+import { fresh, httpCheck, jsonOk, retry, runChecks, musicSyncCheck, roomsCheck } from './checks'
+
+retry.delayMs = 0
 
 const realFetch = globalThis.fetch
 afterEach(() => {

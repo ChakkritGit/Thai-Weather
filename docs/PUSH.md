@@ -22,7 +22,7 @@
 ### ตั้งค่าบน VPS
 
 1. ต้องเป็น **HTTPS** (Nginx Proxy Manager ที่ใช้อยู่ให้ SSL แล้ว) — Service Worker และ Push ไม่ทำงานบน HTTP ยกเว้น `localhost`
-2. ใน `deploy/.env` ตั้ง `THWX_VAPID_SUBJECT=mailto:อีเมลจริงของคุณ` (ค่าเริ่มต้น `mailto:admin@example.com` เป็นแค่ที่ว่าง ต้องเปลี่ยน)
+2. ใน `deploy/.env` ตั้ง `THWX_VAPID_SUBJECT` เป็นช่องทางติดต่อจริง: URL ของเว็บ (`https://thai-weather.chakkritton.com` ที่ใช้อยู่ ไม่ต้องเปิดเผยอีเมล) หรือ `mailto:` (ค่าเริ่มต้น `mailto:admin@example.com` เป็นแค่ที่ว่าง ต้องเปลี่ยน)
 3. คีย์ VAPID: ปล่อย `THWX_VAPID_PUBLIC_KEY` / `THWX_VAPID_PRIVATE_KEY` ว่างไว้ ระบบจะสร้างครั้งเดียวและเก็บที่ `/var/lib/thwx/push/vapid.json` (volume `thwx-data`, สิทธิ์ 0600) จึงคงอยู่หลังรีสตาร์ท  
    ถ้าต้องการกำหนดเอง (เช่น ย้ายเซิร์ฟเวอร์):
    ```bash
@@ -90,7 +90,7 @@ Settings live on the **Alerts** page (`/alerts#notifications`). The radar card o
 ### Setup on the VPS
 
 1. **HTTPS is required** (service workers and push are disabled on plain HTTP except `localhost`); Nginx Proxy Manager already terminates TLS.
-2. Set `THWX_VAPID_SUBJECT=mailto:you@your-domain` in `deploy/.env`. The default `mailto:admin@example.com` is a placeholder and must be changed; the push services use it to contact the operator.
+2. Set `THWX_VAPID_SUBJECT` in `deploy/.env` to a real contact: the site URL (`https://thai-weather.chakkritton.com`, used in production, keeps an email address out of it) or `mailto:you@your-domain`. The default `mailto:admin@example.com` is a placeholder and must be changed; the push services use it to contact the operator.
 3. VAPID keys: leave `THWX_VAPID_PUBLIC_KEY` / `THWX_VAPID_PRIVATE_KEY` empty and a pair is generated once into `/var/lib/thwx/push/vapid.json` (volume `thwx-data`, mode 0600), so restarts keep subscriptions valid. To pin your own:
    ```bash
    docker compose exec api python -c "from app.push.vapid import generate; p,u=generate(); print('THWX_VAPID_PRIVATE_KEY='+p); print('THWX_VAPID_PUBLIC_KEY='+u)"

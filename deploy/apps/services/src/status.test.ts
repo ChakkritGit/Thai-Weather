@@ -3,6 +3,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { app, load, tick } from './status'
+import { retry } from './status/checks'
+
+retry.delayMs = 0 // failing probes retry after a pause in production
 
 const dir = mkdtempSync(join(tmpdir(), 'status-test-'))
 const file = join(dir, 'status.json')

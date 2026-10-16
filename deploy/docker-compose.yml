@@ -86,6 +86,7 @@ services:
     pull_policy: never
     container_name: dock-metrics
     restart: unless-stopped
+    init: true   # Bun as PID 1 ignores SIGTERM
     user: "0:0"
     command: ["bun", "src/metrics.ts"]
     read_only: true
