@@ -1,4 +1,4 @@
-import type { AirForecast } from './api';
+import type { AirForecast, GridDesc } from './api';
 
 /** The PCD's PM2.5 bands (µg/m³, 24 h): the same colours as the station dots and the legend. */
 export const PM_BANDS: [max: number, rgb: [number, number, number]][] = [
@@ -35,33 +35,39 @@ export function frameIndex(f: AirForecast, iso: string): number {
   return best;
 }
 
-/** One RGBA pixel per grid cell, north row first (rows arrive from the south). */
-export function frameImage(f: AirForecast, frame: Uint8Array, alpha = 170): ImageData {
-  const img = new ImageData(f.nx, f.ny);
-  for (let y = 0; y < f.ny; y++) {
-    const src = (f.ny - 1 - y) * f.nx;
-    for (let x = 0; x < f.nx; x++) {
-      const [r, g, b] = pmColor(frame[src + x]);
-      const o = (y * f.nx + x) * 4;
-      img.data[o] = r;
-      img.data[o + 1] = g;
-      img.data[o + 2] = b;
-      img.data[o + 3] = alpha;
+/**
+ * The field bilinearly interpolated onto another grid (the map's 2.2 km grid), so it is drawn smooth
+ * and clipped to the land like the weather layers. 255 = outside the field.
+ */
+export function resample(f: AirForecast, frame: Uint8Array, g: GridDesc): Uint8Array {
+  const out = new Uint8Array(g.nx * g.ny).fill(255);
+  for (let iy = 0; iy < g.ny; iy++) {
+    const fy = (g.lat0 + iy * g.dlat - f.lat0) / f.dlat;
+    if (fy < 0 || fy > f.ny - 1) continue;
+    const y0 = Math.min(Math.floor(fy), f.ny - 2);
+    const ty = fy - y0;
+    for (let ix = 0; ix < g.nx; ix++) {
+      const fx = (g.lon0 + ix * g.dlon - f.lon0) / f.dlon;
+      if (fx < 0 || fx > f.nx - 1) continue;
+      const x0 = Math.min(Math.floor(fx), f.nx - 2);
+      const tx = fx - x0;
+      const a = frame[y0 * f.nx + x0];
+      const b = frame[y0 * f.nx + x0 + 1];
+      const c = frame[(y0 + 1) * f.nx + x0];
+      const d = frame[(y0 + 1) * f.nx + x0 + 1];
+      const v = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+      out[iy * g.nx + ix] = Math.min(254, Math.round(v));
     }
   }
-  return img;
+  return out;
 }
 
-/** Corners of the field for an image source (cell edges, not centres). */
-export function fieldCoordinates(f: AirForecast): [[number, number], [number, number], [number, number], [number, number]] {
-  const west = f.lon0 - f.dlon / 2;
-  const east = f.lon0 + (f.nx - 1) * f.dlon + f.dlon / 2;
-  const south = f.lat0 - f.dlat / 2;
-  const north = f.lat0 + (f.ny - 1) * f.dlat + f.dlat / 2;
-  return [
-    [west, north],
-    [east, north],
-    [east, south],
-    [west, south],
-  ];
+/** Colour table for renderGrid: code = µg/m³ (0-254), 255 = no data (transparent). */
+export function pmLut(alpha = 205): Uint8ClampedArray {
+  const lut = new Uint8ClampedArray(256 * 4);
+  for (let v = 0; v < 255; v++) {
+    const [r, g, b] = pmColor(v);
+    lut.set([r, g, b, alpha], v * 4);
+  }
+  return lut;
 }

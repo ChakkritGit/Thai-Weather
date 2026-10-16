@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AirForecast } from './api';
-import { decodeFrame, fieldCoordinates, frameIndex, pmColor } from './pmField';
+import { decodeFrame, frameIndex, pmColor, pmLut, resample } from './pmField';
 
 const f: AirForecast = {
   updated: null, lat0: 5.4, lon0: 97, dlat: 0.2, dlon: 0.2, nx: 2, ny: 2, units: 'µg/m³',
@@ -20,7 +20,12 @@ describe('PM2.5 field', () => {
     expect(frameIndex(f, '2026-10-16T17:20:00Z')).toBe(1);
     expect(frameIndex(f, '2026-10-16T19:00:00Z')).toBe(-1);
   });
-  it('places cell edges, not centres', () => {
-    expect(fieldCoordinates(f)[0]).toEqual([96.9, 5.4 + 0.2 + 0.1]);
+  it('interpolates onto a finer grid and marks the outside', () => {
+    const g = { lat0: 5.4, lat1: 5.6, lon0: 96.9, lon1: 97.2, dlat: 0.1, dlon: 0.1, ny: 3, nx: 4 } as never;
+    const out = resample(f, Uint8Array.from([10, 20, 30, 40]), g);
+    expect(out[0]).toBe(255); // 96.9°E is west of the field
+    expect(out[1]).toBe(10);
+    expect(out[1 * 4 + 2]).toBe(25); // centre of the four cells
+    expect(pmLut()[255 * 4 + 3]).toBe(0);
   });
 });

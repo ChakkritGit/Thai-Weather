@@ -10,7 +10,7 @@ import { gridBounds, gridLines, imageCoordinates, rasterFor, renderGrid, sampleG
 import { fmtNum } from '../lib/format';
 import { useT } from '../i18n';
 import { MAP_READY_EVENT } from '@/components/Splash';
-import { fieldCoordinates, frameImage } from '../lib/pmField';
+import { pmLut, resample } from '../lib/pmField';
 
 export interface MapPoint {
   lat: number;
@@ -43,6 +43,7 @@ interface Props {
 const THAILAND: [number, number, number, number] = [97.3, 5.6, 105.7, 20.5];
 const LAND_ONLY = new Set(['temp', 'heat', 'rh']);
 let radarLut: Uint8ClampedArray | null = null;
+let pmLutCache: Uint8ClampedArray | null = null;
 
 const CITIES: { th: string; en: string; lat: number; lon: number }[] = [
   { th: 'กรุงเทพฯ', en: 'Bangkok', lat: 13.7563, lon: 100.5018 },
@@ -524,14 +525,29 @@ export function WeatherMap(props: Props) {
       map.setPaintProperty('weather', 'raster-opacity', 0.88);
       return;
     }
-    const c = document.createElement('canvas');
-    c.width = pm.field.nx;
-    c.height = pm.field.ny;
-    c.getContext('2d')!.putImageData(frameImage(pm.field, pm.frame), 0, 0);
-    (map.getSource('pm25') as ImageSource).updateImage({ url: c.toDataURL(), coordinates: fieldCoordinates(pm.field) });
-    map.setLayoutProperty('pm25', 'visibility', 'visible');
-    map.setPaintProperty('weather', 'raster-opacity', 0);
-  }, [ready, props.pm]);
+    let cancelled = false;
+    // onto the 2.2 km grid and through the same renderer as the weather: smooth, and only over Thailand
+    loadStatic().then((statics) => {
+      if (cancelled || !rasterRef.current) return;
+      const raster = rasterRef.current;
+      const c = document.createElement('canvas');
+      c.width = raster.width;
+      c.height = raster.height;
+      pmLutCache ??= pmLut();
+      renderGrid(c.getContext('2d')!, raster, resample(pm.field, pm.frame, run.fine_grid), run.fine_grid, pmLutCache, {
+        mask: statics.thai.codes,
+        maskGrid: run.fine_grid,
+        outsideAlpha: 0,
+      });
+      (map.getSource('pm25') as ImageSource).updateImage({ url: c.toDataURL(), coordinates: imageCoordinates(fineBounds) });
+      map.setLayoutProperty('pm25', 'visibility', 'visible');
+      map.setPaintProperty('weather', 'raster-opacity', 0);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, props.pm, run.run_id]);
 
   // ------------------------------------------------------------ wind arrows
   useEffect(() => {
