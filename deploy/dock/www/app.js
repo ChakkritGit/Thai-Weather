@@ -184,6 +184,54 @@ function statusText(status = '') {
   if (m) return `หยุดเมื่อ ${dur(m[2])}ที่แล้ว${m[1] !== '0' ? ` (รหัส ${m[1]})` : ''}`;
   return s;
 }
+/**
+ * How long a container has been up, from its real start time. Docker's own text is coarse ("Up 31
+ * hours", then "Up 3 days" and "Up 2 months"), so the list asks each container's StartedAt once.
+ * Under a day: hours · under 30 days: days and hours · from 30 days: the date and time it started.
+ */
+const MONTH_S = 30 * 86400;
+const fmtStarted = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+function upFor(s) {
+  if (s < 60) return 'ไม่ถึงนาที';
+  if (s < 3600) return `${Math.floor(s / 60)} นาที`;
+  if (s < 86400) return `${Math.floor(s / 3600)} ชั่วโมง`;
+  const d = Math.floor(s / 86400), hrs = Math.floor((s % 86400) / 3600);
+  return hrs ? `${d} วัน ${hrs} ชั่วโมง` : `${d} วัน`;
+}
+/** "ทำงานมา 1 วัน 7 ชั่วโมง" or "ทำงานตั้งแต่ 15 ก.ย. 2569 10:20" */
+function uptimeText(startedMs) {
+  const s = Math.max(0, (Date.now() - startedMs) / 1000);
+  return s >= MONTH_S ? `ทำงานตั้งแต่ ${fmtStarted.format(startedMs)}` : `ทำงานมา ${upFor(s)}`;
+}
+/** "เมื่อ 1 วัน 7 ชั่วโมงที่แล้ว" or the date, for the detail page */
+function startedText(startedMs) {
+  const s = Math.max(0, (Date.now() - startedMs) / 1000);
+  return s >= MONTH_S ? fmtStarted.format(startedMs) : s < 60 ? 'เมื่อสักครู่' : `${upFor(s)}ที่แล้ว`;
+}
+/** Docker's "Up …" as a rough number of seconds, only to notice a restart since StartedAt was read */
+function roughUp(status = '') {
+  const m = /^Up (?:(Less than a second)|(?:About )?(an?|\d+) (second|minute|hour|day|week|month|year)s?)/.exec(status);
+  if (!m) return null;
+  if (m[1]) return 0;
+  const n = /^an?$/.test(m[2]) ? 1 : Number(m[2]);
+  return n * { second: 1, minute: 60, hour: 3600, day: 86400, week: 604800, month: 2592000, year: 31536000 }[m[3]];
+}
+const startedAt = new Map(); // container id → StartedAt (ms)
+/** Fill in StartedAt for running containers that lack it or have restarted; calls back as each arrives. */
+function refreshStarts(list, onStart) {
+  for (const c of list) {
+    if (c.State !== 'running') { startedAt.delete(c.Id); continue; }
+    const known = startedAt.get(c.Id);
+    const rough = roughUp(c.Status);
+    const age = known ? (Date.now() - known) / 1000 : null;
+    // Docker rounds down (e.g. 47 hours, then "2 days"); only a clear mismatch means a restart
+    if (known && (rough === null || age < 3600 || Math.abs(age - rough) < Math.max(3600, rough * 0.6))) continue;
+    docker(`/containers/${c.Id}/json`).then((full) => {
+      const t = Date.parse(full?.State?.StartedAt ?? '');
+      if (Number.isFinite(t)) { startedAt.set(c.Id, t); onStart(c.Id); }
+    }).catch(() => {});
+  }
+}
 const labelsOf = (c) => c.Labels ?? c.Config?.Labels ?? {};
 /** container name; a rolled-out replica ("apps-expenses-4") shows under its service's name */
 function nameOf(c) {
@@ -373,6 +421,10 @@ async function containersView(token) {
   const load = async () => {
     const [list, info] = await Promise.all([docker('/containers/json?all=1'), docker('/info')]);
     if (token !== viewToken) return;
+    refreshStarts(list, (id) => {
+      const r = rows.get(id);
+      if (token === viewToken && r?.st && r.c?.State === 'running') setText(r.sub, `${r.st.label} · ${uptimeText(startedAt.get(id))}`);
+    });
     const running = list.filter((c) => c.State === 'running');
     const metaText = `${running.length}/${list.length}| ทำงาน · ${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`;
     if (meta.dataset.v !== metaText) {
@@ -409,7 +461,9 @@ async function containersView(token) {
         }
         if (r.dot.getAttribute('class') !== `dot ${st.cls}`) r.dot.setAttribute('class', `dot ${st.cls}`);
         r.dot.title = st.label;
-        setText(r.sub, `${st.label} · ${statusText(c.Status)}`);
+        r.c = c; r.st = st;
+        const started = c.State === 'running' ? startedAt.get(c.Id) : null;
+        setText(r.sub, `${st.label} · ${started ? uptimeText(started) : statusText(c.Status)}`);
         if (c.State !== 'running') { setText(r.cpu, ''); setText(r.mem, ''); }
         if (sec.list.children[i] !== r.el) sec.list.insertBefore(r.el, sec.list.children[i] ?? null); // moves only what is out of place
       });
@@ -504,7 +558,7 @@ async function containerView(token, id) {
   const info = kv([
     ['อิมเมจ', c.Config.Image],
     ['สร้างเมื่อ', ago(Date.parse(c.Created) / 1000)],
-    ['เริ่มเมื่อ', running ? ago(Date.parse(c.State.StartedAt) / 1000) : null],
+    ['เริ่มเมื่อ', running ? startedText(Date.parse(c.State.StartedAt)) : null],
     ['รีสตาร์ทอัตโนมัติ', c.HostConfig?.RestartPolicy?.Name || 'no'],
     ['พอร์ต', ports.join('\n') || 'ภายในเท่านั้น'],
     ['เครือข่าย', Object.keys(c.NetworkSettings?.Networks ?? {}).join(', ')],

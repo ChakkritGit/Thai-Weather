@@ -415,6 +415,9 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .chat-empty { display: grid; justify-items: center; gap: 8px; padding: 56px 16px; text-align: center; color: var(--muted); }
 .chat-empty b { color: var(--text); font-size: 16px; }
 .chat-empty p { margin: 0; max-width: 32ch; font-size: 14px; }
+/* `hidden` must win over a component's own display (it lost to .chat-older's flex: "loading older
+   messages" showed all the time) */
+[hidden] { display: none !important; }
 .chat-older { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 0 14px; color: var(--muted); font-size: 13px; }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 50%; animation: spin 0.8s linear infinite; }
 .icon-btn.armed { background: var(--bad); color: #fff; }
