@@ -57,6 +57,7 @@ const ICONS = {
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   checkcircle: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3',
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
 };
 const icon = (name, cls = '') =>
@@ -1099,7 +1100,7 @@ async function backupView(token) {
             const { url } = await api(`/backups/${encodeURIComponent(b.name)}/link`, { method: 'POST' });
             location.href = url;
           } catch (err) { handleError(err); }
-        } }, 'ดาวน์โหลด'),
+        } }, icon('download'), 'ดาวน์โหลด'),
         confirmButton('ลบ', 'แตะอีกครั้งเพื่อลบ', async () => {
           await api(`/backups/${encodeURIComponent(b.name)}`, { method: 'DELETE' });
           await load();
