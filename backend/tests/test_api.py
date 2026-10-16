@@ -83,3 +83,14 @@ def test_verification_report_is_served_once_written(client, run_dir):
     assert r.status_code == 200 and r.json()["temperature"]["matched"] == 3
     assert "max-age=300" in r.headers["cache-control"]
     report.unlink()
+
+
+def test_forecast_endpoint_without_extras(client):
+    r = client.get("/api/v1/forecast", params={"lat": 13.75, "lon": 100.5})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["hourly"] and d["current"]["condition"]["code"]
+    # the test run is in the past, so "today" may have no 2.2 km hours and (extras off) no MET days
+    assert all(day["source"] == "fine" and day["sunrise"] for day in d["daily"])
+    assert d["air"] is None and d["attribution"] == []  # extras are off in tests
+    assert client.get("/api/v1/forecast", params={"lat": 40, "lon": 100}).status_code == 422

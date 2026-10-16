@@ -195,6 +195,48 @@ def point(
     }
 
 
+# --------------------------------------------------------------- forecast
+@router.get(
+    "/forecast",
+    tags=["forecast"],
+    summary="A weather app's view of one place: now, 48 hours, 10 days, sun, moon, PM2.5",
+)
+def forecast(
+    request: Request,
+    lat: float = Query(..., ge=-90, le=90, description="latitude, WGS84 (Thailand: 5.5-20.5)"),
+    lon: float = Query(..., ge=-180, le=180, description="longitude, WGS84 (Thailand: 97.3-105.7)"),
+    run: Run = Depends(current_run),
+) -> dict:
+    """Days 1-2 and the hours from the 2.2 km forecast; days 3-10, pressure and the clear-sky UV
+    index from MET Norway; PM2.5 from the nearest Air4Thai station; sun and moon computed. Each hour
+    and day carries a condition code (clear, partly_cloudy, rain, thunderstorm, ...) for an icon."""
+    from ..extras import forecast as fx
+
+    static = load_static()
+    fine = run.fine_grid
+    if not fine.contains(lat, lon):
+        raise HTTPException(422, detail="location outside the forecast domain")
+    iy, ix = fine.index(lat, lon)
+    pidx = int(static.province[iy, ix])
+    layers = ("temp", "heat", "rh", "rain", "pop", "storm", "wind", "wind_dir", "cloud")
+    series = {k: run.series("fine", k, iy, ix) for k in layers}
+    met_client = getattr(request.app.state, "met", None)
+    air_service = getattr(request.app.state, "air", None)
+    met_data = met_client.get(lat, lon) if met_client else None
+    air = air_service.nearest(lat, lon) if air_service else None
+    body = fx.build(run.times, series, float(fine.lats[iy]), float(fine.lons[ix]), met_data, air)
+    return {
+        "run_id": run.run_id,
+        "location": {
+            "lat": round(float(fine.lats[iy]), 4),
+            "lon": round(float(fine.lons[ix]), 4),
+            "province": static.provinces[pidx - 1] if pidx else None,
+            "elevation": round(float(static.elev_land[iy, ix])),
+        },
+        **body,
+    }
+
+
 # ---------------------------------------------------------- verification
 @router.get(
     "/verification", tags=["status"], summary="How accurate the forecast has been: the latest verification report"

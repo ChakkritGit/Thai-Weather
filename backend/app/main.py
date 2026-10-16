@@ -16,6 +16,8 @@ from .api.ratelimit import RateLimitMiddleware, Tier
 from .api.routes import router
 from .config import get_settings
 from .core.static import load_static
+from .extras.air import AirService
+from .extras.met import MetClient
 from .nowcast.service import NowcastService
 from .push.service import PushService
 from .scheduler import ObservationBuffer, Refresher
@@ -37,12 +39,18 @@ async def lifespan(app: FastAPI):
     nowcast = NowcastService(settings)
     app.state.nowcast = nowcast
     app.state.push = PushService(settings, nowcast, latest_run=store.latest) if settings.push_enabled else None
+    app.state.met = MetClient() if settings.extras_enabled else None
+    app.state.air = AirService() if settings.extras_enabled else None
+    if app.state.air is not None:
+        app.state.air.start()
     store.latest()  # starts warming the current run's files, so the first visitor is not the one who waits
     refresher.start()
     nowcast.start()  # no-op when both radar and cyclones are disabled
     if app.state.push is not None:
         app.state.push.start()
     yield
+    if app.state.air is not None:
+        app.state.air.stop()
     nowcast.stop()
     if app.state.push is not None:
         app.state.push.close()

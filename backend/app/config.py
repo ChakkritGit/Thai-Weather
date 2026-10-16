@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     # Web Push alerts (docs/PUSH.md). Without VAPID keys, a pair is generated once under data_dir/push.
     push_enabled: bool = True
+    # days 3-10, pressure and UV from MET Norway, PM2.5 from Air4Thai (/api/v1/forecast); off in tests
+    extras_enabled: bool = True
     vapid_public_key: str | None = None
     vapid_private_key: str | None = None
     vapid_subject: str = "mailto:admin@example.com"  # CHANGE to a real contact (mailto: or https:) in production

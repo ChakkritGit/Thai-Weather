@@ -8,6 +8,9 @@ from app.downscale.pipeline import Downscaler
 from app.sources.synthetic import SyntheticSource
 from app.store import RunStore
 
+# no MET Norway / Air4Thai calls from tests (the extras tests use their own fakes)
+os.environ.setdefault("THWX_EXTRAS_ENABLED", "false")
+
 # The nowcast thread must never reach the network during tests; tests that need it inject a service.
 os.environ.setdefault("THWX_NOWCAST_SOURCE", "off")
 os.environ.setdefault("THWX_CYCLONES_ENABLED", "false")
