@@ -298,12 +298,14 @@ export interface Condition { code: ConditionCode; night: boolean; label_th: stri
 export interface ForecastHour {
   time: string; temp: number; feels_like: number; rh: number; dew_point: number; rain: number; pop: number;
   storm: number; wind: number; wind_dir: number; cloud: number; pressure: number | null; uv_clear_sky: number | null;
+  /** estimates (backend app/extras/estimates.py): gust in m/s, visibility in km */
+  gust: number; visibility_km: number;
   condition: Condition;
 }
 export interface Moon { phase: number; illumination: number; age_days: number; code: string; label_th: string; label_en: string; thai_day: string }
 export interface ForecastDay {
   date: string; source: 'fine' | 'met'; partial: boolean; tmax: number | null; tmin: number | null;
-  feels_like_max: number | null; rain_mm: number; pop_max: number | null; storm_max: number | null; wind_max: number | null;
+  feels_like_max: number | null; rain_mm: number; pop_max: number | null; storm_max: number | null; wind_max: number | null; gust_max: number | null;
   uv_clear_sky_max: number | null; condition: Condition; sunrise: string | null; sunset: string | null;
   daylight_h: number | null; moon: Moon;
 }

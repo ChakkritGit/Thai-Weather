@@ -37,6 +37,7 @@ const ENDPOINTS: Endpoint[] = [
       { name: 'daily[]', th: 'tmin, tmax, rain_mm, pop_max, uv_clear_sky_max, condition, sunrise, sunset, moon (ข้างขึ้นข้างแรม) — source: "fine" = 2.2 กม. (2 วันแรก), "met" = MET Norway (วันที่ 3–10, ~9 กม., ไม่มี pop_max)', en: 'tmin, tmax, rain_mm, pop_max, uv_clear_sky_max, condition, sunrise, sunset, moon — source: "fine" = 2.2 km (first 2 days), "met" = MET Norway (days 3–10, ~9 km, no pop_max)' },
       { name: 'air', th: 'PM2.5 (µg/m³), AQI และระดับสีของกรมควบคุมมลพิษ จากสถานี Air4Thai ใกล้ที่สุดภายใน 50 กม. (null ถ้าไม่มี)', en: 'PM2.5 (µg/m³), AQI and the PCD colour level from the nearest Air4Thai station within 50 km (null if none)' },
       { name: 'uv_clear_sky', th: 'UV เมื่อฟ้าเปิด (ยังไม่หักเมฆ) จึงเป็นค่าสูงสุดที่เป็นไปได้', en: 'UV for a clear sky (clouds not subtracted), so an upper bound' },
+      { name: 'gust, visibility_km', th: 'ค่าประมาณ ไม่ใช่ผลจากแบบจำลองโดยตรง: ลมกระโชก (m/s) = ลมเฉลี่ย × 1.5 + ลมจากพายุฝนฟ้าคะนองตามโอกาสเกิดพายุ · ทัศนวิสัย (กม., สูงสุด 20) จากความแรงฝน ความชื้น/หมอก และ PM2.5 (12 ชม. แรก) · daily[].gust_max ในวันที่มาจาก 2.2 กม.', en: 'Estimates, not direct model output: gust (m/s) = mean wind × 1.5 plus thunderstorm outflow weighted by storm chance · visibility (km, capped at 20) from rain rate, humidity/fog and PM2.5 (first 12 h) · daily[].gust_max on 2.2 km days' },
     ],
   },
   {

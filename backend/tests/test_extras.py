@@ -185,3 +185,29 @@ def test_air4thai_chain_file_is_shipped():
     pem = (DATA_DIR / "air4thai-chain.pem").read_text()
     assert pem.count("BEGIN CERTIFICATE") == 2
     assert json.dumps(air.LEVELS)  # levels are plain data
+
+
+# ------------------------------------------------------------------ gust / visibility estimates
+from app.extras import estimates  # noqa: E402
+
+
+def test_gust_is_a_gust_factor_plus_storm_outflow():
+    assert estimates.gust(4.0, 0) == 6.0
+    assert estimates.gust(0.0, 0) == 0.0
+    # a likely storm brings outflow gusts well above 1.5x a light wind
+    assert estimates.gust(2.0, 80) == round(2.0 + 0.8 * 14.0, 1)
+    assert estimates.gust(10.0, 10) == 15.0
+
+
+def test_visibility_drops_with_rain_fog_and_haze():
+    clear = estimates.visibility(0.0, 60, 3)
+    assert clear == 20.0
+    light, heavy = estimates.visibility(1.0, 85, 3), estimates.visibility(30.0, 95, 5)
+    assert 4 < light < 9 and heavy < 2
+    fog = estimates.visibility(0.0, 99, 0.5)
+    assert fog < 1.5
+    assert estimates.visibility(0.0, 99, 6) > 10  # wind keeps the fog from forming
+    haze = estimates.visibility(0.0, 60, 2, pm25=150)
+    assert 4 < haze < 10
+    assert estimates.visibility(0.0, 60, 2, pm25=10) > estimates.visibility(0.0, 60, 2, pm25=150)
+    assert estimates.visibility_label(0.5)[1] == "Very poor"

@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from datetime import UTC, date, datetime, timedelta
 
-from . import astro, conditions, met
+from . import astro, conditions, estimates, met
 
 BKK = timedelta(hours=7)
 FULL_DAY_H = 18
@@ -43,6 +43,10 @@ def build(
     days: int = 10,
 ) -> dict:
     now = now or datetime.now(UTC)
+    # the station's PM2.5 stands for the next 12 hours of haze (persistence; no PM2.5 forecast here)
+    air_until = None
+    if air and air.get("pm25") is not None and air.get("time"):
+        air_until = datetime.fromisoformat(air["time"]) + timedelta(hours=12)
     hourly = []
     for i, t in enumerate(times):
         temp, rh = fine["temp"][i], fine["rh"][i]
@@ -60,6 +64,10 @@ def build(
                 "storm": fine["storm"][i],
                 "wind": fine["wind"][i],
                 "wind_dir": fine["wind_dir"][i],
+                "gust": estimates.gust(fine["wind"][i], fine["storm"][i]),
+                "visibility_km": estimates.visibility(
+                    fine["rain"][i], rh, fine["wind"][i], air["pm25"] if air_until and t <= air_until else None
+                ),
                 "cloud": fine["cloud"][i],
                 "pressure": extra.get("air_pressure_at_sea_level"),
                 "uv_clear_sky": extra.get("ultraviolet_index_clear_sky"),
@@ -111,6 +119,7 @@ def build(
                     "pop_max": max(fine["pop"][i] for i in idx),
                     "storm_max": max(fine["storm"][i] for i in idx),
                     "wind_max": max(fine["wind"][i] for i in idx),
+                    "gust_max": max(hourly[i]["gust"] for i in idx),
                     "uv_clear_sky_max": uv_max,
                     "condition": conditions.describe(conditions.for_day(codes)),
                     **sky,
@@ -138,6 +147,7 @@ def build(
                 "pop_max": None,
                 "storm_max": None,
                 "wind_max": round(max(winds), 1) if winds else None,
+                "gust_max": None,
                 "uv_clear_sky_max": uv_max,
                 "condition": conditions.describe(conditions.for_day(codes)),
                 **sky,

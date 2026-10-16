@@ -13,6 +13,9 @@ const UV_LEVELS: [number, string, string][] = [
   [11, 'สูงมาก', 'Very high'],
   [Infinity, 'อันตราย', 'Extreme'],
 ];
+/** Same bands as the backend's visibility_label. */
+const visLabel = (km: number, th: boolean) =>
+  km < 1 ? (th ? 'หมอกหนา / ฝนหนัก' : 'Very poor') : km < 4 ? (th ? 'ต่ำ' : 'Poor') : km < 10 ? (th ? 'ปานกลาง' : 'Moderate') : th ? 'ดี' : 'Good';
 const uvLevel = (v: number, th: boolean) => {
   const l = UV_LEVELS.find(([max]) => v < max)!;
   return th ? l[1] : l[2];
@@ -43,6 +46,14 @@ export function DetailsGrid({ fc, hour, lang }: { fc: ForecastResponse; hour: Fo
         {hour && (
           <Tile label={th ? 'จุดน้ำค้าง' : 'Dew point'} value={`${fmtNum(hour.dew_point, 0)}°`}
             sub={hour.dew_point >= 24 ? (th ? 'อบอ้าว เหนียวตัว' : 'Muggy') : hour.dew_point >= 20 ? (th ? 'ชื้น' : 'Humid') : th ? 'สบาย' : 'Comfortable'} />
+        )}
+        {hour && (
+          <Tile label={th ? 'ลมกระโชก (ประมาณ)' : 'Gusts (est.)'} value={fmtNum(hour.gust * 3.6, 0)} unit={th ? 'กม./ชม.' : 'km/h'}
+            sub={th ? `ลมเฉลี่ย ${fmtNum(hour.wind * 3.6, 0)} กม./ชม.` : `mean wind ${fmtNum(hour.wind * 3.6, 0)} km/h`} />
+        )}
+        {hour && (
+          <Tile label={th ? 'ทัศนวิสัย (ประมาณ)' : 'Visibility (est.)'} value={hour.visibility_km >= 20 ? '20+' : fmtNum(hour.visibility_km, hour.visibility_km < 10 ? 1 : 0)} unit={th ? 'กม.' : 'km'}
+            sub={visLabel(hour.visibility_km, th)} />
         )}
         {hour?.pressure != null && (
           <Tile label={th ? 'ความกดอากาศ' : 'Pressure'} value={fmtNum(hour.pressure, 0)} unit="hPa" sub={th ? 'ระดับน้ำทะเล' : 'sea level'} />
