@@ -228,6 +228,12 @@ function brandIcon(slug) {
   svg.firstChild.textContent = b.title;
   return svg;
 }
+/** the brand icon at the start of a row */
+function leadIcon(slug) {
+  const svg = brandIcon(slug);
+  svg.classList.add('brand-lead');
+  return svg;
+}
 const groupTag = (g, n) => h('h2', { class: 'group-tag' }, h('span', { class: 'tag-chip' }, g), h('span', { class: 'group-count' }, `${n}`));
 
 /** running + health → dot class and a Thai word */
@@ -395,8 +401,9 @@ async function containersView(token) {
           const dot = h('span', {});
           const sub = h('span', { class: 'row-sub' });
           const side = h('span', { class: 'row-side' }, h('b', {}), h('span', {}));
-          r = { el: h('a', { class: 'row', href: `#/c/${c.Id}` }, dot,
-            h('span', { class: 'row-main' }, h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, nameOf(c)), brandIcon(serviceOf(c).brand)), sub),
+          // the service's icon leads the row; the state dot follows the name
+          r = { el: h('a', { class: 'row', href: `#/c/${c.Id}` }, leadIcon(serviceOf(c).brand),
+            h('span', { class: 'row-main' }, h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, nameOf(c)), dot), sub),
             side, icon('chev', 'chev')), dot, sub, cpu: side.firstChild, mem: side.lastChild };
           rows.set(c.Id, r);
         }
@@ -850,8 +857,8 @@ async function overviewView(token) {
       const memO = { ...T, kind: 'area', compact: true, format: (v) => fmtBytes(v), series: [{ name: 'RAM', color: color(i), values: d.mem ?? [] }] };
       let e = ctrCards.get(id);
       if (!e) {
-        const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, h('span', { class: `dot ${st.cls}` }),
-          h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, name), brandIcon(serviceOf(c).brand)), icon('chev', 'chev'));
+        const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, leadIcon(serviceOf(c).brand),
+          h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, name), h('span', { class: `dot ${st.cls}`, title: st.label })), icon('chev', 'chev'));
         const stWrap = h('div', { class: 'mini-stats' },
           ['CPU', 'RAM', '↓ เน็ต', 'เขียนดิสก์'].map((label, k) => h('span', {}, h('b', {}, values[k]), label)));
         const cpuBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'CPU'));

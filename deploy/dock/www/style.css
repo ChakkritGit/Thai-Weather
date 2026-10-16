@@ -300,6 +300,7 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .row-title.name-with-ic { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .brand-ic { width: 15px; height: 15px; flex: none; }
+.brand-ic.brand-lead { width: 20px; height: 20px; }
 
 /* tab bar badge, more page */
 .tab-ic { position: relative; display: inline-grid; }
