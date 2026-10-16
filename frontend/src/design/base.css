@@ -1668,6 +1668,12 @@ button {
 }
 .air-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .air-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+/* the map credits ride along while the PM2.5 view hides the weather legend: own line where there is room */
+.air-legend .legend-credit { margin: 0; }
+@media (min-width: 861px) {
+  .air-legend:has(.legend-credit) { flex-wrap: wrap; }
+  .air-legend .legend-credit { flex-basis: 100%; white-space: normal; }
+}
 [data-aq-compact='true'] .aq-marker { min-width: 0; width: 12px; height: 12px; padding: 0; border-width: 1.5px; font-size: 0; line-height: 0; }
 .aq-popup .maplibregl-popup-content {
   padding: 12px 14px;
