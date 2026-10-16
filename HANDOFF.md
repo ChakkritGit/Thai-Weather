@@ -49,7 +49,9 @@ the buffer cache hit rate is 99.9 %, shared_buffers 64 MB already holds everythi
 ~35 MB of its 384 MB limit. Revisit only if a database grows past a few hundred MB or the hit rate drops.
 
 Thai Weather data sources besides the forecast runs: Air4Thai (PM2.5 now, every 20 min), FMI SILAM
-(PM2.5 forecast field, 0.2°, 72 h, every 3 h — `backend/app/extras/pmforecast.py`), MET Norway (days 3–10).
+(PM2.5 forecast field, 0.2°, 72 h, every 3 h — `backend/app/extras/pmforecast.py`; adjusted to the latest
+Air4Thai readings on every request: inverse distance, fading ~75 km from stations and with lead time, e-folding
+36 h — on 2026-10-17 it took Bangkok from ~61 to 21 µg/m³ against stations at 19), MET Norway (days 3–10).
 None of them use the Open-Meteo quota. Gusts and visibility are **estimates** derived from the run
 (`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
@@ -88,8 +90,10 @@ monthly report, web push), backup (Dock backups). `reminders` is built from the 
 ## 5. Rules that cost time to rediscover
 
 - **Never trigger extra forecast runs** (no manual `POST /runs`, avoid needless api restarts): one run uses
-  ~2,300 of Open-Meteo's 10,000 free calls/day; 4 scheduled runs ≈ 9,400. The api skips its start-up run if
-  the latest is < 6 h old.
+  ~2,135 of Open-Meteo's 10,000 free calls/day (2,135 locations × 10 variables = 1 call each); 4 scheduled
+  runs ≈ 8,540. Keep `HOURLY` in `app/sources/openmeteo.py` at ≤ 10 variables (a test pins it): with 11 every
+  location counted 1.1 and the 18Z run of 2026-10-16 failed with 429 (the limit behaves like a rolling day).
+  A failed run retries every 30 min. The api skips its start-up run if the latest is < 6 h old.
 - **Tests must not touch the owner's real data**: don't post to Dock chat (`/api/chat`, `/chat/alert`), don't
   send pushes or alert e-mails, delete test rows you create. A test once filled the owner's chat.
 - **Backups**: Dock → เพิ่มเติม → สำรองข้อมูล makes `chakkritton-server-backup-<date>.zip` (encrypted with the
@@ -181,6 +185,13 @@ map page server-rendered (LCP 5.7 → ~2–3.7 s); Bot Fight Mode off (best prac
 Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SILAM) as its own view —
 picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
+
+### Also on 2026-10-17 (Claude, after Codex hit its usage limit)
+- Codex's last commit `a56b29b` (search results above the phone keyboard, no input outline, the locate
+  button as an icon in the right-hand group) was pushed but not deployed; deployed and checked on an
+  iPhone 13 emulation (search → pick → point forecast opens).
+- PM2.5 forecast adjusted to the stations; forecast runs ask for 10 Open-Meteo variables (surface
+  pressure now from the cell's height). See §2 and §5.
 
 ### Delivered and verified on production (2026-10-17)
 - **Deployed code**: Thai Weather `1c958e9` on `claude/vigilant-ride-i3yr1m`; Drive Music `37988cf`
