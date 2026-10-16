@@ -234,6 +234,23 @@ def forecast(
     }
 
 
+@router.get("/air/forecast", tags=["air"], summary="PM2.5 forecast field over Thailand (FMI SILAM, 0.2°, hourly, 72 h)")
+def air_forecast(request: Request) -> Response:
+    """Hourly PM2.5 (µg/m³) on SILAM's 0.2° grid over Thailand for the next 72 hours: one base64 byte per
+    cell, rows from the south. Refreshed every 3 hours; 503 until the first fetch has worked."""
+    from ..extras.pmforecast import to_json
+
+    svc = getattr(request.app.state, "pm", None)
+    if svc is None or svc.field is None:
+        raise HTTPException(503, detail="PM2.5 forecast not available yet")
+    body = {"updated": svc.updated.isoformat() if svc.updated else None, **to_json(svc.field)}
+    return Response(
+        json.dumps(body, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=900"},
+    )
+
+
 @router.get("/air/stations", tags=["air"], summary="PM2.5 now at every Air4Thai station (Pollution Control Department)")
 def air_stations(request: Request) -> Response:
     """Each station's latest hour (under 6 h old): PM2.5 µg/m³, AQI and the PCD level and colour.

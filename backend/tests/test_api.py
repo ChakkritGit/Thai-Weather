@@ -99,3 +99,8 @@ def test_forecast_endpoint_without_extras(client):
 def test_air_stations_endpoint_is_empty_without_the_source(client):
     d = client.get("/api/v1/air/stations").json()
     assert d["stations"] == [] and d["updated"] is None and "Air4Thai" in d["attribution"]["name"]
+
+
+def test_air_forecast_is_503_until_fetched(client):
+    # the SILAM service is off in tests (extras disabled), so there is no field yet
+    assert client.get("/api/v1/air/forecast").status_code == 503

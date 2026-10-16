@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { CanvasSource, GeoJSONSource, ImageSource, Map as MLMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { api, type AirStation, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
+import { api, type AirForecast, type AirStation, type GridData, type GridDesc, type LayerMeta, type RadarFrame, type RunMeta } from '../lib/api';
 import { buildRadarLut, decode, hexToRgb } from '../lib/color';
 import { gridBounds, gridLines, imageCoordinates, rasterFor, renderGrid, sampleGrid, type Bounds, type Raster } from '../lib/render';
 import { fmtNum } from '../lib/format';
 import { useT } from '../i18n';
 import { MAP_READY_EVENT } from '@/components/Splash';
+import { fieldCoordinates, frameImage } from '../lib/pmField';
 
 export interface MapPoint {
   lat: number;
@@ -28,6 +29,8 @@ interface Props {
   selected?: MapPoint | null;
   /** PM2.5 stations to draw as labelled dots (null/undefined = hidden) */
   air?: AirStation[] | null;
+  /** PM2.5 forecast frame to draw instead of the weather layer (null/undefined = hidden) */
+  pm?: { field: AirForecast; frame: Uint8Array } | null;
   /** latest radar frame to overlay above the weather layer (null/undefined = hidden) */
   radar?: RadarFrame | null;
   onSelect?: (p: MapPoint) => void;
@@ -172,6 +175,7 @@ export function WeatherMap(props: Props) {
       map.addSource('provinces', { type: 'geojson', data: api.geoUrl('provinces'), promoteId: 'id' });
       map.addSource('hillshade', { type: 'image', url: blank, coordinates: coords });
       map.addSource('weather', { type: 'image', url: blank, coordinates: coords });
+      map.addSource('pm25', { type: 'image', url: blank, coordinates: coords });
       // a canvas source: playback redraws it in place. An image source would drop its texture on every
       // updateImage(), which shows as a blank flash between radar frames.
       map.addSource('radar', { type: 'canvas', canvas: radarCanvas, coordinates: coords, animate: false });
@@ -188,6 +192,14 @@ export function WeatherMap(props: Props) {
         type: 'raster',
         source: 'weather',
         paint: { 'raster-opacity': 0.88, 'raster-fade-duration': 0, 'raster-resampling': res === 'coarse' ? 'nearest' : 'linear' },
+      });
+      // PM2.5 forecast: a 0.2° field, smoothed by the GPU; shown in place of the weather layer
+      map.addLayer({
+        id: 'pm25',
+        type: 'raster',
+        source: 'pm25',
+        layout: { visibility: 'none' },
+        paint: { 'raster-opacity': 0.8, 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
       });
       map.addLayer({
         id: 'radar',
@@ -501,6 +513,25 @@ export function WeatherMap(props: Props) {
     map.setLayoutProperty('radar', 'visibility', 'visible');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, props.radar, run.run_id]);
+
+  // ------------------------------------------------------------ PM2.5 forecast field
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const pm = props.pm;
+    if (!pm) {
+      map.setLayoutProperty('pm25', 'visibility', 'none');
+      map.setPaintProperty('weather', 'raster-opacity', 0.88);
+      return;
+    }
+    const c = document.createElement('canvas');
+    c.width = pm.field.nx;
+    c.height = pm.field.ny;
+    c.getContext('2d')!.putImageData(frameImage(pm.field, pm.frame), 0, 0);
+    (map.getSource('pm25') as ImageSource).updateImage({ url: c.toDataURL(), coordinates: fieldCoordinates(pm.field) });
+    map.setLayoutProperty('pm25', 'visibility', 'visible');
+    map.setPaintProperty('weather', 'raster-opacity', 0);
+  }, [ready, props.pm]);
 
   // ------------------------------------------------------------ wind arrows
   useEffect(() => {

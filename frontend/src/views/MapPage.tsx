@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { api, type AirStation, type LayerId, type Meta, type RunMeta } from '../lib/api';
+import { api, type AirForecast, type AirStation, type LayerId, type Meta, type RunMeta } from '../lib/api';
 import { buildLut } from '../lib/color';
 import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
 import { nextFrameId } from '../lib/radarHistory';
+import { decodeFrame, frameIndex } from '../lib/pmField';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
@@ -148,6 +149,19 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   // PM2.5 now at the Air4Thai stations, fetched while shown and every 10 minutes after
   const [airOn, setAirOn] = useState(false);
   const [airStations, setAirStations] = useState<AirStation[] | null>(null);
+  // and the PM2.5 forecast field (FMI SILAM), drawn for the timeline's hour in place of the weather layer
+  const [airForecast, setAirForecast] = useState<AirForecast | null>(null);
+  useEffect(() => {
+    if (!airOn) return;
+    let cancelled = false;
+    const load = () => api.airForecast().then((d) => !cancelled && setAirForecast(d)).catch(() => {});
+    load();
+    const timer = window.setInterval(load, 30 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [airOn]);
   useEffect(() => {
     if (!airOn) return;
     let cancelled = false;
@@ -523,7 +537,12 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
   const compareLabel = t('compare', { coarse: fmtKm(run.coarse_grid.resolution_km, lang), fine: fmtKm(run.fine_grid.resolution_km, lang) });
   const gridLabel = t('gridLines', { km: fmtKm(run.fine_grid.resolution_km, lang) });
-  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, air: airOn ? airStations : null, onSelect: setSelected };
+  const pmFrame = useMemo(() => {
+    if (!airOn || !airForecast) return null;
+    const i = frameIndex(airForecast, run.times[step] ?? run.times[0]);
+    return i < 0 ? null : { field: airForecast, frame: decodeFrame(airForecast.frames[i]) };
+  }, [airOn, airForecast, run.times, step]);
+  const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, air: airOn ? airStations : null, pm: pmFrame, onSelect: setSelected };
 
   return (
     <div className="map-page" data-sheet={selected ? (peek ? 'peek' : 'open') : undefined}>
@@ -648,7 +667,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         <div className="map-bottom">
           {radarOn && <RadarControl radar={radar} active={atNow} onSelect={onRadarSelect} />}
           <Legend layer={layer} />
-          {airOn && <AirLegend lang={lang} count={airStations?.length ?? null} />}
+          {airOn && <AirLegend lang={lang} count={airStations?.length ?? null} forecast={pmFrame !== null} />}
           <Timeline
             run={run}
             daily={layer.daily}
@@ -701,7 +720,7 @@ const AIR_LEVELS: [string, string, string, string][] = [
 ];
 
 /** The PCD's PM2.5 levels, under the weather legend while the stations are shown. */
-function AirLegend({ lang, count }: { lang: 'th' | 'en'; count: number | null }) {
+function AirLegend({ lang, count, forecast }: { lang: 'th' | 'en'; count: number | null; forecast: boolean }) {
   const th = lang === 'th';
   return (
     <div
@@ -715,7 +734,10 @@ function AirLegend({ lang, count }: { lang: 'th' | 'en'; count: number | null })
           <i style={{ background: c }} /> {th ? t : e}
         </span>
       ))}
-      <span className="subtle">{count === null ? '…' : th ? `${count} สถานี` : `${count} stations`}</span>
+      <span className="subtle">
+        {count === null ? '…' : th ? `จุด = วัดจริง ${count} สถานี` : `dots = ${count} stations`}
+        {forecast ? (th ? ' · สี = พยากรณ์ FMI SILAM ~22 กม.' : ' · shading = FMI SILAM forecast, ~22 km') : ''}
+      </span>
     </div>
   );
 }

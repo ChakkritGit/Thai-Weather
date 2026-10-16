@@ -18,6 +18,7 @@ from .config import get_settings
 from .core.static import load_static
 from .extras.air import AirService
 from .extras.met import MetClient
+from .extras.pmforecast import PmForecast
 from .nowcast.service import NowcastService
 from .push.service import PushService
 from .scheduler import ObservationBuffer, Refresher
@@ -43,6 +44,9 @@ async def lifespan(app: FastAPI):
     app.state.air = AirService() if settings.extras_enabled else None
     if app.state.air is not None:
         app.state.air.start()
+    app.state.pm = PmForecast() if settings.extras_enabled else None
+    if app.state.pm is not None:
+        app.state.pm.start()
     store.latest()  # starts warming the current run's files, so the first visitor is not the one who waits
     refresher.start()
     nowcast.start()  # no-op when both radar and cyclones are disabled
@@ -51,6 +55,8 @@ async def lifespan(app: FastAPI):
     yield
     if app.state.air is not None:
         app.state.air.stop()
+    if app.state.pm is not None:
+        app.state.pm.stop()
     nowcast.stop()
     if app.state.push is not None:
         app.state.push.close()

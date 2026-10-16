@@ -113,6 +113,26 @@ const ENDPOINTS: Endpoint[] = [
     ],
   },
   {
+    path: '/air/stations',
+    example: '/air/stations',
+    th: 'PM2.5 ที่วัดได้ตอนนี้ทุกสถานี Air4Thai (กรมควบคุมมลพิษ) อัปเดตทุก 20 นาที',
+    en: 'PM2.5 measured now at every Air4Thai station (Pollution Control Department), refreshed every 20 minutes',
+    fields: [
+      { name: 'stations[]', th: 'id, name_th, name_en, lat, lon, pm25 (µg/m³), aqi, level, color, time', en: 'id, name_th, name_en, lat, lon, pm25 (µg/m³), aqi, level, color, time' },
+    ],
+  },
+  {
+    path: '/air/forecast',
+    example: '/air/forecast',
+    th: 'พยากรณ์ PM2.5 เต็มพื้นที่ประเทศไทย รายชั่วโมง 72 ชั่วโมง จากแบบจำลอง FMI SILAM (กริด 0.2° ~22 กม.) อัปเดตทุก 3 ชั่วโมง',
+    en: 'PM2.5 forecast over all of Thailand, hourly for 72 hours, from the FMI SILAM model (0.2° grid, ~22 km), refreshed every 3 hours',
+    fields: [
+      { name: 'lat0, lon0, dlat, dlon, nx, ny', th: 'กริด: จุดกึ่งกลางเซลล์ล่างซ้าย ระยะห่าง และขนาด', en: 'grid: south-west cell centre, spacing and size' },
+      { name: 'times[], frames[]', th: 'หนึ่งเฟรมต่อชั่วโมง: base64 ไบต์ละเซลล์ (µg/m³ จำนวนเต็ม สูงสุด 255) เรียงแถวจากใต้ขึ้นเหนือ', en: 'one frame per hour: base64, one byte per cell (whole µg/m³, max 255), rows from south to north' },
+      { name: 'attribution', th: 'FMI SILAM, CC BY 4.0 — ต้องให้เครดิต', en: 'FMI SILAM, CC BY 4.0 — credit required' },
+    ],
+  },
+  {
     path: '/meta',
     example: '/meta',
     th: 'ข้อมูลรอบพยากรณ์ปัจจุบัน ชั้นข้อมูลและหน่วย สเกลสี เกณฑ์การเตือน และกริด 2.2 กม.',

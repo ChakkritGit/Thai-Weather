@@ -328,7 +328,14 @@ export interface AirStation {
   pm25: number; aqi: number | null; level: number | null; label_th: string; label_en: string; color: string | null; time: string;
 }
 
+/** PM2.5 forecast field (FMI SILAM, 0.2°, hourly): one base64 byte (µg/m³) per cell, rows from the south. */
+export interface AirForecast {
+  updated: string | null; lat0: number; lon0: number; dlat: number; dlon: number; nx: number; ny: number;
+  units: string; times: string[]; frames: string[]; attribution: { name: string; url: string; license?: string };
+}
+
 export const api = {
+  airForecast: () => getJson<AirForecast>('/api/v1/air/forecast'),
   airStations: () => getJson<{ updated: string | null; stations: AirStation[] }>('/api/v1/air/stations'),
   forecast: (lat: number, lon: number) =>
     getJson<ForecastResponse>(`/api/v1/forecast?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`),

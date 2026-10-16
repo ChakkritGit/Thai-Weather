@@ -211,3 +211,45 @@ def test_visibility_drops_with_rain_fog_and_haze():
     assert 4 < haze < 10
     assert estimates.visibility(0.0, 60, 2, pm25=10) > estimates.visibility(0.0, 60, 2, pm25=150)
     assert estimates.visibility_label(0.5)[1] == "Very poor"
+
+
+# ------------------------------------------------------------------ SILAM PM2.5 forecast
+def _silam_nc(lat_desc: bool = False) -> bytes:
+    import io as _io
+
+    import numpy as _np
+    from scipy.io import netcdf_file
+
+    buf = _io.BytesIO()
+    f = netcdf_file(buf, "w")
+    f.createDimension("time", 2)
+    f.createDimension("lat", 3)
+    f.createDimension("lon", 2)
+    t = f.createVariable("time", "d", ("time",))
+    t.units = b"hours since 2026-07-08 00:00:00.000 UTC"
+    t[:] = [2416.0, 2417.0]
+    lat = f.createVariable("lat", "f", ("lat",))
+    lat[:] = [5.4, 5.6, 5.8][::-1] if lat_desc else [5.4, 5.6, 5.8]
+    lon = f.createVariable("lon", "f", ("lon",))
+    lon[:] = [97.0, 97.2]
+    v = f.createVariable("cnc_PM2_5", "f", ("time", "lat", "lon"))
+    v.units = b"kg/m3"
+    vals = _np.array([[[1e-8, 2e-8], [3e-8, 4e-8], [5e-8, 3e-7]]] * 2, dtype="f4")
+    v[:] = vals[:, ::-1, :] if lat_desc else vals
+    f.flush()
+    raw = buf.getvalue()
+    f.close()
+    return raw
+
+
+def test_silam_field_is_bytes_of_ug_from_the_south():
+    from app.extras.pmforecast import parse, to_json
+
+    for desc in (False, True):
+        fl = parse(_silam_nc(desc))
+        assert fl.ug.shape == (2, 3, 2) and fl.lat0 == 5.4 and fl.dlat == 0.2 and fl.lon0 == 97.0
+        assert fl.ug[0, 0].tolist() == [10, 20]  # south row first
+        assert fl.ug[0, 2, 1] == 255  # 300 µg/m³ capped at one byte
+        assert fl.times[0].isoformat() == "2026-10-16T16:00:00+00:00"
+    j = to_json(fl)
+    assert j["nx"] == 2 and j["ny"] == 3 and len(j["frames"]) == 2
