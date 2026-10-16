@@ -11,6 +11,7 @@ export function PlaceSearch({ onSelect }: { onSelect: (place: Place) => void }) 
   const th = lang === 'th';
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -20,6 +21,36 @@ export function PlaceSearch({ onSelect }: { onSelect: (place: Place) => void }) 
   const places = ready ? answer.places : [];
   const loading = q.length >= 2 && !ready;
   const label = th ? 'ค้นหาเมือง อำเภอ หรือจังหวัด' : 'Search cities, districts or provinces';
+
+  useEffect(() => {
+    const el = popup.current;
+    if (!open || !el) return;
+    // iOS shrinks the visual viewport for its keyboard, but leaves dvh and the map unchanged.
+    const viewport = window.visualViewport;
+    const stage = el.closest('.map-stage');
+    let frame = 0;
+    const update = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const bottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+        const limit = Math.min(bottom, stage?.getBoundingClientRect().bottom ?? bottom);
+        const gap = parseFloat(getComputedStyle(el).marginTop) || 0;
+        el.style.setProperty('--place-search-space', `${Math.max(0, limit - el.getBoundingClientRect().top - gap)}px`);
+      });
+    };
+    update();
+    viewport?.addEventListener('resize', update);
+    viewport?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      viewport?.removeEventListener('resize', update);
+      viewport?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || q.length < 2) return;
@@ -78,7 +109,7 @@ export function PlaceSearch({ onSelect }: { onSelect: (place: Place) => void }) 
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => { setQuery(''); setActive(-1); setOpen(true); input.current?.focus(); }}><Icon name="close" /></button>}
       </form>
-      {open && <div className="place-search-popup glass">
+      {open && <div ref={popup} className="place-search-popup glass">
         <ul id={`${id}-list`} role="listbox" aria-label={th ? 'ผลการค้นหาสถานที่' : 'Place search results'} aria-busy={loading}>
           {places.map((place, index) => {
             const name = th ? place.name_th || place.name_en : place.name_en;

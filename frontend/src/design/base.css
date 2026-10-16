@@ -682,10 +682,21 @@ button {
   font-size: 16px; /* prevent Safari zooming on focus */
 }
 .place-search input::-webkit-search-cancel-button { display: none; }
+.place-search input:focus { outline: none; box-shadow: none; }
+.place-search-field:focus-within { border-color: var(--color-border-strong); }
 .place-search-clear { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
 .place-search-clear svg { width: var(--size-iconMd); height: var(--size-iconMd); }
-.place-search-popup { margin-top: var(--space-2); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-bg-surface); }
-.place-search-popup ul { margin: 0; padding: 0; list-style: none; max-height: min(320px, 40dvh); overflow-y: auto; overscroll-behavior: contain; }
+.place-search-popup {
+  margin-top: var(--space-2);
+  max-height: min(400px, var(--place-search-space, 50dvh));
+  border-radius: var(--radius-lg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-padding-block: var(--space-2);
+  background: var(--color-bg-surface);
+}
+.place-search-popup ul { margin: 0; padding: 0; list-style: none; }
 .place-search-popup li { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); cursor: pointer; }
 .place-search-popup li + li { border-top: 1px solid var(--color-border-subtle); }
 .place-search-popup li:hover, .place-search-popup li[aria-selected='true'] { background: var(--color-bg-subtle); }
@@ -995,41 +1006,19 @@ button {
   box-shadow: var(--shadow-md), 0 0 0 6px color-mix(in srgb, var(--color-accent-default) 25%, transparent);
 }
 
-/* "forecast where I am" call to action */
-.locate-cta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border-default);
+/* The location button shares the right-hand toolbar; errors appear beside it. */
+.map-locate { position: relative; }
+.map-locate-error {
+  position: absolute;
+  top: 0;
+  right: calc(100% + var(--space-2));
+  width: min(260px, calc(100vw - 84px));
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-lg);
   background: var(--color-bg-surface);
-  color: var(--color-fg-default);
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast);
+  color: var(--color-severity-3-fg);
+  font-size: var(--font-size-xs);
 }
-.locate-cta:hover { background: var(--color-bg-subtle); border-color: var(--color-border-strong); }
-.locate-cta:disabled { cursor: progress; }
-.locate-cta-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-accent-subtle);
-  color: var(--color-accent-fg);
-}
-.locate-cta-icon svg { width: 20px; height: 20px; }
-.locate-cta-text { display: grid; min-width: 0; flex: 1; line-height: 1.35; }
-.locate-cta-title { font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
-.locate-cta-hint { font-size: var(--font-size-xs); color: var(--color-fg-muted); }
-.locate-cta-hint[data-error='true'] { color: var(--color-severity-3-fg); }
-.locate-cta > .chev { width: 16px; height: 16px; color: var(--color-fg-subtle); flex: none; }
-.locate-card { padding: var(--space-4) var(--space-4) 0; }
-.locate-float { display: none; }
 
 /* sidebar / sheet */
 .sheet-handle { display: none; } /* phones only (bottom sheet) */
@@ -1177,32 +1166,8 @@ button {
   }
   .sheet-handle:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: -4px; }
   .map-page[data-sheet='peek'] .map-bottom { bottom: calc(96px + var(--space-2) + env(safe-area-inset-bottom)); }
-  .locate-card { display: none; }
-  .locate-float {
-    display: flex;
-    position: absolute;
-    top: 108px;
-    left: var(--space-3);
-    z-index: var(--zIndex-overlay);
-    width: auto;
-    max-width: calc(100% - 72px);
-    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
-    border-radius: var(--radius-full);
-    background: var(--color-bg-glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-color: var(--color-border-subtle);
-    box-shadow: var(--shadow-md);
-  }
-  .locate-float .locate-cta-hint,
-  .locate-float > .chev { display: none; }
-  .locate-float:hover { background: var(--color-bg-surface); }
-  .locate-float .locate-cta-icon { width: 28px; height: 28px; }
-  .locate-float .locate-cta-icon svg { width: 16px; height: 16px; }
-    .locate-float[data-error='true'] .locate-cta-hint { display: block; }
   .map-tools { top: 56px; }
   .compare-slot { top: 108px; }
-  .map-tools[data-cta='true'] .btn--locate { display: none; }
   .map-loading { top: 100px; }
   .legend { width: 100%; padding: 6px var(--space-3) 2px; }
   .radar-strip { width: 100%; }

@@ -1,47 +1,41 @@
 'use client';
 
+import { useId } from 'react';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 
 export type LocateStatus = 'idle' | 'locating' | 'denied' | 'failed';
 
-/**
- * "Forecast where I am" – the first thing a visitor usually wants. Rendered as a
- * calm card above the overview (desktop sidebar) or a floating pill over the
- * map (mobile). MapPage owns the geolocation call and passes `onLocate`.
- */
+/** Icon-only location control in the map toolbar, with progress and actionable error feedback. */
 export function LocateCta({
-  variant,
   status,
   onLocate,
 }: {
-  variant: 'card' | 'float';
   status: LocateStatus;
   onLocate: () => void;
 }) {
   const { t } = useT();
+  const hintId = useId();
   const busy = status === 'locating';
   const error = status === 'denied' || status === 'failed';
   const hint = busy ? t('locating') : status === 'denied' ? t('locateDenied') : status === 'failed' ? t('locateFailed') : t('locateHint');
-  const button = (
-    <button
-      type="button"
-      className={variant === 'float' ? 'locate-cta locate-float' : 'locate-cta'}
-      onClick={onLocate}
-      disabled={busy}
-      data-error={error ? 'true' : undefined}
-      aria-describedby={`locate-hint-${variant}`}
-    >
-      <span className="locate-cta-icon">{busy ? <span className="spinner" /> : <Icon name="locate" />}</span>
-      <span className="locate-cta-text">
-        <span className="locate-cta-title">{t('locateCta')}</span>
-        <span className="locate-cta-hint" id={`locate-hint-${variant}`} data-error={error ? 'true' : undefined} role={error ? 'alert' : undefined}>
-          {hint}
-        </span>
+  return (
+    <div className="map-locate">
+      <button
+        type="button"
+        className="btn btn--icon"
+        onClick={onLocate}
+        disabled={busy}
+        aria-label={t('locateCta')}
+        title={t('locateCta')}
+        aria-busy={busy}
+        aria-describedby={hintId}
+      >
+        {busy ? <span className="spinner" /> : <Icon name="locate" />}
+      </button>
+      <span className={error ? 'map-locate-error glass' : 'sr-only'} id={hintId} role={error ? 'alert' : 'status'}>
+        {hint}
       </span>
-      <Icon name="chevron" className="chev" />
-    </button>
+    </div>
   );
-  // the sidebar variant sits in its own padded wrapper
-  return variant === 'card' ? <div className="locate-card">{button}</div> : button;
 }

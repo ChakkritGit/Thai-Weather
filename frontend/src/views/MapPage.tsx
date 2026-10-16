@@ -613,7 +613,8 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           flyTo(point, place.kind === 'province' ? 8 : 10);
         }} />
 
-        <div className="map-tools" data-cta={canLocate && !selected && !compare ? 'true' : undefined}>
+        <div className="map-tools">
+          {canLocate && <LocateCta status={locateStatus} onLocate={() => locate()} />}
           <button
             type="button"
             className="btn btn--icon-narrow"
@@ -659,20 +660,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             <Icon name="grid" />
             <span className="btn-label">{gridLabel}</span>
           </button>
-          {canLocate && (
-            <button
-              type="button"
-              className="btn btn--icon btn--locate"
-              onClick={() => locate()}
-              aria-label={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}
-              title={lang === 'th' ? 'ตำแหน่งของฉัน' : 'My location'}
-            >
-              <Icon name="locate" />
-            </button>
-          )}
         </div>
-
-        {canLocate && !selected && !compare && <LocateCta variant="float" status={locateStatus} onLocate={() => locate()} />}
 
         {loading && (
           <div className="map-loading glass" role="status">
@@ -717,7 +705,6 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
         ) : (
           <>
-            {canLocate && <LocateCta variant="card" status={locateStatus} onLocate={() => locate()} />}
             <OverviewPanel run={run} dayIndex={day} />
           </>
         )}
