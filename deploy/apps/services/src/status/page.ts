@@ -90,6 +90,32 @@ function strip(state: State, id: CheckId, now: number): string {
   return out
 }
 
+const SITE = 'https://status.chakkritton.com'
+const DESCRIPTION = 'สถานะการทำงานและ uptime ย้อนหลัง 90 วันของทุกแอปบน chakkritton.com ตรวจทุก 5 นาที'
+/** share image (1200×630), shipped next to this file */
+const OG_PNG = await Bun.file(new URL('./og.png', import.meta.url)).arrayBuffer()
+const ROBOTS = `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`
+const SITEMAP = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${SITE}/</loc><changefreq>always</changefreq></url></urlset>\n`
+const llms = (checks: Check[]) => `# สถานะระบบ · chakkritton.com
+
+> Status page for the apps on chakkritton.com: whether each one is up, its response time and 90 days of uptime. Checked every 5 minutes.
+
+## Checked services
+
+${checks.map((c) => `- ${c.name}`).join('\n')}
+
+## Data
+
+- [Current status as JSON](${SITE}/api/status): overall state and each service's status
+- [Status page](${SITE}/)
+
+## Related
+
+- [Author: Chakkrit Laolit](https://chakkritton.com)
+`
+const text = (body: string, type: string) =>
+  new Response(body, { headers: { 'Content-Type': `${type}; charset=utf-8`, 'Cache-Control': 'public, max-age=3600' } })
+
 const BANNER = { ok: 'ทุกระบบปกติ', slow: 'บางระบบตอบช้า', down: 'มีบางระบบล่ม', none: 'ยังไม่มีข้อมูล' } as const
 
 export function render(state: State, now: number, checks: Check[] = CHECKS): string {
@@ -140,7 +166,21 @@ ${detail ? `<p class="check-detail">${esc(detail)}</p>` : ''}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="60">
 <title>สถานะระบบ · chakkritton.com</title>
+<meta name="description" content="${esc(DESCRIPTION)}">
+<link rel="canonical" href="${SITE}/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="chakkritton.com">
+<meta property="og:locale" content="th_TH">
+<meta property="og:url" content="${SITE}/">
+<meta property="og:title" content="สถานะระบบ · chakkritton.com">
+<meta property="og:description" content="${esc(head)} · ${esc(DESCRIPTION)}">
+<meta property="og:image" content="${SITE}/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="สถานะระบบ chakkritton.com: uptime ย้อนหลัง 90 วันของทุกแอป">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${SITE}/og.png">
 <style>
 :root{--bg:#f6f6f2;--card:#fff;--fg:#1a1a17;--muted:#6b6b63;--line:#e3e3dc;--ok:#3f9d4a;--ok-strong:#2f7d39;--warn:#e0a100;--bad:#d6322e;--none:#dcdcd4;--tip:#1a1a17;--tip-fg:#fff}
 @media (prefers-color-scheme:dark){:root{--bg:#121211;--card:#1b1b19;--fg:#ecece6;--muted:#9a9a90;--line:#2c2c29;--ok:#4cb85a;--ok-strong:#2f7d39;--warn:#f0b429;--bad:#ff6b66;--none:#34342f;--tip:#ecece6;--tip-fg:#121211}}
@@ -227,6 +267,10 @@ export function handle(req: Request, state: State, now: number): Response {
   if (path === '/favicon.svg' || path === '/favicon.ico') {
     return new Response(LOGO, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' } })
   }
+  if (path === '/og.png') return new Response(OG_PNG, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } })
+  if (path === '/robots.txt') return text(ROBOTS, 'text/plain')
+  if (path === '/sitemap.xml') return text(SITEMAP, 'application/xml')
+  if (path === '/llms.txt') return text(llms(CHECKS), 'text/plain')
   if (path === '/') return new Response(render(state, now), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60' } })
   return new Response('not found', { status: 404 })
 }

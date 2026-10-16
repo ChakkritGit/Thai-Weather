@@ -99,6 +99,7 @@ ssh -L 8181:127.0.0.1:81 root@<VPS_IP>
 | บัฟเฟอร์ header | `deploy/hardening/npm-server_proxy.conf` → `/data/nginx/custom/server_proxy.conf` ของ NPM (ทุก proxy host) — คุกกี้ล็อกอิน Supabase ของ expenses ใหญ่เกินบัฟเฟอร์ 4k ปกติ → 502 "upstream sent too big header" |
 | IP จริงหลัง Cloudflare | Advanced ทุก host: `real_ip_header CF-Connecting-IP;` (ช่วง IP ของ CF อยู่ใน `ip_ranges.conf` ของ NPM แล้ว) |
 | Header หน้าแอดมิน | `nginx.`: `more_set_headers` X-Frame-Options DENY, nosniff, Referrer-Policy, CSP frame-ancestors · `portainer.`: Referrer-Policy (+ viewport สำหรับมือถือ) |
+| ไม่ให้ search engine เก็บหน้าแอดมิน | Advanced ของ `nginx.` และ `portainer.`: `more_set_headers "X-Robots-Tag: noindex, nofollow";` + `location = /robots.txt` ตอบ `Disallow: /` · Dock: เดียวกันใน `deploy/dock/nginx.conf` |
 | Default site | NPM Settings → Default Site = **No Response (444)** |
 | SSH | `/etc/ssh/sshd_config.d/00-hardening.conf`: key-only, Kex/Ciphers/MACs สมัยใหม่, `AllowTcpForwarding local` (tunnel `-L` ไป NPM :81 ยังใช้ได้) |
 | เว็บหลัก | security headers + CSP ใน `frontend/next.config.mjs`; `/docs` ไม่เปิดสาธารณะ |

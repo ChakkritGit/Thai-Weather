@@ -7,7 +7,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 COPY tsconfig.json ./
 COPY src/*.ts ./src/
-COPY src/status/*.ts ./src/status/
+COPY src/status/*.ts src/status/og.png ./src/status/
 COPY --from=drivemusic party/index.ts ./src/vendor/drive-music/party/index.ts
 COPY --from=drivemusic src/lib/party.ts ./src/vendor/drive-music/src/lib/party.ts
 # readable whatever mode the checkouts had on the host (vendored files come from other repos)

@@ -83,3 +83,19 @@ test('shows failure categories and measured latency', async () => {
   const j = await handle(new Request('https://status.chakkritton.com/api/status'), s, NOW).json() as { services: { id: string; reason: string }[] }
   assert.equal(j.services.find((service) => service.id === 'reminders')?.reason, 'heartbeat-stale')
 })
+
+test('share tags and the files crawlers ask for', async () => {
+  const html = render(allUp(), NOW)
+  assert.match(html, /<meta property="og:image" content="https:\/\/status\.chakkritton\.com\/og\.png">/)
+  assert.match(html, /<meta name="description" content="[^"]+">/)
+  assert.match(html, /<link rel="canonical" href="https:\/\/status\.chakkritton\.com\/">/)
+  const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW)
+  const og = get('/og.png')
+  assert.equal(og.headers.get('content-type'), 'image/png')
+  assert.ok((await og.arrayBuffer()).byteLength > 10_000)
+  assert.match(await get('/robots.txt').text(), /Sitemap: https:\/\/status\.chakkritton\.com\/sitemap\.xml/)
+  assert.match(await get('/sitemap.xml').text(), /<loc>https:\/\/status\.chakkritton\.com\/<\/loc>/)
+  const llms = await get('/llms.txt').text()
+  assert.ok(llms.startsWith('# สถานะระบบ'))
+  for (const c of CHECKS) assert.ok(llms.includes(c.name))
+})
