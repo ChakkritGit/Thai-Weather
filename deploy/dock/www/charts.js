@@ -127,8 +127,11 @@ export function chart(host, initial) {
     const pw = W - m.l - m.r;
     const ph = H - m.t - m.b;
     const x = (t) => m.l + (n <= 1 ? pw / 2 : ((t - t0) / (t1 - t0)) * pw);
+    const slot = pw / Math.max(1, n);
+    // Columns fill equal slots; drawing, hit-testing and the crosshair share their centres.
+    const pointX = (i) => o.kind === 'columns' ? m.l + slot * (i + 0.5) : x(times[i]);
     const y = (v) => m.t + ph - (v / yMax) * ph;
-    geo = { times, series, tops, x, m, W, H, n, k };
+    geo = { times, series, tops, pointX, m, W, H, n, k };
 
     const s = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': o.label });
     // grid + y labels
@@ -163,11 +166,10 @@ export function chart(host, initial) {
     }
 
     if (o.kind === 'columns') {
-      const slot = pw / Math.max(1, n);
       const bw = Math.max(2, Math.min(24, slot - 2));
       const gap = slot > 6 ? 2 : 1;
       for (let i = 0; i < n; i++) {
-        const cx = m.l + slot * i + slot / 2;
+        const cx = pointX(i);
         let topIdx = -1;
         series.forEach((_, si) => { if (tops[si][i] !== null && tops[si][i] > bases[si][i]) topIdx = si; });
         series.forEach((ser, si) => {
@@ -283,8 +285,8 @@ export function chart(host, initial) {
   function show(i) {
     if (!geo || geo.n === 0) return;
     index = i;
-    const { times, series, tops, x, y, cross, W, m, k } = geo;
-    const px = x(times[i]);
+    const { times, series, tops, pointX, y, cross, W, m, k } = geo;
+    const px = pointX(i);
     cross.setAttribute('visibility', 'visible');
     cross.querySelector('.cross-line').setAttribute('x1', px);
     cross.querySelector('.cross-line').setAttribute('x2', px);
@@ -324,8 +326,8 @@ export function chart(host, initial) {
     const px = clientX - r.left;
     let best = 0;
     let bd = Infinity;
-    geo.times.forEach((t, i) => {
-      const d = Math.abs(geo.x(t) - px);
+    geo.times.forEach((_, i) => {
+      const d = Math.abs(geo.pointX(i) - px);
       if (d < bd) { bd = d; best = i; }
     });
     return best;
