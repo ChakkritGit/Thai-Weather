@@ -186,6 +186,20 @@ Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SI
 picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
 
+### Status coverage (2026-10-17, Codex)
+- The status Worker now lists **Thai Weather** and **Thai Weather API** in their own group (13 checks
+  total). Every five minutes it reads the public `/` and `/api/v1/health` endpoints separately, with
+  the existing transient retry and two-failure incident threshold. API liveness is independent of a
+  forecast job failing; these GET requests never trigger a forecast or use the Open-Meteo quota.
+- Deployed commit `7729f55` to the existing Cloudflare Worker `status` (version
+  `e0bd62a4-20e0-46d6-b050-dada48308b26`). The same KV namespace retains all existing uptime history;
+  the new checks start without historical data. No VPS service or weather API was restarted.
+- Validation: **69 Bun tests passed**, one pre-existing skip; status TypeScript and Wrangler dry-run
+  passed. Notifications in tests were mocked; no test alert was sent to Dock, push or e-mail.
+- The normal cron's first results at **08:10 Bangkok** marked both new checks up (web 862 ms, API
+  878 ms). Production Chromium/WebKit iPhone emulation and desktop checks passed: two separate rows,
+  no horizontal overflow, and only today's new uptime bars populated.
+
 ### Also on 2026-10-17 (Claude, after Codex hit its usage limit)
 - Codex's last commit `a56b29b` (search results above the phone keyboard, no input outline, the locate
   button as an icon in the right-hand group) was pushed but not deployed; deployed and checked on an
