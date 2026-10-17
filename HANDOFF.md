@@ -186,6 +186,20 @@ Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SI
 picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
 
+### Dock chart dates (2026-10-17, Codex)
+- Deployed `318a862`: column-axis labels now sample actual bucket timestamps and use the same
+  centres as the columns, crosshair and tooltip. The old interpolated axis labels could put a
+  Thursday 15th column above a Wednesday 14th label. Labels include all seven days when space
+  permits and select fewer real buckets on a narrow screen; one/two-day charts show dates too.
+- Chart axis, tooltip and table timestamps explicitly use `Asia/Bangkok`, matching the analytics
+  day's definition even when the device is set to another time zone. Line/area/stack axis geometry
+  remains continuous in time.
+- Reproduced the old mismatch and checked weekly/single/two-day charts, missing dates, rebinned
+  history and resize in Chromium/WebKit with Bangkok, UTC and New York device zones. Read-only
+  production checks passed for every displayed label on daily visitors, proxy requests and HTTP
+  status charts; the 15th label and tooltip both identify the 328-view column. Static rollout only,
+  no service restart, extra forecast or real notification.
+
 ### Dock column-chart alignment (2026-10-17, Codex)
 - Deployed `f9831e3`: `deploy/dock/www/charts.js` now uses one per-point x coordinate for drawing
   columns, pointer hit-testing and the crosshair/tooltip anchor. Columns occupy equal-width slots;
