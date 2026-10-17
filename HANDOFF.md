@@ -186,6 +186,19 @@ Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SI
 picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
 
+### Dock column-chart alignment (2026-10-17, Codex)
+- Deployed `f9831e3`: `deploy/dock/www/charts.js` now uses one per-point x coordinate for drawing
+  columns, pointer hit-testing and the crosshair/tooltip anchor. Columns occupy equal-width slots;
+  the old time-axis positions put the guide off-centre, especially near the first/last column and
+  in reports with missing days. Line/area/stack charts keep their time-axis positions.
+- Verified syntax and reproduced the old offset before checking single/two/many columns, stacked
+  bars, irregular days, missing initial history, rebinned traffic, keyboard, touch, resize and theme
+  changes in Chromium and WebKit iPhone emulation. Read-only production checks passed on the traffic,
+  HTTP-status and daily visitor charts after signing in with the Keychain credential held in memory.
+  The served script matched the tested file; chat access and browser mutations were blocked.
+- Rolled out through the existing static directory mount with one locked `git pull`; Dock and the
+  weather API were not restarted. No forecast run or real notification was triggered.
+
 ### Status coverage (2026-10-17, Codex)
 - The status Worker now lists **Thai Weather** and **Thai Weather API** in their own group (13 checks
   total). Every five minutes it reads the public `/` and `/api/v1/health` endpoints separately, with
