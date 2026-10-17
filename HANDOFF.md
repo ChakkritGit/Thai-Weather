@@ -186,6 +186,21 @@ Spent/Cost auth via getClaims; gust/visibility estimates; PM2.5 forecast map (SI
 picking a weather layer leaves it, the legend and hover switch to PM2.5.
 `git log` in each repo has the details and the reasons.
 
+### Dock shared overview time axis (2026-10-17, Codex)
+- Deployed `f6504b8`: all metric charts use the original bucket range and the same Bangkok
+  wall-clock ticks for a given width. Missing initial history stays blank, including in compact
+  container charts, so selecting 1 h / 24 h / 7 d preserves that range across the whole overview.
+- Rebinned traffic columns occupy their actual time intervals on that scale. Their drawing,
+  pointer selection and crosshair still share one centre; a partial final bucket has the correct
+  width and tooltip duration. Daily visitor/report charts retain their real date labels at column
+  centres (the 15th still identifies the 328-view column).
+- Reproduced the old mismatch before testing all chart types, missing history/gaps, partial bins,
+  resize, theme changes and 1/2/7/30/90-day reports locally. Read-only production checks passed for
+  all 11 full-size charts and 44 compact charts in all three ranges, in Chromium desktop and WebKit
+  iPhone emulation (also with a New York device zone). Verified mouse/touch selection, daily dates,
+  no horizontal overflow or runtime errors, and the served script's hash. Chat was stubbed and
+  browser writes blocked. Static rollout only; Dock/API start times unchanged, no extra forecast.
+
 ### Dock chart dates (2026-10-17, Codex)
 - Deployed `318a862`: column-axis labels now sample actual bucket timestamps and use the same
   centres as the columns, crosshair and tooltip. The old interpolated axis labels could put a
