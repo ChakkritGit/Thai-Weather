@@ -42,13 +42,32 @@ const timeFmt = (rangeS, daily = false) => {
 };
 const fullTime = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
+/** Wall-clock ticks shared by every chart with the same time range and width. */
+function timeTicks(start, end, width) {
+  const count = Math.max(1, Math.min(6, Math.floor(width / 80)));
+  const raw = (end - start) / count;
+  const interval = [60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 259200, 604800]
+    .reduce((best, s) => Math.abs(s - raw) < Math.abs(best - raw) ? s : best, Math.ceil(raw / 86400) * 86400);
+  const offset = 7 * 3600; // Align days to midnight in Bangkok, including on devices in other zones.
+  const out = [];
+  for (let t = Math.ceil((start + offset) / interval) * interval - offset; t < end; t += interval) {
+    const px = ((t - start) / (end - start)) * width;
+    if (px >= 24 && px <= width - 24) out.push(t);
+  }
+  return out.length ? out : [(start + end) / 2];
+}
+
 /** Sum consecutive points so a columns chart never has more than `max` bars (counters only). */
-function bin(times, series, max) {
+function bin(times, series, max, step) {
   const n = times.length;
   const k = Math.max(1, Math.ceil(n / max));
-  if (k === 1) return { times, series, k };
+  if (k === 1) return { times, series, ends: times.map((t) => t + step) };
   const t2 = [];
-  for (let i = 0; i < n; i += k) t2.push(times[i]);
+  const ends = [];
+  for (let i = 0; i < n; i += k) {
+    t2.push(times[i]);
+    ends.push(times[Math.min(n, i + k) - 1] + step);
+  }
   const s2 = series.map((s) => {
     const v = [];
     for (let i = 0; i < n; i += k) {
@@ -58,14 +77,14 @@ function bin(times, series, max) {
     }
     return { ...s, values: v };
   });
-  return { times: t2, series: s2, k };
+  return { times: t2, series: s2, ends };
 }
 
 /**
  * chart(host, opts) → { update(opts) }
  * opts: { times: unix s[], series: [{ name, color, values: (number|null)[] }], kind: 'line'|'area'|'stack'|'columns',
  *         format: v => string, max?: number, ref?: { value, label }, height?: number, compact?: boolean, label: string,
- *         step?: seconds per point (columns tooltip) }
+ *         step?: seconds per bucket (time domain and tooltip) }
  */
 export function chart(host, initial) {
   const wrap = div('chart');
@@ -94,14 +113,13 @@ export function chart(host, initial) {
     const m = compact ? { l: 0, r: 0, t: 6, b: 2 } : { l: 46, r: 10, t: 10, b: 24 };
     let { times } = o;
     let series = o.series.map((ser) => ({ ...ser, color: resolve(ser.color) }));
-    // start where the data starts (a new collector has no history yet): no long empty stretch on the left
-    const first = times.findIndex((_, i) => series.some((ser) => ser.values[i] !== null && ser.values[i] !== undefined));
-    if (first > 0 && times.length - first >= 2) {
-      times = times.slice(first);
-      series = series.map((ser) => ({ ...ser, values: ser.values.slice(first) }));
-    }
-    let k = 1;
-    if (o.kind === 'columns') ({ times, series, k } = bin(times, series, Math.max(12, Math.floor((W - m.l - m.r) / 9))));
+    const step = o.step ?? (times.length > 1 ? times[1] - times[0] : 1);
+    // Keep the original range even when a series starts late or columns are rebinned.
+    const t0 = times[0] ?? 0;
+    const t1 = (times[times.length - 1] ?? t0) + step;
+    const calendar = o.kind === 'columns' && step >= 86400;
+    let ends = [];
+    if (o.kind === 'columns') ({ times, series, ends } = bin(times, series, Math.max(12, Math.floor((W - m.l - m.r) / 9)), step));
     const n = times.length;
     const stacked = o.kind === 'stack' || o.kind === 'columns';
     // stacked tops per index
@@ -122,16 +140,15 @@ export function chart(host, initial) {
     if (o.ref) maxV = Math.max(maxV, o.ref.value);
     const ticks = o.max !== undefined ? niceTicks(o.max, 4) : niceTicks(maxV * 1.08 || 1, compact ? 2 : 4);
     const yMax = ticks[ticks.length - 1];
-    const t0 = times[0];
-    const t1 = times[n - 1] ?? t0 + 1;
     const pw = W - m.l - m.r;
     const ph = H - m.t - m.b;
-    const x = (t) => m.l + (n <= 1 ? pw / 2 : ((t - t0) / (t1 - t0)) * pw);
+    const x = (t) => m.l + ((t - t0) / (t1 - t0)) * pw;
     const slot = pw / Math.max(1, n);
-    // Columns fill equal slots; drawing, hit-testing and the crosshair share their centres.
-    const pointX = (i) => o.kind === 'columns' ? m.l + slot * (i + 0.5) : x(times[i]);
+    // Daily reports use labelled slots; metrics use the actual interval's centre on one time scale.
+    const pointX = (i) => calendar ? m.l + slot * (i + 0.5)
+      : x(o.kind === 'columns' ? (times[i] + ends[i]) / 2 : times[i] + step / 2);
     const y = (v) => m.t + ph - (v / yMax) * ph;
-    geo = { times, series, tops, pointX, m, W, H, n, k };
+    geo = { times, series, ends, tops, pointX, m, W, H, n };
 
     const s = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': o.label });
     // grid + y labels
@@ -146,21 +163,17 @@ export function chart(host, initial) {
     }
     // x labels
     if (!compact && n > 0) {
-      const f = timeFmt(t1 - t0, o.kind === 'columns' && (o.step ?? 0) * k >= 86400);
-      const want = Math.max(2, Math.min(6, Math.floor(pw / 80)));
+      const f = timeFmt(t1 - t0, calendar);
       const labels = [];
-      if (o.kind === 'columns') {
+      if (calendar) {
         // Sample real buckets so the date, column, crosshair and tooltip agree.
         const count = Math.min(n, Math.max(1, Math.min(8, Math.floor(pw / 64))));
         for (let j = 0; j < count; j++) {
           const i = count === 1 ? 0 : Math.round(((n - 1) * j) / (count - 1));
           labels.push({ t: times[i], px: pointX(i) });
         }
-      } else if (n > 1) {
-        for (let i = 0; i < want; i++) {
-          const t = t0 + ((t1 - t0) * (i + 0.5)) / want;
-          labels.push({ t, px: x(t) });
-        }
+      } else {
+        for (const t of timeTicks(t0, t1, pw)) labels.push({ t, px: x(t) });
       }
       for (const { t, px } of labels) {
         const label = el('text', { x: px, y: H - 6, class: 'tick', 'text-anchor': 'middle' });
@@ -179,9 +192,10 @@ export function chart(host, initial) {
     }
 
     if (o.kind === 'columns') {
-      const bw = Math.max(2, Math.min(24, slot - 2));
-      const gap = slot > 6 ? 2 : 1;
       for (let i = 0; i < n; i++) {
+        const span = calendar ? slot : x(ends[i]) - x(times[i]);
+        const bw = Math.max(2, Math.min(24, span - 2));
+        const gap = span > 6 ? 2 : 1;
         const cx = pointX(i);
         let topIdx = -1;
         series.forEach((_, si) => { if (tops[si][i] !== null && tops[si][i] > bases[si][i]) topIdx = si; });
@@ -209,8 +223,8 @@ export function chart(host, initial) {
         let seg = [];
         const flush = () => {
           if (seg.length > 1) {
-            d += `M${seg.map((i) => `${x(times[i])},${y(tops[si][i])}`).join('L')}`;
-            d += `L${seg.slice().reverse().map((i) => `${x(times[i])},${y(bases[si][i])}`).join('L')}Z`;
+            d += `M${seg.map((i) => `${pointX(i)},${y(tops[si][i])}`).join('L')}`;
+            d += `L${seg.slice().reverse().map((i) => `${pointX(i)},${y(bases[si][i])}`).join('L')}Z`;
           }
           seg = [];
         };
@@ -224,7 +238,7 @@ export function chart(host, initial) {
         for (let i = 0; i < n; i++) {
           const v = tops[si][i];
           if (v === null) { pen = false; continue; }
-          d += `${pen ? 'L' : 'M'}${x(times[i]).toFixed(1)},${y(v).toFixed(1)}`;
+          d += `${pen ? 'L' : 'M'}${pointX(i).toFixed(1)},${y(v).toFixed(1)}`;
           pen = true;
         }
         if (d) s.append(el('path', { d, stroke: ser.color, class: 'line' }));
@@ -298,7 +312,7 @@ export function chart(host, initial) {
   function show(i) {
     if (!geo || geo.n === 0) return;
     index = i;
-    const { times, series, tops, pointX, y, cross, W, m, k } = geo;
+    const { times, series, ends, tops, pointX, y, cross, W, m } = geo;
     const px = pointX(i);
     cross.setAttribute('visibility', 'visible');
     cross.querySelector('.cross-line').setAttribute('x1', px);
@@ -308,7 +322,7 @@ export function chart(host, initial) {
       dot.setAttribute('visibility', v === null || opts.kind === 'columns' ? 'hidden' : 'visible');
       if (v !== null) { dot.setAttribute('cx', px); dot.setAttribute('cy', y(v)); }
     });
-    const step = (opts.step ?? 0) * k;
+    const step = opts.kind === 'columns' ? ends[i] - times[i] : (opts.step ?? 0);
     const head = div('tip-time', fullTime.format(new Date(times[i] * 1000)) + (step >= 120 ? ` · ${Math.round(step / 60)} นาที` : ''));
     const rows = series.map((ser) => {
       const r = div('tip-row');
