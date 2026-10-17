@@ -33,14 +33,14 @@ export function niceTicks(max, count = 4) {
   return out;
 }
 
-const timeFmt = (rangeS) => {
-  const opts = rangeS > 2 * 86400
+const timeFmt = (rangeS, daily = false) => {
+  const opts = daily || rangeS > 2 * 86400
     ? { weekday: 'short', day: 'numeric' }
     : { hour: '2-digit', minute: '2-digit', hour12: false };
-  const f = new Intl.DateTimeFormat('th-TH', opts);
+  const f = new Intl.DateTimeFormat('th-TH', { ...opts, timeZone: 'Asia/Bangkok' });
   return (t) => f.format(new Date(t * 1000));
 };
-const fullTime = new Intl.DateTimeFormat('th-TH', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+const fullTime = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 /** Sum consecutive points so a columns chart never has more than `max` bars (counters only). */
 function bin(times, series, max) {
@@ -145,12 +145,25 @@ export function chart(host, initial) {
       }
     }
     // x labels
-    if (!compact && n > 1) {
-      const f = timeFmt(t1 - t0);
+    if (!compact && n > 0) {
+      const f = timeFmt(t1 - t0, o.kind === 'columns' && (o.step ?? 0) * k >= 86400);
       const want = Math.max(2, Math.min(6, Math.floor(pw / 80)));
-      for (let i = 0; i < want; i++) {
-        const t = t0 + ((t1 - t0) * (i + 0.5)) / want;
-        const label = el('text', { x: x(t), y: H - 6, class: 'tick', 'text-anchor': 'middle' });
+      const labels = [];
+      if (o.kind === 'columns') {
+        // Sample real buckets so the date, column, crosshair and tooltip agree.
+        const count = Math.min(n, Math.max(1, Math.min(8, Math.floor(pw / 64))));
+        for (let j = 0; j < count; j++) {
+          const i = count === 1 ? 0 : Math.round(((n - 1) * j) / (count - 1));
+          labels.push({ t: times[i], px: pointX(i) });
+        }
+      } else if (n > 1) {
+        for (let i = 0; i < want; i++) {
+          const t = t0 + ((t1 - t0) * (i + 0.5)) / want;
+          labels.push({ t, px: x(t) });
+        }
+      }
+      for (const { t, px } of labels) {
+        const label = el('text', { x: px, y: H - 6, class: 'tick', 'text-anchor': 'middle' });
         label.textContent = f(t);
         s.append(label);
       }
