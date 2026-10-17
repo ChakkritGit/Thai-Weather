@@ -22,6 +22,9 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./
 COPY --from=build --chown=bun:bun /app/.next/static ./.next/static
 COPY --from=build --chown=bun:bun /app/public ./public
+# Docker seeds an empty named volume from this directory, including its ownership.
+# Without it a newly mounted cache is root-owned and next/image fails with EACCES.
+RUN mkdir -p .next/cache/images && chown -R bun:bun .next/cache
 USER bun
 EXPOSE 3000
 CMD ["bun", "server.js"]
@@ -33,6 +36,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
+RUN mkdir -p .next/cache/images && chown -R node:node .next/cache
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
