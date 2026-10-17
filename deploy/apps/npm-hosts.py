@@ -11,6 +11,7 @@ import json
 import subprocess
 import sys
 import urllib.request
+from pathlib import Path
 
 CERT_NAME = sys.argv[1] if len(sys.argv) > 1 else "Cloudflare Origin CA *.chakkritton.com"
 user = sys.stdin.readline().strip()
@@ -60,8 +61,10 @@ location ^~ {path} {{
 """
 
 
+PORTFOLIO_PROBES = (Path(__file__).resolve().parents[1] / "hardening" / "npm-portfolio-probes.conf").read_text()
+
 HOSTS = [
-    (["chakkritton.com", "www.chakkritton.com"], "apps-portfolio", 3000, proxied("/media/", "apps-media:8793", "studio uploads (media service)")),
+    (["chakkritton.com", "www.chakkritton.com"], "apps-portfolio", 3000, proxied("/media/", "apps-media:8793", "studio uploads (media service)") + PORTFOLIO_PROBES),
     (["expenses.chakkritton.com"], "apps-expenses", 3000, proxied("/data/", "apps-dbgw:8791", "the app's data API (database gateway → PostgREST / reminders)")),
     (["whiteboard.chakkritton.com"], "apps-whiteboard", 3000, ws("/rooms/", "apps-rooms:8787", "Yjs rooms (was the whiteboard-rooms Worker)")),
     (["drive-music.chakkritton.com"], "apps-drive-music", 3000, ws("/parties/", "apps-sync:8788", "Party Play sync (was the drive-music-sync Worker)")),

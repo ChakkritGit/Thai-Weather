@@ -13,7 +13,9 @@ Updated 2026-10-17 (Bangkok) by Codex, for the next agent. Read this file and
   mail/pushes to real people.
 - After a change is verified, remove what it replaced (old services, files, images, caches) — the owner
   asks for this every time ("ลบต้นทางเก่า", "เคลียร์อะไรที่ไม่ได้ใช้").
-- New services: **Bun + Elysia**. Next.js apps stay Next.js. The weather science stays Python.
+- New services: **Bun + Elysia**. Next.js apps stay Next.js. The owner explicitly authorized a
+  **Rust weather HTTP API** on 2026-10-17; the numerical forecast/verification engine stays Python.
+  **Defer gRPC**, using HTTP/2 when that separate work is resumed.
 - Dependency and image versions: **exact pins, at least 14 days old** at the time you add them.
 - The owner tests on an **iPhone** (Safari + home-screen PWA). Check phone layouts, safe areas and iOS
   behaviour before calling UI work done; say plainly what you could not test (pages behind a login).
@@ -58,6 +60,13 @@ None of them use the Open-Meteo quota. Gusts and visibility are **estimates** de
 `deploy/apps/services` (one Bun image, several containers): rooms (whiteboard), sync (Party Play),
 health, analytics (page views + Web Vitals for Dock), dbgw, media (portfolio uploads), chat (Dock chat,
 monthly report, web push), backup (Dock backups). `reminders` is built from the Spent-Cost repo.
+
+**Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
+run their standalone Next servers on **Bun 1.4.2**, with **Elysia 1.4.30** handling app-owned HTTP APIs.
+Thai Weather's web runs the same stack. Its API is still FastAPI in production; a Rust HTTP API is
+authorized next, retaining the Python numerical engine and verification worker.
+Builds still use pinned Node 24.21.0. Auth.js/NextAuth, Supabase Auth, Next server actions and the
+existing WebSocket services retain their current behavior. See the rollout record in §9.
 
 ## 3. Deploying
 
@@ -105,6 +114,17 @@ monthly report, web push), backup (Dock backups). `reminders` is built from the 
 - Next.js app builds on the VPS need the host network + DB mapping (`build.sh`); without it Portfolio's ISR
   pages prerender empty. Portfolio's Prisma pool is capped (2 while building, 5 at run time) because
   `max_connections=40` is shared.
+- Next runtime images must create `.next/cache/images` as UID/GID **1000:1000** before Docker seeds
+  cache volumes. Existing root-owned named volumes need a one-time ownership repair; rebuilding the
+  image cannot change an existing mount. Next memoizes disk-cache initialization failures, so an
+  affected process also needs a rolling restart after the repair. Never use world-writable caches.
+- Next container health checks use **`/api/healthz`**, not a rendered page or a database/auth probe.
+  `init: true` forwards shutdown signals to Bun. Spent/Cost bypasses its auth proxy only for this exact
+  liveness path; other application routes remain gated. Public dependency probes (`/api/health`) stay.
+- Cloudflare Speed Brain may answer speculative document prefetches with **503** and
+  `cf-speculation-refused: prefetch refused: not eligible`, with `sec-purpose: prefetch` on the request.
+  These do not reach the origin and do not mean the app is down. Distinguish this exact response in
+  browser checks; do not hide other 5xx responses or change Cloudflare settings to make a test pass.
 - Pages scroll inside `.app-main` (Thai Weather) / `<main id="app-scroll">` (Drive Music), not the window.
 - iOS 27.2 shows letter tiles for every site in "Add to Home Screen" (github.com too) — an iOS bug. Don't
   rework the icons again.
@@ -140,6 +160,14 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   in iPhone Safari (third-party cookies).
 
 ### Other follow-up work
+- **Active: Rust weather API migration.** Replace the HTTP server/routing with Rust, preserve public
+  contracts, numerical Python code, persisted data and the existing forecast schedule. Do not start
+  duplicate background workers or trigger a forecast for testing. Change Dock's API mark to Rust only
+  when the running image carries the Rust stack label. gRPC is explicitly deferred (future HTTP/2).
+- **Active: Portfolio scanner CPU.** A read-only 30 s sample after closing QA browsers measured
+  17.6% mean CPU with 22 origin requests, 18 of them 404s. Requests included configuration/secret-file
+  scans and unrelated paths. Reject known scanner paths cheaply in the origin proxy, preserving
+  legitimate files, API/auth/studio/blog routes and normal 404 behavior; measure after deployment.
 - Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
 - `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
@@ -173,6 +201,67 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 17)
+
+### Next + Bun + Elysia rollout (2026-10-17, Codex — deployed and verified)
+- Owner expanded the Portfolio trial to all five Next web apps and requested a circular triangular
+  Next/Bun/Elysia icon in Dock. Subsequently the owner authorized Rust for the weather HTTP API,
+  retaining Python science, and explicitly deferred gRPC until later (HTTP/2).
+- Deployment infrastructure/Dock/weather web: **`649f685`** on this branch. App sources on `main`:
+  Portfolio **`df6cac8`**, Spent/Cost **`80c6c85`**, Drive Music **`aec9de3`**, Whiteboard **`481eb59`**.
+  Portfolio's original Bun/Elysia API change was `2b6ecaa`; runtime/cache commits here were `66f982f`
+  and **`91d1142`**. All source changes have been pushed.
+- Current running replacements: `apps-portfolio-19`, `apps-expenses-21`, `apps-whiteboard-9`,
+  `apps-drive-music-16`, **`thai-weather-web-45`**, all passed Docker health and a direct Bun GET of
+  `/api/healthz`. All five production builds and rollouts completed under one SSH batch holding
+  `/run/apps-autodeploy.lock`; unmodified reminders/rooms/sync/services were not rebuilt or restarted.
+- Elysia routes: Portfolio search/dependency health/liveness; Spent/Cost dependency health/liveness;
+  Drive Music authenticated five-minute Party Play token/liveness; Whiteboard liveness (its existing
+  Yjs backend already uses Elysia); weather web machine text/RSS/liveness. The browser's weather
+  `/api/v1` requests still use the existing Next rewrite to FastAPI. No extra network hop was added
+  between Next and its in-process Elysia routes.
+- **Portfolio cache/CPU:** the existing `apps_portfolio-cache` was root-owned. Repaired it and added
+  owned image-cache directories to both runtime targets; repaired the other three app cache volumes
+  before migrating. Confirmed an optimized image changes MISS → HIT, drops from ~487 ms to 5–17 ms,
+  and writes files as UID 1000. The broken process had repeated EACCES/unhandled-rejection logs and
+  CPU snapshots of 4–47%; post-repair idle snapshots were ~0.4–1%. An isolated Bun browser/profile
+  run returned to ~0.5–0.8% after navigation bursts (up to ~34%). The old health check rendered `/`
+  every 30 s; `/api/healthz` removes that repeated SSR/database work. Do not describe Bun as using
+  zero idle CPU or claim all observed spikes were caused only by the cache error.
+- **Measured tradeoff:** the earlier controlled origin trial measured roughly 7% less request CPU
+  time for Bun + Elysia, but ~114 MiB more sampled working memory than Node. Median latency changes
+  varied by route. The historical report is WebProfile `docs/runtime-trial-2026-10-17.md`; its original
+  instruction to limit rollout to Portfolio predates the owner's later request to migrate all apps.
+- Dock's composite mark uses the same **20×20 px** footprint, three overlapping circles in a triangle,
+  one accessible label and the official Elysia SVG. It appears only when the known Next container's
+  image has `com.chakkrit.stack=next-bun-elysia`; older Node images keep the old mark. FastAPI's icon
+  is unchanged pending the Rust migration. Production Chromium and WebKit/iPhone checks passed in light/dark themes, including exact
+  dimensions, loaded SVGs, accessible labels and no horizontal overflow.
+- Local validation passed: weather frontend TypeScript, **79 Vitest tests**, production build;
+  Portfolio **25 tests on Node and Bun**, TypeScript and changed-file ESLint; Spent/Cost TypeScript,
+  **91 Vitest tests**, changed-file ESLint and build; Drive Music TypeScript, **354 tests** across the
+  existing suite and updated API tests, changed-file ESLint and build; Whiteboard TypeScript, ESLint,
+  design checks, build and a Bun Elysia liveness check. New API tests also passed with Vitest on Bun.
+  Tests mock external auth/data and send no reminders, chat posts or real pushes/e-mails.
+- All five public hosts advertise `alt-svc: h3=":443"`. This is user ↔ Cloudflare HTTP/3, not HTTP/3
+  to the VPS. Cloudflare's native gRPC proxy requires TLS/HTTP/2; browser gRPC needs a web-compatible
+  client/proxy. Existing HTTP/JSON and WebSocket protocols have not been replaced. No DNS, certificate,
+  VPS plan or Cloudflare security setting was changed. The owner has deferred gRPC implementation.
+- Before rollout, backup bundle `chakkritton-server-backup-20261016-2202.zip` (127,918,989 bytes) existed.
+  Weather API start time `2026-10-16T19:10:35.011691526Z` was unchanged after rollout. All five Next
+  containers were healthy, with zero restarts/OOMs and no recent EACCES or unhandled rejections.
+  Exact temporary pre-migration image tags were checked and were already absent at cleanup.
+- Production browser checks passed in Chromium desktop and WebKit/iPhone emulation: Portfolio
+  TH/EN/JA search → article and studio sign-in; Expenses public health/auth gates; Drive public routes
+  and anonymous token denial; Whiteboard landing; Weather map, TH/EN city search, API rewrites,
+  machine text/RSS and generated OG image. No horizontal overflow, runtime errors or genuine 5xx.
+  Analytics/chat writes and Cloudflare telemetry were stubbed. Expected Speed Brain prefetch refusals
+  were identified by their specific headers, not ignored as generic 503s.
+- An isolated, network-disabled production Drive container verified a synthetic NextAuth session →
+  Elysia token, SHA-256 room ID, HS256 signature and 300 s expiry; anonymous access returned 401.
+  A fresh disposable cache volume verified UID/GID 1000 image-cache writes and was removed. Portfolio
+  optimized-image requests were HIT after rollout. No real Google data, notifications or forecast runs.
+- Portfolio CPU has a separate remaining scanner-traffic cause (see §7); the Next runtime rollout
+  itself is complete. The newer Bun idle-CPU fix is too young for the 14-day dependency rule today.
 
 Everything moved off Vercel / Workers / Supabase DB to the VPS (2026-10-15). Since then: status page back on
 Cloudflare with the VPS health endpoint and e-mail fallback; VPS upgraded to 6 GB (swap use 670 MB → 0) and
