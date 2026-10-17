@@ -306,6 +306,12 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .brand-ic { width: 15px; height: 15px; flex: none; }
 .brand-ic.brand-lead { width: 20px; height: 20px; }
+.brand-stack { position: relative; display: inline-block; border-radius: 50%; overflow: hidden; isolation: isolate; }
+.stack-mark { position: absolute; display: grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--surface); }
+.stack-mark .brand-ic { width: 12px; height: 12px; }
+.stack-nextdotjs { top: 0; left: 3.5px; }
+.stack-bun { bottom: 0; left: 0; }
+.stack-elysia { bottom: 0; right: 0; }
 
 /* tab bar badge, more page */
 .tab-ic { position: relative; display: inline-grid; }

@@ -13,6 +13,8 @@
     "prebuild": "node scripts/copy-maplibre-worker.mjs"
   },
   "dependencies": {
+    "elysia": "1.4.30",
+    "file-type": "22.1.1",
     "harfbuzzjs": "1.6.2",
     "maplibre-gl": "6.11.2",
     "next": "16.3.8",
@@ -25,5 +27,8 @@
     "@types/react-dom": "19.2.3",
     "typescript": "5.6.3",
     "vitest": "2.1.4"
+  },
+  "overrides": {
+    "strtok3": "10.3.5"
   }
 }

@@ -157,6 +157,7 @@ services:
       - internal
 
   web:
+    init: true
     image: ghcr.io/chakkritgit/thai-weather-web:${THWX_IMAGE_TAG:-latest}
     # no container_name: rollout.sh runs the new and the old side by side; NPM reaches either by the alias
     restart: unless-stopped
@@ -166,7 +167,7 @@ services:
     depends_on:
       - api
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/robots.txt"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

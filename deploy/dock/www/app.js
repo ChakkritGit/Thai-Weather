@@ -257,7 +257,9 @@ const GROUP_ORDER = ['ฟ้าละเอียด', 'Portfolio', 'Spent/Cost'
 function serviceOf(c) {
   const l = labelsOf(c);
   const known = SERVICES[`${l['com.docker.compose.project']}/${l['com.docker.compose.service']}`];
-  return { brand: known?.[0] ?? 'docker', group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
+  const brand = known?.[0] ?? 'docker';
+  return { brand: brand === 'nextdotjs' && l['com.chakkrit.stack'] === 'next-bun-elysia' ? 'next-bun-elysia' : brand,
+    group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
 }
 /** containers in the fixed group order (unknown groups after, by name) */
 function groupContainers(list) {
@@ -272,6 +274,7 @@ function groupContainers(list) {
 }
 function brandIcon(slug) {
   const b = BRANDS[slug] ?? BRANDS.docker;
+  if (b.src) return h('img', { src: b.src, class: 'brand-ic', alt: b.title });
   const svg = h('svg', { viewBox: '0 0 24 24', class: 'brand-ic', role: 'img', 'aria-label': b.title }, h('path', { d: b.path, fill: b.hex ?? 'currentColor' }));
   svg.prepend(document.createElementNS('http://www.w3.org/2000/svg', 'title'));
   svg.firstChild.textContent = b.title;
@@ -279,6 +282,14 @@ function brandIcon(slug) {
 }
 /** the brand icon at the start of a row */
 function leadIcon(slug) {
+  if (slug === 'next-bun-elysia') {
+    const marks = ['nextdotjs', 'bun', 'elysia'].map((brand) => {
+      const mark = brandIcon(brand);
+      mark.setAttribute('aria-hidden', 'true');
+      return h('span', { class: `stack-mark stack-${brand}` }, mark);
+    });
+    return h('span', { class: 'brand-ic brand-lead brand-stack', role: 'img', 'aria-label': 'Next.js + Bun + Elysia', title: 'Next.js + Bun + Elysia' }, marks);
+  }
   const svg = brandIcon(slug);
   svg.classList.add('brand-lead');
   return svg;

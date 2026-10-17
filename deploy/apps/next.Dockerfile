@@ -17,6 +17,7 @@ RUN --mount=type=secret,id=env,target=/app/.env.production \
  && mkdir -p public
 
 FROM oven/bun:1.4.2-alpine AS bun
+LABEL com.chakkrit.stack="next-bun-elysia"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./
@@ -29,7 +30,7 @@ USER bun
 EXPOSE 3000
 CMD ["bun", "server.js"]
 
-# Keep Node as the default target; only the Portfolio trial selects Bun.
+# Retain an explicit Node target for runtime comparisons and recovery.
 FROM node:24.21.0-alpine3.24 AS node
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0

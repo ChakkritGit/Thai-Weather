@@ -151,3 +151,7 @@ Code: [MIT](LICENSE). Data used at run/build time keeps its own terms:
 - Forecast data: [Open-Meteo](https://open-meteo.com) (CC BY 4.0) and the underlying NOAA / ECMWF / DWD models
 - Terrain: [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (SRTM, GMTED2010, ETOPO1 — see their attribution requirements)
 - Boundaries: [Natural Earth](https://www.naturalearthdata.com) (public domain)
+
+The VPS web container runs the Next.js standalone server on Bun 1.4.2. Elysia 1.4.30 serves
+web-owned machine text, RSS and `/api/healthz`; `/api/v1` and all weather science remain Python
+FastAPI. Builds use a pinned Node stage; the runtime user owns the Next cache directory.

@@ -1,5 +1,5 @@
 # Next.js web app (standalone output)
-FROM node:22-alpine AS build
+FROM node:24.21.0-alpine3.24 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -9,15 +9,16 @@ ARG THWX_API_URL=http://api:8000
 ENV THWX_API_URL=$THWX_API_URL NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM node:22-alpine
+FROM oven/bun:1.4.2-alpine
 LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weather" \
-      org.opencontainers.image.description="Thai Weather HD – Next.js web app"
+      org.opencontainers.image.description="Thai Weather HD – Next.js web app" \
+      com.chakkrit.stack="next-bun-elysia"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-# Next creates its fetch/prerender cache beneath .next while running as node.
-COPY --from=build --chown=node:node /app/.next/standalone ./
-COPY --from=build --chown=node:node /app/.next/static ./.next/static
-COPY --from=build --chown=node:node /app/public ./public
-USER node
+COPY --from=build --chown=bun:bun /app/.next/standalone ./
+COPY --from=build --chown=bun:bun /app/.next/static ./.next/static
+COPY --from=build --chown=bun:bun /app/public ./public
+RUN mkdir -p .next/cache/images && chown -R bun:bun .next/cache
+USER bun
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["bun", "server.js"]

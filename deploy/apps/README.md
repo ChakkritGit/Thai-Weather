@@ -65,6 +65,19 @@ Without them it answers commands only (สรุป, เดือนก่อน
 `output: 'standalone'`). The env file is mounted only during `next build`, because `NEXT_PUBLIC_*` values are
 inlined there, and never lands in an image layer.
 
+The four Next standalone servers run on **Bun 1.4.2** (`--target bun`); the pinned Node build stage
+still compiles the apps. Elysia 1.4.30 handles app-owned APIs, alongside Next's existing auth and
+server actions. Whiteboard rooms, Party Play and reminders already use separate Bun + Elysia services.
+All Next containers use `init: true` to forward shutdown signals and poll `/api/healthz` every 30 s;
+that probe does not render a page, query data, refresh a session or send a notification.
+
+The runtime image creates `.next/cache/images` as UID/GID 1000 before Docker seeds a new named cache
+volume. When adopting an existing root-owned cache volume, repair that volume's ownership to
+1000:1000 once before rolling out; image permissions cannot override an existing mounted directory.
+Next's disk-cache initialization memoizes failures, so an already running process needs a rolling
+restart after the repair. Never make the directory world-writable. The explicit `node` build target
+is retained for runtime comparisons or recovery.
+
 ## Cutover (done 2026-10-15)
 
 1. Certificate: key + CSR on the VPS (`/root/origin-ca`), signed as a Cloudflare Origin CA cert for
