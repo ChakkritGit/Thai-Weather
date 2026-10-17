@@ -16,7 +16,18 @@ RUN --mount=type=secret,id=env,target=/app/.env.production \
  && rm -f .next/standalone/.env* \
  && mkdir -p public
 
-FROM node:24.21.0-alpine3.24
+FROM oven/bun:1.4.2-alpine AS bun
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+COPY --from=build --chown=bun:bun /app/.next/standalone ./
+COPY --from=build --chown=bun:bun /app/.next/static ./.next/static
+COPY --from=build --chown=bun:bun /app/public ./public
+USER bun
+EXPOSE 3000
+CMD ["bun", "server.js"]
+
+# Keep Node as the default target; only the Portfolio trial selects Bun.
+FROM node:24.21.0-alpine3.24 AS node
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/.next/standalone ./

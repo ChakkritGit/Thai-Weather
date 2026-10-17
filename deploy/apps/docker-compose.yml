@@ -44,6 +44,7 @@ x-bun: &bun
 services:
   portfolio:
     <<: *next
+    init: true
     image: apps-portfolio:local
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/portfolio.env

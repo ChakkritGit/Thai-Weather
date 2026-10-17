@@ -17,6 +17,8 @@ case "$name" in
   reminders)
     docker buildx build --load -t apps-reminders:local -f reminders.Dockerfile --build-context app="$REPOS/expenses" . ;;
   portfolio|expenses|whiteboard|drive-music)
+    target=node
+    [ "$name" != portfolio ] || target=bun
     # `next build` pre-renders the ISR pages (portfolio: home, blog, projects, topics, sitemap, feed) and needs
     # the database for that, so the build runs on the host network with the internal names pointed at the
     # running containers. Without it the pages were built empty and served that way for a day.
@@ -26,7 +28,7 @@ case "$name" in
       [ -n "$ip" ] && hosts="$hosts --add-host $c:$ip"
     done
     # shellcheck disable=SC2086 # $hosts is a list of flags
-    docker buildx build --load -t "apps-$name:local" -f next.Dockerfile --network host $hosts \
+    docker buildx build --load -t "apps-$name:local" -f next.Dockerfile --target "$target" --network host $hosts \
       --build-context app="$REPOS/$name" --secret id=env,src="$ENVS/$name.env" . ;;
   *) echo "unknown app: $name" >&2; exit 2 ;;
 esac
