@@ -1,7 +1,9 @@
 import { INTERNAL_IDS, type CheckId, type Env, type HealthReport, type Result, type FailureReason } from './types'
 
-export const CHECKS: { id: CheckId; group: 'server' | 'portfolio' | 'spentcost' | 'whiteboard' | 'drivemusic'; name: string; hourly?: true }[] = [
+export const CHECKS: { id: CheckId; group: 'server' | 'thaiweather' | 'portfolio' | 'spentcost' | 'whiteboard' | 'drivemusic'; name: string; hourly?: true }[] = [
   { id: 'server', group: 'server', name: 'เซิร์ฟเวอร์และ container' },
+  { id: 'weather', group: 'thaiweather', name: 'Thai Weather' },
+  { id: 'weatherapi', group: 'thaiweather', name: 'Thai Weather API' },
   { id: 'portfolio', group: 'portfolio', name: 'Portfolio' },
   { id: 'assistant', group: 'portfolio', name: 'Scrolly' },
   { id: 'ai', group: 'portfolio', name: 'Scrolly AI', hourly: true },
@@ -92,8 +94,12 @@ export async function runChecks(env: Env, scheduledTime: number): Promise<Result
   // The model costs quota, so it is asked once an hour: the run whose scheduled minute is under 5.
   const hourly = new Date(scheduledTime).getUTCMinutes() < 5
   const site = 'https://chakkritton.com'
+  const weather = 'https://thai-weather.chakkritton.com'
   const results = await Promise.all([
     internalChecks(env),
+    httpCheck('weather', `${weather}/`, {}, async (r) => r.status === 200, 1),
+    // Read-only liveness: a scheduled forecast failure does not mean the API stopped serving data.
+    httpCheck('weatherapi', `${weather}/api/v1/health`, {}, jsonOk, 1),
     httpCheck('portfolio', `${site}/api/health`, {}, jsonOk, 1),
     httpCheck('assistant', `${site}/api/assistant/health`, {}, jsonOk, 1),
     ...(hourly ? [httpCheck('ai', `${site}/api/assistant/health?ai=1`, { headers: { 'x-health-token': env.HEALTH_TOKEN } }, jsonOk)] : []),

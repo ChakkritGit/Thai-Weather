@@ -66,12 +66,29 @@ test('a name with markup is escaped', () => {
 test('routes: json, page, and 404', async () => {
   const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW)
   const j = (await get('/api/status').json()) as { services: unknown[]; incidents: unknown[]; lastRun: number }
-  assert.equal(j.services.length, 11)
+  assert.equal(j.services.length, 13)
   assert.equal(get('/api/status').headers.get('Cache-Control'), 'public, max-age=60')
   assert.equal(get('/').status, 200)
   assert.equal(get('/nope').status, 404)
   assert.equal(get('/status').status, 404)
   assert.equal(get('/favicon.svg').headers.get('Content-Type'), 'image/svg+xml')
+})
+
+test('Thai Weather has its own group with separate web and API status and history', async () => {
+  const s = allUp()
+  s.services.weatherapi = { ...svc('down'), reason: 'http-error', httpStatus: 503 }
+  s.days.weather = { [bangkokDay(NOW)]: [10, 10] }
+  s.days.weatherapi = { [bangkokDay(NOW)]: [9, 10] }
+  const html = render(s, NOW)
+  const group = html.match(/<section><h2>Thai Weather<\/h2>[\s\S]*?<\/section>/)?.[0]
+  assert.ok(group)
+  assert.match(group, /<b>Thai Weather<\/b><span class="st up">ปกติ/)
+  assert.match(group, /<b>Thai Weather API<\/b><span class="st down">ล่ม/)
+  assert.match(group, /uptime 100\.0%/)
+  assert.match(group, /uptime 90\.0%/)
+  assert.match(group, /HTTP 503/)
+  const j = await handle(new Request('https://status.chakkritton.com/api/status'), s, NOW).json() as { services: { id: string; group: string; status: string }[] }
+  assert.deepEqual(j.services.filter((service) => service.group === 'thaiweather').map(({ id, status }) => [id, status]), [['weather', 'up'], ['weatherapi', 'down']])
 })
 
 test('shows failure categories and measured latency', async () => {

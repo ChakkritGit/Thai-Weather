@@ -43,22 +43,26 @@ test('a VPS that stops answering: one e-mail for every down alert, then "back up
   world({ vps: true, relayed })
   await tick(env, store, T, mail, () => T)
   assert.equal((await load(store)).services.server?.status, 'up')
+  assert.equal((await load(store)).services.weather?.status, 'up')
+  assert.equal((await load(store)).services.weatherapi?.status, 'up')
+  assert.equal(relayed.length, 0)
+  assert.equal(mails.length, 0)
 
   world({ vps: false, relayed })
   await tick(env, store, T + 5 * 60_000, mail, () => T + 5 * 60_000)
   assert.equal(mails.length, 0) // one failure is not "down" yet
   const down = await tick(env, store, T + 10 * 60_000, mail, () => T + 10 * 60_000)
-  assert.equal(down.alerts.length, 10) // every check goes through the VPS
+  assert.equal(down.alerts.length, 12) // every check goes through the VPS
   assert.equal(mails.length, 1)
-  assert.match(mails[0].subject, /^เซิร์ฟเวอร์และ container ล่ม และอีก 9 รายการ$/)
+  assert.match(mails[0].subject, /^เซิร์ฟเวอร์และ container ล่ม และอีก 11 รายการ$/)
   assert.match(mails[0].html, /ดูหน้าสถานะ/)
 
   world({ vps: true, relayed })
   const back = await tick(env, store, T + 30 * 60_000, mail, () => T + 30 * 60_000)
   assert.equal(back.undelivered.length, 0)
-  assert.equal(relayed.length, 10)
+  assert.equal(relayed.length, 12)
   assert.equal(mails.length, 1)
-  assert.equal((await load(store)).incidents.length, 10)
+  assert.equal((await load(store)).incidents.length, 12)
 })
 
 test('the e-mail escapes what it shows and keeps a plain-text part', () => {

@@ -1,4 +1,4 @@
-export type CheckId = 'server' | 'portfolio' | 'assistant' | 'ai' | 'expenses' | 'reminders' | 'whiteboard' | 'rooms' | 'music' | 'musicauth' | 'musicsync'
+export type CheckId = 'server' | 'weather' | 'weatherapi' | 'portfolio' | 'assistant' | 'ai' | 'expenses' | 'reminders' | 'whiteboard' | 'rooms' | 'music' | 'musicauth' | 'musicsync'
 /** Checks the VPS's health endpoint answers for (the Worker cannot reach them from outside). */
 export const INTERNAL_IDS = ['rooms', 'musicsync', 'reminders'] as const satisfies readonly CheckId[]
 export type FailureReason = 'http-error' | 'timeout' | 'network' | 'invalid-response' | 'unhealthy' | 'heartbeat-stale'

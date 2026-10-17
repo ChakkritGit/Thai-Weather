@@ -111,7 +111,31 @@ test('runChecks asks the model only in minutes 0-4', async () => {
   const ids = async (min: number) => (await runChecks(env, Date.UTC(2026, 9, 2, 10, min))).map((r) => r.id)
   for (const m of [0, 4]) assert.ok((await ids(m)).includes('ai'), `minute ${m}`)
   for (const m of [5, 59]) assert.ok(!(await ids(m)).includes('ai'), `minute ${m}`)
-  assert.deepEqual((await ids(5)).sort(), ['assistant', 'expenses', 'music', 'musicauth', 'musicsync', 'portfolio', 'reminders', 'rooms', 'server', 'whiteboard'])
+  assert.deepEqual((await ids(5)).sort(), ['assistant', 'expenses', 'music', 'musicauth', 'musicsync', 'portfolio', 'reminders', 'rooms', 'server', 'weather', 'weatherapi', 'whiteboard'])
+})
+
+test('Thai Weather checks the web and API independently with read-only requests', async () => {
+  const base = 'https://thai-weather.chakkritton.com'
+  for (const [webStatus, apiBody, webOk, apiOk] of [
+    [200, { ok: true, run: 'current', refresher: { state: 'error' } }, true, true],
+    [500, { ok: true }, false, true],
+    [200, { ok: false }, true, false],
+    [200, { error: 'unavailable' }, true, false],
+    [200, '<html>not a health response</html>', true, false],
+  ] as const) {
+    const requests: [string, string][] = []
+    globalThis.fetch = (async (input: string, init?: RequestInit) => {
+      const url = String(input)
+      if (url.startsWith(base)) requests.push([url, init?.method ?? 'GET'])
+      if (url === `${base}/`) return new Response('<html>', { status: webStatus })
+      if (url === `${base}/api/v1/health`) return typeof apiBody === 'string' ? new Response(apiBody) : json(apiBody)
+      return url === env.HEALTH_URL ? json(report()) : json({ ok: true })
+    }) as never
+    const results = await runChecks(env, NOW)
+    assert.equal(results.find((r) => r.id === 'weather')?.ok, webOk)
+    assert.equal(results.find((r) => r.id === 'weatherapi')?.ok, apiOk)
+    assert.deepEqual(requests, [[`${base}/`, 'GET'], [`${base}/api/v1/health`, 'GET']])
+  }
 })
 
 test('internal checks: one request with the probe secret answers for the server and the internal services', async () => {

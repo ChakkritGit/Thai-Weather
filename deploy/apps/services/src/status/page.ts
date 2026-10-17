@@ -7,6 +7,7 @@ type Check = (typeof CHECKS)[number]
 
 const GROUPS = [
   { id: 'server', name: 'เซิร์ฟเวอร์' },
+  { id: 'thaiweather', name: 'Thai Weather' },
   { id: 'portfolio', name: 'Portfolio' },
   { id: 'spentcost', name: 'Spent-Cost' },
   { id: 'whiteboard', name: 'Whiteboard' },
