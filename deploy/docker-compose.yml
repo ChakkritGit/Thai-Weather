@@ -77,18 +77,16 @@ services:
       - proxy
       - dock
 
-  # Host / container / proxy-traffic history for Dock's overview: Bun + Elysia (apps/services/src/metrics.ts,
-  # image built by apps/build.sh services). Read-only host views, no Docker socket, no capabilities; reachable
-  # only from `dock` (behind Portainer login). Root inside, like the Python collector before it: it reads other
-  # containers' /proc/<pid>/net and keeps the history file that one saved.
+  # Rust host/container/proxy history, built from apps/rust-services. Read-only host views,
+  # no Docker socket or capabilities; reachable only from `dock` behind Portainer login.
+  # Retains the existing history volume and root UID needed for /proc/<pid>/net reads.
   dock-metrics:
-    image: apps-services:local
+    image: dock-metrics:local
     pull_policy: never
     container_name: dock-metrics
     restart: unless-stopped
-    init: true   # Bun as PID 1 ignores SIGTERM
+    init: true
     user: "0:0"
-    command: ["bun", "src/metrics.ts"]
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

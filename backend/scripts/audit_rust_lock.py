@@ -22,9 +22,10 @@ from pathlib import Path
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--added-on", required=True, type=date.fromisoformat)
+    parser.add_argument("--lock", type=Path, help="Audit another Rust service's Cargo.lock")
     args = parser.parse_args()
     cutoff = datetime.combine(args.added_on, datetime.min.time(), tzinfo=UTC) - timedelta(days=14)
-    lock = Path(__file__).resolve().parents[1] / "rust-api" / "Cargo.lock"
+    lock = args.lock or Path(__file__).resolve().parents[1] / "rust-api" / "Cargo.lock"
     if not lock.exists():
         raise SystemExit("Cargo.lock is missing: generate and audit it before treating the Rust API as buildable")
     packages = [p for p in tomllib.loads(lock.read_text())["package"] if "source" in p]

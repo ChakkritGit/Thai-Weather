@@ -26,3 +26,6 @@ frontend/out/
 
 # MapLibre worker copied at build time (scripts/copy-maplibre-worker.mjs)
 frontend/public/maplibre/
+
+# Rust build output
+target/

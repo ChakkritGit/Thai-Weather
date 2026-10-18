@@ -1,4 +1,4 @@
-# Bun + Elysia services: rooms (whiteboard), sync (drive-music), status, analytics, dock-metrics.
+# Bun + Elysia internal services, including rooms (whiteboard), sync (Drive Music) and analytics.
 # One image, several commands (see ../docker-compose.yml). Drive Music's room logic comes from its repo:
 #   docker build --build-context drivemusic=<drive-music checkout> .
 FROM oven/bun:1.4.2-alpine

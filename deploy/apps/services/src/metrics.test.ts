@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { LogTail, TIERS, Tiered, logTime, normPath } from './metrics'
+import { LogTail, TIERS, Tiered, logTime, normPath } from '../tests/oracle/metrics'
 
 const MX = process.env.MX_DIR // python fixtures (see the comparison test); skipped when absent
 

@@ -37,6 +37,14 @@ jobs:
       - run: pytest -q
         env:
           THWX_RUST_TEST_BIN: ${{ github.workspace }}/backend/rust-api/target/debug/thwx-api
+      - name: Rust Dock collector and real HTTP fixture tests
+        working-directory: deploy/apps/rust-services
+        run: |
+          cargo +1.90.0 fmt --check
+          cargo +1.90.0 clippy --locked --all-targets -- -D warnings
+          cargo +1.90.0 test --locked
+          cargo +1.90.0 build --locked
+          python3 tests/http_contract.py
 
   frontend:
     runs-on: ubuntu-latest

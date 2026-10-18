@@ -260,7 +260,7 @@ function serviceOf(c) {
   const brand = known?.[0] ?? 'docker';
   const stack = l['com.chakkrit.stack'];
   return { brand: brand === 'nextdotjs' && stack === 'next-bun-elysia' ? 'next-bun-elysia'
-    : brand === 'fastapi' && stack === 'rust-python' ? 'rust' : brand,
+    : (brand === 'fastapi' && stack === 'rust-python') || (brand === 'bun' && stack === 'rust') ? 'rust' : brand,
     group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
 }
 /** containers in the fixed group order (unknown groups after, by name) */

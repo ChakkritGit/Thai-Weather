@@ -1,0 +1,21 @@
+[package]
+name = "dock-metrics"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[dependencies]
+axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio", "json"] }
+tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+form_urlencoded = "=1.2.2"
+flate2 = "=1.1.10"
+crc32fast = "=1.5.2"
+libc = "=0.2.190"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

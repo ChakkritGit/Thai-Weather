@@ -2,6 +2,10 @@
 # instead of pulling them from GHCR (needs ~2 GB free RAM for the Next.js build).
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
+  dock-metrics:
+    image: dock-metrics:local
+    build:
+      context: ./apps/rust-services
   api:
     image: thai-weather-api:local
     build:

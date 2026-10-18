@@ -45,8 +45,7 @@ done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
   deploy services rooms sync health analytics dbgw media chat
   deploy backup backup
-  # dock-metrics (in the main stack) runs the same image
-  (cd .. && docker compose up -d --no-deps dock-metrics)
+  # dock-metrics is a separate Rust image; app changes must not restart it.
 fi
 # keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache
 docker image prune -f >/dev/null

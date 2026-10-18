@@ -15,6 +15,8 @@ Updated 2026-10-18 (Bangkok) by Codex, for the next agent. Read this file and
   asks for this every time ("ลบต้นทางเก่า", "เคลียร์อะไรที่ไม่ได้ใช้").
 - New services: **Bun + Elysia**. Next.js apps stay Next.js. The owner explicitly authorized a
   **Rust weather HTTP API** on 2026-10-17; the numerical forecast/verification engine stays Python.
+  On 2026-10-18 the owner also authorized migrating the ten standalone Bun services to Rust,
+  starting with `dock-metrics`; the five Next/Bun/Elysia web runtimes stay.
   **Defer gRPC**, using HTTP/2 when that separate work is resumed.
 - Dependency and image versions: **exact pins, at least 14 days old** at the time you add them.
 - The owner tests on an **iPhone** (Safari + home-screen PWA). Check phone layouts, safe areas and iOS
@@ -26,12 +28,12 @@ Updated 2026-10-18 (Bangkok) by Codex, for the next agent. Read this file and
 
 | URL | What | Code | Runs on |
 |---|---|---|---|
-| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16), `backend/` (FastAPI + `verify/`) | VPS, stack `deploy/` |
+| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16 + Bun + Elysia), `backend/` (Rust HTTP + Python science/`verify/`) | VPS, stack `deploy/` |
 | chakkritton.com, www | Portfolio + blog, studio, Scrolly assistant | github.com/ChakkritGit/WebProfile | VPS, stack `deploy/apps` |
 | expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
 | whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
 | drive-music.chakkritton.com | Drive Music (Google Drive player, Party Play sync) | github.com/ChakkritGit/Drive-Music-Web | VPS (`apps`) |
-| docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, web stats, backups, chat + web push) | `deploy/dock/` (static www + nginx) and `deploy/apps/services` | VPS |
+| docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
 | status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
 | health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/services/src/health.ts` | VPS |
 | nginx. / portainer.chakkritton.com | Nginx Proxy Manager / Portainer admin | images | VPS |
@@ -63,8 +65,8 @@ monthly report, web push), backup (Dock backups). `reminders` is built from the 
 
 **Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
 run their standalone Next servers on **Bun 1.4.2**, with **Elysia 1.4.30** handling app-owned HTTP APIs.
-Thai Weather's web runs the same stack. Its API is still FastAPI in production; a Rust HTTP API is
-authorized next, retaining the Python numerical engine and verification worker.
+Thai Weather's web runs the same stack. Its API has run **Rust/Axum** since 2026-10-18, retaining one
+private Python numerical worker and the existing separate Python verification container.
 Builds still use pinned Node 24.21.0. Auth.js/NextAuth, Supabase Auth, Next server actions and the
 existing WebSocket services retain their current behavior. See the rollout record in §9.
 
@@ -135,15 +137,18 @@ existing WebSocket services retain their current behavior. See the rollout recor
 
 | Repo | Checks |
 |---|---|
-| this repo `backend/` | `.venv/bin/ruff check app tests && .venv/bin/ruff format --check app tests && .venv/bin/pytest -q` |
+| this repo `backend/` | Pinned Rust build/fmt/Clippy/tests: `backend/rust-api/README.md`; `.venv/bin/ruff check app tests scripts verify && .venv/bin/ruff format --check app tests scripts verify && THWX_RUST_TEST_BIN="$PWD/rust-api/target/debug/thwx-api" .venv/bin/pytest -q` |
 | this repo `frontend/` | `npx tsc --noEmit && npx vitest run && npx next build` |
 | `deploy/apps/services` | `bun test` (`bunx tsc --noEmit -p .` — errors under `src/vendor/` are pre-existing) |
+| `deploy/apps/rust-services` | Rust 1.90.0 `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`, `cargo build --locked`, then `python3 tests/http_contract.py` (see its README) |
 | Spent-Cost | `npx tsc --noEmit && npx vitest run && npm run build`; reminders: `cd reminders && bun test server.test.ts` |
 | Drive-Music-Web | `npx tsc --noEmit && npx vitest run && npm run build` |
 | WebProfile | `npm run build` (`tsc` reports a missing type for `@/assets/ai/land.png` until a build has run — pre-existing) |
 
 Browser checks run against production with Playwright (Chromium/WebKit, iPhone 13 emulation). Lighthouse:
 `npx -y lighthouse@13.5.0 <url> --output=json` with Playwright's Chromium as `CHROME_PATH`.
+Build the Rust binary before backend tests: omitting `THWX_RUST_TEST_BIN` skips the real HTTP
+integration cases and is not a complete backend check. Test sockets need local socket permissions.
 
 ## 7. What is left
 
@@ -162,15 +167,28 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   in iPhone Safari (third-party cookies).
 
 ### Other follow-up work
-- **Active: Rust weather API migration.** Replace the HTTP server/routing with Rust, preserve public
-  contracts, numerical Python code, persisted data and the existing forecast schedule. Do not start
-  duplicate background workers or trigger a forecast for testing. Change Dock's API mark to Rust only
-  when the running image carries the Rust stack label. gRPC is explicitly deferred (future HTTP/2).
+- **Standalone Bun → Rust assessment requested on 2026-10-18.** The owner wants to consider all ten
+  standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
+  Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
+  `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
+  investigation at 18:30 Bangkok; `dock-metrics` is the active first migration. Rust can provide a separate backend for Next, as in
+  Weather; the existing Next server features still need Bun/Node. gRPC stays deferred.
+- **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
+  HTTP API and all five Next/Bun/Elysia web runtimes are deployed (see §9).
 - Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
 - `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
 
-### Watch after deploys of 2026-10-17
+### Watch after deploys of 2026-10-17 → 18
+- **Rust API (2026-10-18):** the first ordinary forecast after cutover completed successfully at
+  **13:55 Bangkok**, publishing real run `20261018T0600Z-open-meteo`, created
+  `2026-10-18T06:55:58.323593+00:00`. At 18:23 Bangkok the refresher was idle, without errors;
+  the API container had not restarted. Forty-two normal verification cycles had accepted
+  observations through Rust by 18:27, with no rejection or loop failure; the new run was archived. Keep verify's in-use image and the pre-Rust rollback tag.
+- **Portfolio CPU:** scanner rejection and owned-image routing are addressed separately (see §9).
+  The owner explicitly paused further CPU investigation to prioritize Rust migration. Raising RAM
+  did not help; do not resume tuning without new direction. Bun 1.4.3 becomes eligible under the
+  14-day version rule on 2026-10-24; do not upgrade early or claim a runtime bug is proven.
 - **Spent/Cost speed**: signed-in pages had TTFB p75 ≈ 2.1 s (Dock → สถิติเว็บ → expenses). The proxy and
   server actions now verify the session with `supabase.auth.getClaims()` (local ES256 check) instead of
   `getUser()` (a Supabase round trip per request). Confirm the owner can still sign in and use the app, and
@@ -198,9 +216,35 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 17)
+## 9. Recent changes (2026-10-14 → 18)
 
-### Rust API migration (2026-10-17 → 18, Codex — Linux candidate/cutover pending)
+### Standalone Rust collector (2026-10-18, Codex — candidate verified; cutover next)
+- The owner authorized standalone Bun → Rust implementation and paused further Portfolio CPU
+  investigation. First port: `deploy/apps/rust-services`, Rust 1.90.0/Axum; pure Rust native
+  host/cgroup/NPM log collection with the old gzip history and `/metrics` JSON contracts.
+- The amd64 static binary runs in `scratch`, reusing the already pinned Rust build-image digest.
+  All 55 locked crates are the weather API's audited versions. No new framework/runtime version.
+- Eight Rust tests and three real HTTP/lifecycle tests pass, including complete-line offsets,
+  partial writes/truncation/rotation, time zones, counter/gauge buckets, missing values, persisted
+  resume, gzip/status/query compatibility, graceful save, read-only serve mode and writer lease.
+  Rust formatting/strict Clippy and Python lint/format passed. CI now runs these checks.
+- Linux candidate read **one copied production history** in serve-only mode, with no network and
+  read-only host/log/data views. All values, gaps and timestamps matched the Bun reader for 1h
+  (360 points/25 container IDs), 24h (1440/41) and 7d (1008/322); all nginx series and static host
+  snapshot fields matched. No public routing, production volume writes or real notifications.
+- A separate shadow sampler collected new host/container data and saved its private copy on
+  shutdown. Its 20 s observation used 36.85 MiB working memory + 4.99 MiB swap and 0.191% of one
+  CPU; live Bun used 66.86 MiB + 52.84 MiB swap and 0.922%. These short mostly idle samples are
+  not load benchmarks or a promise of exact savings. Candidates and copied data were removed.
+- The old Bun source is frozen under `deploy/apps/services/tests/oracle/`, excluded from runtime
+  images; `src/metrics.ts` is removed. App autodeploy no longer restarts this separate Rust service.
+  Dock selects Rust only for a known Bun service whose actual image label is `com.chakkrit.stack=rust`.
+- **Cutover still required:** stop old Bun and wait for its final save, back up the gzip, promote
+  the tested image to `dock-metrics:local`, start only metrics on the existing history volume,
+  check retained history/new live samples and authenticated Dock/browser charts/icon, then scoped
+  unused-image cleanup. Every volume in the 18:32 inventory was still referenced; delete none.
+
+### Rust API migration (2026-10-17 → 18, Codex — deployed and verified)
 - The owner authorized Rust for the HTTP API, retaining Python numerical science. gRPC is deferred
   until separate HTTP/2 work. `backend/rust-api` now owns HTTP/routing/auth/quotas/CORS/gzip, native
   offline place lookup, persisted grid slices, GeoJSON/report files and OpenAPI. A supervised private
@@ -212,19 +256,81 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   audit; ten too-new initial transitive resolutions were downgraded in the committed lockfile.
 - Local Rust build, formatting, strict Clippy and six unit tests pass. The real Rust → Python HTTP
   integration passed 46 cases, including byte-identical layers, JSON products, 304s, search, validation,
-  auth, quotas, chunked-body limits, redirects and schema. The final **332 Python tests** passed,
-  including the real HTTP tests, Unix IPC, writer lease and fake push worker. Ruff lint/format passed;
-  weather frontend TypeScript and its two web-owned API tests passed after comment/doc updates.
-- Dock's Rust SVG and image-label gate are prepared; the five Next/Bun/Elysia triangle marks retain
-  their 20px footprint. Change the displayed API mark only with the actual `rust-python` image label.
-- **Remaining before declaring deployed:** final local checks; Linux build/candidate with background
-  tasks off, no network and read-only production data; compare to live output; check old refresher
-  idle + real run fresh, then controlled API cutover; public browser/API/Dock checks; scoped cleanup.
-  The first Linux candidate matched numerical payloads but caught missing GeoJSON file validators;
-  ETag/Last-Modified compatibility is fixed and being rechecked before cutover.
-  The old API is still running from `sha256:bbd3c368ee628b990271b21ced99f73575c48c4f381b4a20a0b44d281bb9a4af`,
-  also temporarily tagged `thai-weather-api-before-rust:20261017`. Do not restart verify unnecessarily
-  or remove its in-use image. See `backend/rust-api/README.md` for the operational constraints.
+  auth, quotas, chunked-body limits, redirects and schema. The current **333 Python tests** include
+  real HTTP, Unix IPC, writer lease and fake push-worker coverage. The full 332-case suite and final
+  46 affected cases passed locally; CI for **`d9e9732`** passed backend, frontend and generated tokens.
+  Ruff lint/format passed; weather frontend TypeScript and its two web-owned API tests passed.
+- The Linux candidate matched **47 live contracts**, including 22 native grid slices and ten place
+  queries, with networking off, production data read-only and background tasks disabled. The first
+  candidate exposed missing GeoJSON validators; **`d9e9732`** fixes ETag/Last-Modified and preserves
+  legacy integral-decimal query parsing. The corrected Linux comparison passed before cutover.
+- Deployed **`d9e9732`**; `thai-weather-api` started **2026-10-18T00:49:43.76355323Z** (07:49 Bangkok),
+  image **`sha256:72ad50ea2ee5a23996d11e3404822a5ee72cb38f5d1fc4f2b320ff1ea2212b51`**. Waited for the
+  old API's existing normal forecast to finish, then switched only the API. The published real run
+  stayed **`20261018T0000Z-open-meteo`**, created `2026-10-18T00:49:38.063223+00:00`; startup's first
+  wait was 21,580 s. No extra forecast was triggered. Web, verify and all four other Next container
+  IDs/start times were unchanged. The VAPID key and subscription storage were retained.
+- Docker health passed with zero restarts/OOMs and no recent import/permission/runtime errors.
+  The process tree is Tini → Rust → one private Python numerical worker, with no Uvicorn/FastAPI.
+  Read-only checks passed for forecast, radar, Air4Thai/SILAM, public key, authenticated push status,
+  verification and schema. At 13:04 Bangkok, **20 normal verification cycles** had accepted station
+  observations through Rust, with zero API rejections or loop failures; no manual ingestion was used.
+- The first normal forecast after cutover also completed: **`20261018T0600Z-open-meteo`**, created
+  **2026-10-18T06:55:58.323593+00:00** (13:55 Bangkok), with refresher success at 06:55:58.713200Z.
+  At 18:23 Bangkok the same API container was healthy, idle, error-free and had zero restarts/OOMs.
+  This was its ordinary six-hour schedule; no manual forecast request or API restart was used.
+- Production Chromium desktop and WebKit/iPhone checks passed for city search → point forecast,
+  public API rewrites, machine text/RSS and generated OG images, with no overflow/runtime errors or
+  genuine 5xx. Dock checks passed in light/dark: the API now shows Rust, verify still shows Python,
+  and all five loaded Next/Bun/Elysia marks retain their **20×20 px** triangular footprint in both
+  list and overview. Served Dock asset hashes match the checkout. Chat/analytics writes were blocked.
+- Disposable candidates were removed; the only remaining Rust-labelled image is the running one.
+  The pre-Rust image `sha256:bbd3c368ee628b990271b21ced99f73575c48c4f381b4a20a0b44d281bb9a4af` is still
+  used by **verify**, also named `thai-weather-api-before-rust:20261017` for recovery. Keep it until
+  verify is deliberately updated; do not restart verify merely to remove an image. Encrypted backup
+  `chakkritton-server-backup-20261017-1900.zip` (128,727,949 bytes) existed before cutover. See
+  `backend/rust-api/README.md` for operational constraints. gRPC remains deferred.
+
+### Portfolio image path and idle CPU (2026-10-18, Codex — deployed and verified)
+- The long-lived `apps-portfolio-19` used **4.96%** CPU during a 30 s sample with zero origin
+  requests. Native thread sampling identified most sampled CPU in Bun's `HeapHelper` GC threads.
+  Raising RAM from 384 to 512 MiB without restart left CPU at **4.61%**; the cap was restored.
+- A same-image replacement, `apps-portfolio-20` (06:10:24Z), initially settled below 1.1%, but
+  returned to **5.92%** after full browser navigation. Five hours later a 60 s read-only sample
+  still averaged **5.25%** with zero origin requests, no swap, major faults or memory-cap events.
+  A restart alone did not solve the problem.
+- Controlled Chromium/WebKit navigation with image fixtures idled at 0.12–0.14%; real local-image
+  optimization also idled near 0.20%. Shiki initialization and Sharp alone were not demonstrated
+  causes. Next 16.3.8 uses dedicated HTTP/HTTPS agents for remote image reads; no specific Bun
+  fetch/AbortSignal bug has been proven. No Shiki/Sharp settings, RAM cap or dependency changed.
+- WebProfile **`7eceb3b`** sends owned Next image sources through relative `/media/...` paths.
+  A `beforeFiles` rewrite reads the existing private media service via `MEDIA_INTERNAL_URL`,
+  avoiding a public HTTPS round trip through Cloudflare/NPM. Stored/canonical URLs, external
+  images and existing media authentication remain unchanged; the locale proxy skips `/media/`.
+- The private candidate stayed on its existing internal network with loopback-only access.
+  TH/EN/JA search → article → studio login passed Chromium and WebKit/iPhone with real images,
+  no fixtures, no genuine 5xx or runtime errors. Seven optimized image URLs passed, with cache
+  HIT. Its following 60 s idle mean was **0.15%**, with no swap or memory-cap events.
+- Local Node and Bun each passed **29 tests**; TypeScript, changed-file ESLint, seven locale-proxy
+  match checks and the production build (143 pages) passed. No new package/image versions were
+  added. Tests did not write analytics, post chat or send notifications.
+- Pushed **`7eceb3bdcca3a0eb11f0e63c86935184ec778ffd`** to WebProfile `main`, then promoted that
+  exact tested image under the deploy lock. Current **`apps-portfolio-21`** started
+  **2026-10-18T11:24:50.957265304Z** (18:24 Bangkok), image
+  **`sha256:18a146ec146d53178ab5723a927b96a417c797de9df5d5aadb0dbe98bc8a387e`**.
+  Health, 384 MiB cap and zero restarts/OOMs passed; API, verify and the other four Next container
+  IDs/start times stayed unchanged. The temporary candidate and SSH loopback listener were removed.
+- Production Chromium and WebKit/iPhone repeated the same three-locale SSR/search/article/login
+  checks successfully. All seven real optimized image URLs used the private media source and
+  cache HIT; no image fixtures, runtime errors, overflow, real analytics writes or genuine 5xx.
+  Expected Cloudflare speculative prefetch refusals were identified only by their exact headers.
+- Production's first post-browser 60 s mean was **6.20%** with two origin requests; a subsequent
+  sample after settling was **0.98%** with zero requests. The image-path change is functionally
+  verified, but a persistent runtime CPU fix is not proven. Candidate measurements used a one-CPU
+  cap that production lacks; the interrupted follow-up control was discarded. The owner paused
+  this investigation on 2026-10-18 to start standalone Rust ports. No CPU-limit/GC setting changed.
+- Removed the unused previous Portfolio image and the trial tag after verifying container refs;
+  the live image remains `apps-portfolio:local`. All temporary candidates/listeners were removed.
 
 ### Portfolio scanner CPU (2026-10-17, Codex — deployed and verified)
 - Deployed **`33fbd4d`**. A live 30 s sample after QA browsers closed had 22 origin requests (18 404s)
@@ -248,14 +354,14 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   Portfolio **`df6cac8`**, Spent/Cost **`80c6c85`**, Drive Music **`aec9de3`**, Whiteboard **`481eb59`**.
   Portfolio's original Bun/Elysia API change was `2b6ecaa`; runtime/cache commits here were `66f982f`
   and **`91d1142`**. All source changes have been pushed.
-- Current running replacements: `apps-portfolio-19`, `apps-expenses-21`, `apps-whiteboard-9`,
+- Initial Bun rollout containers: `apps-portfolio-19`, `apps-expenses-21`, `apps-whiteboard-9`,
   `apps-drive-music-16`, **`thai-weather-web-45`**, all passed Docker health and a direct Bun GET of
   `/api/healthz`. All five production builds and rollouts completed under one SSH batch holding
   `/run/apps-autodeploy.lock`; unmodified reminders/rooms/sync/services were not rebuilt or restarted.
 - Elysia routes: Portfolio search/dependency health/liveness; Spent/Cost dependency health/liveness;
   Drive Music authenticated five-minute Party Play token/liveness; Whiteboard liveness (its existing
   Yjs backend already uses Elysia); weather web machine text/RSS/liveness. The browser's weather
-  `/api/v1` requests still use the existing Next rewrite to FastAPI. No extra network hop was added
+  `/api/v1` requests retain the existing Next rewrite (now to Rust). No extra network hop was added
   between Next and its in-process Elysia routes.
 - **Portfolio cache/CPU:** the existing `apps_portfolio-cache` was root-owned. Repaired it and added
   owned image-cache directories to both runtime targets; repaired the other three app cache volumes
@@ -271,9 +377,10 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   instruction to limit rollout to Portfolio predates the owner's later request to migrate all apps.
 - Dock's composite mark uses the same **20×20 px** footprint, three overlapping circles in a triangle,
   one accessible label and the official Elysia SVG. It appears only when the known Next container's
-  image has `com.chakkrit.stack=next-bun-elysia`; older Node images keep the old mark. FastAPI's icon
-  is unchanged pending the Rust migration. Production Chromium and WebKit/iPhone checks passed in light/dark themes, including exact
-  dimensions, loaded SVGs, accessible labels and no horizontal overflow.
+  image has `com.chakkrit.stack=next-bun-elysia`; older Node images keep the old mark. The API's Rust
+  mark is tied to its actual `rust-python` label. Production Chromium and WebKit/iPhone checks
+  passed in light/dark themes, including exact dimensions, loaded SVGs, accessible labels and no
+  horizontal overflow.
 - Local validation passed: weather frontend TypeScript, **79 Vitest tests**, production build;
   Portfolio **25 tests on Node and Bun**, TypeScript and changed-file ESLint; Spent/Cost TypeScript,
   **91 Vitest tests**, changed-file ESLint and build; Drive Music TypeScript, **354 tests** across the
@@ -298,8 +405,9 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   Elysia token, SHA-256 room ID, HS256 signature and 300 s expiry; anonymous access returned 401.
   A fresh disposable cache volume verified UID/GID 1000 image-cache writes and was removed. Portfolio
   optimized-image requests were HIT after rollout. No real Google data, notifications or forecast runs.
-- Portfolio CPU has a separate remaining scanner-traffic cause (see §7); the Next runtime rollout
-  itself is complete. The newer Bun idle-CPU fix is too young for the 14-day dependency rule today.
+- Portfolio's scanner-traffic guard and private image-source route are documented separately above.
+  The Next runtime rollout itself is complete. Bun 1.4.3 was released on 2026-10-10 and is too young
+  for the 14-day dependency rule until 2026-10-24.
 
 Everything moved off Vercel / Workers / Supabase DB to the VPS (2026-10-15). Since then: status page back on
 Cloudflare with the VPS health endpoint and e-mail fallback; VPS upgraded to 6 GB (swap use 670 MB → 0) and

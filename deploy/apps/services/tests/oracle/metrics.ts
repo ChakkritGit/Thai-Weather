@@ -1,3 +1,4 @@
+// Frozen Bun compatibility oracle for the Rust collector; never copied into a runtime image.
 /**
  * Dock metrics collector – host, container and Nginx Proxy Manager traffic history (Bun + Elysia port
  * of the former Python collector; same /metrics payload and the same saved history file).
@@ -430,11 +431,4 @@ export function createApp(collector: Collector) {
       headers: { 'content-type': 'application/json', 'content-encoding': 'gzip', 'cache-control': 'no-store' },
     })
   })
-}
-
-if (import.meta.main) {
-  const c = new Collector()
-  c.run()
-  createApp(c).listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`dock-metrics listening on :${PORT}`)
 }
