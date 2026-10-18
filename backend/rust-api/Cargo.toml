@@ -1,0 +1,26 @@
+[package]
+name = "thwx-api"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[dependencies]
+axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio", "json"] }
+tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread", "net", "io-util", "fs", "process", "signal", "sync", "time"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+tower-http = { version = "=0.7.1", features = ["cors", "compression-gzip"] }
+form_urlencoded = "=1.2.2"
+unicode-normalization = "=0.1.25"
+unicode-casefold = "=0.2.0"
+tracing = "=0.1.44"
+tracing-subscriber = { version = "=0.3.23", default-features = false, features = ["fmt"] }
+
+[dev-dependencies]
+tower = { version = "=0.5.3", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

@@ -6,7 +6,7 @@ limited.  Requests the site's own pages make (``Sec-Fetch-Site: same-origin``) o
 so people sharing one carrier-NAT address can still use the map; everything else gets the free quota:
 a per-minute token bucket plus a daily count that resets at 00:00 Bangkok time.
 
-Single process (uvicorn runs one worker), so the counts live in memory and restart with the API.
+Test oracle for the original single-process quota; production uses rust-api/src/quota.rs.
 """
 
 from __future__ import annotations

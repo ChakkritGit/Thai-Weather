@@ -7,7 +7,7 @@ interface PublicResponses {
   feed: (request: Request) => Promise<Response>;
 }
 
-/** Web-owned endpoints; forecast data and /api/v1 remain in the Python FastAPI service. */
+/** Web-owned endpoints; forecast data and /api/v1 remain in the Rust HTTP API. */
 export function createPublicApi(responses: PublicResponses) {
   return new Elysia({ adapter: WebStandardAdapter })
     .get("/api/healthz", () => Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } }))

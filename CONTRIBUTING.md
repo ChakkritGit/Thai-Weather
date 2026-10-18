@@ -15,7 +15,11 @@ Welcome! Meteorologists, developers and designers are all useful here.
 ```bash
 # backend
 cd backend && python -m venv .venv && . .venv/bin/activate && pip install -e ".[dev]"
-ruff check app tests scripts && ruff format app tests scripts && pytest -q
+rustup toolchain install 1.90.0 --profile minimal --component rustfmt,clippy
+cargo +1.90.0 build --locked --manifest-path rust-api/Cargo.toml
+cargo +1.90.0 test --locked --manifest-path rust-api/Cargo.toml
+ruff check app tests scripts && ruff format --check app tests scripts
+THWX_RUST_TEST_BIN="$PWD/rust-api/target/debug/thwx-api" pytest -q
 
 # frontend
 cd frontend && npm install

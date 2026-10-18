@@ -1,0 +1,524 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Thai Weather HD API",
+    "description": "High-resolution (2 km) weather forecasts for Thailand, downscaled from global ~22 km models with terrain, coastline, urban and convective physics.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "status"
+        ],
+        "summary": "Service health and the current forecast run",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Api V1 Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Current run, layers with their encodings, colour scales and the 2 km grid",
+        "operationId": "meta_api_v1_meta_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Meta Api V1 Meta Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/places": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "Search Thai provinces, districts and populated places (GeoNames)",
+        "operationId": "places_api_v1_places_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Thai or English name, at least 2 characters",
+              "default": "",
+              "title": "Q"
+            },
+            "description": "Thai or English name, at least 2 characters"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Places Api V1 Places Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/point": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Hourly 2 km forecast (and the raw ~25 km model) for one location",
+        "operationId": "point_api_v1_point_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "latitude, WGS84 (Thailand: 5.5-20.5)",
+              "title": "Lat"
+            },
+            "description": "latitude, WGS84 (Thailand: 5.5-20.5)"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "longitude, WGS84 (Thailand: 97.3-105.7)",
+              "title": "Lon"
+            },
+            "description": "longitude, WGS84 (Thailand: 97.3-105.7)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Point Api V1 Point Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/forecast": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "A weather app's view of one place: now, 48 hours, 10 days, sun, moon, PM2.5",
+        "description": "Days 1-2 and the hours from the 2.2 km forecast; days 3-10, pressure and the clear-sky UV\nindex from MET Norway; PM2.5 from the nearest Air4Thai station; sun and moon computed. Each hour\nand day carries a condition code (clear, partly_cloudy, rain, thunderstorm, ...) for an icon.",
+        "operationId": "forecast_api_v1_forecast_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "latitude, WGS84 (Thailand: 5.5-20.5)",
+              "title": "Lat"
+            },
+            "description": "latitude, WGS84 (Thailand: 5.5-20.5)"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "longitude, WGS84 (Thailand: 97.3-105.7)",
+              "title": "Lon"
+            },
+            "description": "longitude, WGS84 (Thailand: 97.3-105.7)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Forecast Api V1 Forecast Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/air/forecast": {
+      "get": {
+        "tags": [
+          "air"
+        ],
+        "summary": "PM2.5 forecast field over Thailand (FMI SILAM, 0.2°, hourly, 72 h)",
+        "description": "Hourly PM2.5 (µg/m³) on SILAM's 0.2° grid over Thailand for the next 72 hours: one base64 byte per\ncell, rows from the south, adjusted to the Air4Thai stations' latest readings (fading with distance\nand lead time; `stations_used` says how many). Refreshed every 3 hours; 503 until the first fetch.",
+        "operationId": "air_forecast_api_v1_air_forecast_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/air/stations": {
+      "get": {
+        "tags": [
+          "air"
+        ],
+        "summary": "PM2.5 now at every Air4Thai station (Pollution Control Department)",
+        "description": "Each station's latest hour (under 6 h old): PM2.5 µg/m³, AQI and the PCD level and colour.\nRefreshed every 20 minutes; empty when the source is unreachable.",
+        "operationId": "air_stations_api_v1_air_stations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/verification": {
+      "get": {
+        "tags": [
+          "status"
+        ],
+        "summary": "How accurate the forecast has been: the latest verification report",
+        "description": "The verify service's hourly report as data (forecast vs. station reports over 30 days, and what\nthe forecast has learned from them). 404 until the first report exists.",
+        "operationId": "verification_api_v1_verification_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/provinces": {
+      "get": {
+        "tags": [
+          "provinces"
+        ],
+        "summary": "Daily summary for all 77 provinces",
+        "operationId": "provinces_api_v1_provinces_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Provinces Api V1 Provinces Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/provinces/{pid}": {
+      "get": {
+        "tags": [
+          "provinces"
+        ],
+        "summary": "Hourly and daily forecast for one province",
+        "operationId": "province_api_v1_provinces__pid__get",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "province id from /provinces, e.g. TH-10",
+              "title": "Pid"
+            },
+            "description": "province id from /provinces, e.g. TH-10"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Province Api V1 Provinces  Pid  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alerts": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "Province alerts (heavy rain, storms, wind, heat, cold, frost) by day",
+        "operationId": "alerts_api_v1_alerts_get",
+        "parameters": [
+          {
+            "name": "min_severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 3,
+              "minimum": 1,
+              "description": "1 yellow (watch), 2 orange (warning), 3 red (danger)",
+              "default": 1,
+              "title": "Min Severity"
+            },
+            "description": "1 yellow (watch), 2 orange (warning), 3 red (danger)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Alerts Api V1 Alerts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/nowcast": {
+      "get": {
+        "tags": [
+          "nowcast"
+        ],
+        "summary": "Radar nowcast 0-60 min for a point, plus active tropical cyclones",
+        "description": "Radar-based 0-60 min rain/storm nowcast for a point, plus active tropical cyclones.",
+        "operationId": "nowcast_api_v1_nowcast_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "latitude, WGS84 (Thailand: 5.5-20.5)",
+              "title": "Lat"
+            },
+            "description": "latitude, WGS84 (Thailand: 5.5-20.5)"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "longitude, WGS84 (Thailand: 97.3-105.7)",
+              "title": "Lon"
+            },
+            "description": "longitude, WGS84 (Thailand: 97.3-105.7)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Nowcast Api V1 Nowcast Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

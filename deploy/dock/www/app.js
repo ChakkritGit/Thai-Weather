@@ -258,7 +258,9 @@ function serviceOf(c) {
   const l = labelsOf(c);
   const known = SERVICES[`${l['com.docker.compose.project']}/${l['com.docker.compose.service']}`];
   const brand = known?.[0] ?? 'docker';
-  return { brand: brand === 'nextdotjs' && l['com.chakkrit.stack'] === 'next-bun-elysia' ? 'next-bun-elysia' : brand,
+  const stack = l['com.chakkrit.stack'];
+  return { brand: brand === 'nextdotjs' && stack === 'next-bun-elysia' ? 'next-bun-elysia'
+    : brand === 'fastapi' && stack === 'rust-python' ? 'rust' : brand,
     group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
 }
 /** containers in the fixed group order (unknown groups after, by name) */

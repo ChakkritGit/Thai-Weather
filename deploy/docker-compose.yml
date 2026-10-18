@@ -5,7 +5,7 @@
 #   portainer            internal only            UI → portainer.chakkritton.com
 #   dock                 internal only            UI → docker.chakkritton.com (minimal mobile UI on Portainer's API)
 #   web  (Next.js)       internal only            →    thai-weather.chakkritton.com
-#   api  (FastAPI)       private network only     reachable only from `web`
+#   api  (Rust HTTP)     private network only     reachable only from `web`
 #
 # Networks
 #   proxy    : nginx-proxy-manager ↔ portainer, web   (what NPM can reach)
@@ -113,6 +113,8 @@ services:
     image: ghcr.io/chakkritgit/thai-weather-api:${THWX_IMAGE_TAG:-latest}
     container_name: thai-weather-api
     restart: unless-stopped
+    init: true
+    stop_grace_period: 16m  # allow an in-flight scientific run to finish; cut over only while idle
     environment:
       THWX_SOURCE: ${THWX_SOURCE:-open-meteo}
       THWX_OPENMETEO_MODEL: ${THWX_OPENMETEO_MODEL:-gfs_seamless}
@@ -122,6 +124,7 @@ services:
       THWX_FALLBACK_TO_DEMO: ${THWX_FALLBACK_TO_DEMO:-false}
       THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:?set THWX_ADMIN_TOKEN in deploy/.env}
       THWX_RUN_ON_STARTUP: ${THWX_RUN_ON_STARTUP:-true}
+      THWX_BACKGROUND_TASKS: ${THWX_BACKGROUND_TASKS:-true}
       # radar nowcast (RainViewer) + tropical cyclones (GDACS); THWX_NOWCAST_SOURCE=off disables the radar
       THWX_NOWCAST_SOURCE: ${THWX_NOWCAST_SOURCE:-rainviewer}
       THWX_CYCLONES_ENABLED: ${THWX_CYCLONES_ENABLED:-true}

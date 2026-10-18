@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     ensemble_members: int = 8
     refresh_minutes: int = 360  # 4 fetches/day fits Open-Meteo's free 10,000 calls/day
     run_on_startup: bool = True
+    # Read-only API candidates/tests must not start forecasts, network polls or push dispatchers.
+    background_tasks: bool = True
 
     # radar nowcast (RainViewer) and tropical cyclones (GDACS); "off" disables the radar part
     nowcast_source: str = "rainviewer"  # "rainviewer" | "off"

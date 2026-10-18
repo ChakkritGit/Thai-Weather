@@ -1,6 +1,6 @@
 # HANDOFF
 
-Updated 2026-10-17 (Bangkok) by Codex, for the next agent. Read this file and
+Updated 2026-10-18 (Bangkok) by Codex, for the next agent. Read this file and
 `AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
 `deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
@@ -75,7 +75,9 @@ existing WebSocket services retain their current behavior. See the rollout recor
   rebuilds the `services` image. Check: `ssh vps 'journalctl -u apps-autodeploy --since "-15 min" | grep -E "deployed|!!"'`.
 - **This repo is NOT auto-deployed.** Branch in use: `claude/vigilant-ride-i3yr1m` (the VPS checkout tracks it).
   - weather web: `ssh vps 'cd /opt/thai-weather && flock /run/apps-autodeploy.lock git pull -q && cd deploy && exec 9>/run/apps-autodeploy.lock && flock 9 && docker compose -p thai-weather -f docker-compose.yml -f docker-compose.build.yml build web && COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml ./rollout.sh web'`
-  - weather api + verify: same pull, then `build api` and `up -d --no-deps api verify`.
+  - weather api: same pull, then `build api`; assert the old refresher is idle and the latest real
+    run is < 6 h old before `up -d --no-deps api`. See `backend/rust-api/README.md`. Only restart
+    `verify` when its numerical/verification code changed; a runtime-only API change does not need it.
   - Bun services: pull, then `cd deploy/apps && ./build.sh services && docker compose up -d --no-deps <svc>`;
     the `backup` image is FROM the services image: `./build.sh services && ./build.sh backup` together.
   - Dock: `deploy/dock/www` is a directory mount (live after `git pull`); its `nginx.conf` is a bind-mounted
@@ -164,10 +166,6 @@ Browser checks run against production with Playwright (Chromium/WebKit, iPhone 1
   contracts, numerical Python code, persisted data and the existing forecast schedule. Do not start
   duplicate background workers or trigger a forecast for testing. Change Dock's API mark to Rust only
   when the running image carries the Rust stack label. gRPC is explicitly deferred (future HTTP/2).
-- **Active: Portfolio scanner CPU.** A read-only 30 s sample after closing QA browsers measured
-  17.6% mean CPU with 22 origin requests, 18 of them 404s. Requests included configuration/secret-file
-  scans and unrelated paths. Reject known scanner paths cheaply in the origin proxy, preserving
-  legitimate files, API/auth/studio/blog routes and normal 404 behavior; measure after deployment.
 - Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
 - `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
@@ -201,6 +199,44 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 17)
+
+### Rust API migration (2026-10-17 → 18, Codex — Linux candidate/cutover pending)
+- The owner authorized Rust for the HTTP API, retaining Python numerical science. gRPC is deferred
+  until separate HTTP/2 work. `backend/rust-api` now owns HTTP/routing/auth/quotas/CORS/gzip, native
+  offline place lookup, persisted grid slices, GeoJSON/report files and OpenAPI. A supervised private
+  Python worker provides numerical products and existing background tasks over a bounded Unix socket.
+- FastAPI/Uvicorn are removed from the production image; the old thin HTTP adapter/quota oracle is
+  test-only under `backend/tests/oracle`. Python base layers were verified **identical** to the running
+  pre-migration API; Python 3.12.15 and all 33 scientific/runtime package versions are retained and
+  pinned in `requirements-runtime.txt`. All 74 newly added Rust crates passed the 14-day release-age
+  audit; ten too-new initial transitive resolutions were downgraded in the committed lockfile.
+- Local Rust build, formatting, strict Clippy and six unit tests pass. The real Rust → Python HTTP
+  integration passed 45 cases, including byte-identical layers, JSON products, 304s, search, validation,
+  auth, quotas, chunked-body limits, redirects and schema. The final **332 Python tests** passed,
+  including the real HTTP tests, Unix IPC, writer lease and fake push worker. Ruff lint/format passed;
+  weather frontend TypeScript and its two web-owned API tests passed after comment/doc updates.
+- Dock's Rust SVG and image-label gate are prepared; the five Next/Bun/Elysia triangle marks retain
+  their 20px footprint. Change the displayed API mark only with the actual `rust-python` image label.
+- **Remaining before declaring deployed:** final local checks; Linux build/candidate with background
+  tasks off, no network and read-only production data; compare to live output; check old refresher
+  idle + real run fresh, then controlled API cutover; public browser/API/Dock checks; scoped cleanup.
+  The old API is still running from `sha256:bbd3c368ee628b990271b21ced99f73575c48c4f381b4a20a0b44d281bb9a4af`,
+  also temporarily tagged `thai-weather-api-before-rust:20261017`. Do not restart verify unnecessarily
+  or remove its in-use image. See `backend/rust-api/README.md` for the operational constraints.
+
+### Portfolio scanner CPU (2026-10-17, Codex — deployed and verified)
+- Deployed **`33fbd4d`**. A live 30 s sample after QA browsers closed had 22 origin requests (18 404s)
+  and 17.6% mean CPU. Config/secret-file scans were repeatedly invoking expensive localized Next 404s.
+  The Portfolio-only NPM guard now returns cheap 404s for confirmed scanner paths, without a Next call.
+- Controlled 20-request origin samples before/after used **1877 → 85 ms backend CPU**, with median
+  elapsed request **54.5 → 17.4 ms**, including local curl/TLS overhead and any concurrent traffic.
+  This measures scanner rejection, not general page speed or guaranteed total idle CPU.
+- `nginx -t` passed. The targeted NPM update preserved all existing host settings and saved a private
+  rollback config at `/opt/apps/backups/config/npm-portfolio-20261017T164703Z.json`. The guard is also
+  included by `deploy/apps/npm-hosts.py` so future host regeneration retains it.
+- Chromium desktop and WebKit/iPhone checks passed after deployment for TH/EN/JA SSR/search/article
+  navigation, images and studio sign-in; no overflow, runtime errors, genuine 5xx or real analytics
+  writes. No app/container restart, forecast, Cloudflare/DNS/certificate change or real notification.
 
 ### Next + Bun + Elysia rollout (2026-10-17, Codex — deployed and verified)
 - Owner expanded the Portfolio trial to all five Next web apps and requested a circular triangular

@@ -2,8 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.api.ratelimit import Limiter, RateLimitMiddleware, Tier, seconds_to_bkk_midnight
+from oracle.ratelimit import Limiter, RateLimitMiddleware, Tier, seconds_to_bkk_midnight
 
 
 class Clock:

@@ -107,7 +107,7 @@ def test_integration_against_real_app(run_dir, tmp_path):
     mp.setenv("THWX_DATA_DIR", str(run_dir))
     mp.setenv("THWX_RUN_ON_STARTUP", "false")
     get_settings.cache_clear()
-    from app.main import app
+    from oracle.app import app
 
     try:
         with TestClient(app) as api:

@@ -44,7 +44,7 @@ def client(run_dir):
     mp.setenv("THWX_DATA_DIR", str(run_dir))
     mp.setenv("THWX_RUN_ON_STARTUP", "false")
     get_settings.cache_clear()
-    from app.main import app
+    from oracle.app import app
 
     with TestClient(app) as c:
         yield c

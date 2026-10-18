@@ -28,7 +28,15 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check app tests scripts verify
       - run: ruff format --check app tests scripts verify
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt,clippy
+      - run: cargo +1.90.0 fmt --manifest-path rust-api/Cargo.toml --check
+      - run: cargo +1.90.0 clippy --locked --all-targets --manifest-path rust-api/Cargo.toml -- -D warnings
+      - run: cargo +1.90.0 test --locked --manifest-path rust-api/Cargo.toml
+      - run: cargo +1.90.0 build --locked --manifest-path rust-api/Cargo.toml
       - run: pytest -q
+        env:
+          THWX_RUST_TEST_BIN: ${{ github.workspace }}/backend/rust-api/target/debug/thwx-api
 
   frontend:
     runs-on: ubuntu-latest

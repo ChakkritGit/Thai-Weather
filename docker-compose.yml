@@ -3,6 +3,8 @@
 services:
   api:
     build: ./backend
+    init: true
+    stop_grace_period: 16m
     environment:
       # "demo" runs fully offline; "open-meteo" uses live global-model data
       THWX_SOURCE: ${THWX_SOURCE:-demo}
@@ -13,6 +15,7 @@ services:
       THWX_FALLBACK_TO_DEMO: ${THWX_FALLBACK_TO_DEMO:-true}
       THWX_ADMIN_TOKEN: ${THWX_ADMIN_TOKEN:-change-me}
       THWX_RUN_ON_STARTUP: ${THWX_RUN_ON_STARTUP:-true}
+      THWX_BACKGROUND_TASKS: ${THWX_BACKGROUND_TASKS:-true}
       # radar nowcast (RainViewer) + tropical cyclones (GDACS); THWX_NOWCAST_SOURCE=off disables the radar
       THWX_NOWCAST_SOURCE: ${THWX_NOWCAST_SOURCE:-rainviewer}
       THWX_CYCLONES_ENABLED: ${THWX_CYCLONES_ENABLED:-true}
@@ -24,7 +27,7 @@ services:
     volumes:
       - thwx-data:/var/lib/thwx
     ports:
-      - "127.0.0.1:8000:8000"   # optional: direct API access (/docs), local only
+      - "127.0.0.1:8000:8000"   # optional: direct API access (/api/v1/openapi.json), local only
     restart: unless-stopped
 
   verify:

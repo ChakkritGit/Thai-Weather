@@ -1,5 +1,5 @@
 /**
- * The Python backend (FastAPI) is reached through rewrites, so the browser
+ * The weather HTTP API (Rust) is reached through rewrites, so the browser
  * only ever talks to this origin – no CORS setup needed.
  * THWX_API_URL must be set at build time AND run time (e.g. on Vercel).
  */

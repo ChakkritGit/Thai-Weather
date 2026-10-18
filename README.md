@@ -48,16 +48,16 @@ docker compose up --build          # โหมดสาธิต ทำงาน
 THWX_SOURCE=open-meteo docker compose up --build   # ข้อมูลโมเดลจริง
 ```
 
-เปิดเว็บ <http://localhost:3000> · API docs ที่ <http://localhost:8000/docs>
+Web: <http://localhost:3000> · API schema: <http://localhost:8000/api/v1/openapi.json>
 
 ### พัฒนาในเครื่อง
 
 ```bash
-# backend (Python ≥ 3.11)
+# backend (Rust 1.90.0 + Python ≥ 3.11)
 cd backend
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn app.main:app --reload          # http://localhost:8000
+THWX_PYTHON="$PWD/.venv/bin/python" cargo +1.90.0 run --locked --manifest-path rust-api/Cargo.toml
 
 # frontend – Next.js (Node ≥ 20)
 cd frontend
@@ -97,7 +97,7 @@ npm run dev                            # http://localhost:3000 (rewrite /api →
 ## โครงสร้างโปรเจค
 
 ```
-backend/         FastAPI + NumPy/SciPy — แหล่งข้อมูล, downscaling, ผลิตภัณฑ์, API
+backend/         Rust HTTP API + private Python/NumPy/SciPy numerical worker
   app/sources/     Open-Meteo, demo
   app/downscale/   physics.py, precip.py (ensemble), observations.py, pipeline.py
   app/products/    สถิติรายจังหวัด, การเตือนภัย
@@ -153,5 +153,6 @@ Code: [MIT](LICENSE). Data used at run/build time keeps its own terms:
 - Boundaries: [Natural Earth](https://www.naturalearthdata.com) (public domain)
 
 The VPS web container runs the Next.js standalone server on Bun 1.4.2. Elysia 1.4.30 serves
-web-owned machine text, RSS and `/api/healthz`; `/api/v1` and all weather science remain Python
-FastAPI. Builds use a pinned Node stage; the runtime user owns the Next cache directory.
+web-owned machine text, RSS and `/api/healthz`. Rust/Axum serves `/api/v1`, with a private Python
+worker retaining the forecast science. Builds use a pinned Node stage; the runtime user owns
+the Next cache directory. See [the API runtime notes](backend/rust-api/README.md).

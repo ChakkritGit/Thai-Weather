@@ -23,7 +23,7 @@ describe("web-owned HTTP routes", () => {
     expect(await head.text()).toBe("");
   });
 
-  it("probes liveness without reading forecast data and leaves FastAPI paths unclaimed", async () => {
+  it("probes liveness without reading forecast data and leaves weather API paths unclaimed", async () => {
     const unexpected = async (): Promise<never> => { throw new Error("must not read forecasts"); };
     const app = createPublicApi({ llms: unexpected, fullText: unexpected, feed: unexpected });
     const response = await app.fetch(new Request("http://localhost/api/healthz"));

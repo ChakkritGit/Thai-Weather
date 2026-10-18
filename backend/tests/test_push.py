@@ -381,7 +381,7 @@ def client(run_dir):
     mp.setenv("THWX_RUN_ON_STARTUP", "false")
     mp.setenv("THWX_ADMIN_TOKEN", "secret")
     get_settings.cache_clear()
-    from app.main import app
+    from oracle.app import app
 
     with TestClient(app) as c:
         c.sender = FakeSender()

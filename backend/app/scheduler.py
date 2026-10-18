@@ -127,5 +127,11 @@ class Refresher:
     def trigger(self) -> None:
         threading.Thread(target=self.run_once, name="refresh-now", daemon=True).start()
 
-    def stop(self) -> None:
+    def stop(self, *, wait: bool = False) -> None:
         self._stop.set()
+        if wait:
+            if self._thread is not None:
+                self._thread.join()
+            # A manually requested run uses a separate thread but the same writer lock.
+            with self._lock:
+                pass

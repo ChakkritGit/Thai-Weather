@@ -5,9 +5,9 @@ import zipfile
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from oracle.ratelimit import RateLimitMiddleware, Tier
+from oracle.routes import router
 
-from app.api.ratelimit import RateLimitMiddleware, Tier
-from app.api.routes import router
 from app.core.places import normalise, search_places
 from scripts.build_places import build
 

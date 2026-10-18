@@ -1,3 +1,5 @@
+"""Framework-independent numerical products shared by the Rust worker and contract oracle."""
+
 from __future__ import annotations
 
 import binascii
@@ -8,8 +10,6 @@ from functools import cache
 from pathlib import Path as FsPath
 
 import numpy as np
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request, Response
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
@@ -30,24 +30,17 @@ from ..push.service import PushService
 from ..push.store import MAX_ENDPOINT_LEN, MAX_LABEL_LEN, Prefs, PushError, auth_matches, validate_endpoint
 from ..push.vapid import b64url_decode
 from ..store import Run
+from .types import Context, Product, ProductError
 
-router = APIRouter(prefix="/api/v1")
 
-
-def current_run(request: Request) -> Run:
-    run = request.app.state.store.latest()
+def current_run(ctx: Context) -> Run:
+    run = ctx.state.store.latest()
     if run is None:
-        raise HTTPException(503, detail="The first forecast run is still being computed – try again shortly.")
+        raise ProductError(503, detail="The first forecast run is still being computed – try again shortly.")
     return run
 
 
-def require_admin(authorization: str | None = Header(default=None)) -> None:
-    token = get_settings().admin_token
-    if token and authorization != f"Bearer {token}":
-        raise HTTPException(401, detail="admin token required")
-
-
-def _binary(data: np.ndarray, etag: str, request: Request, extra: dict | None = None) -> Response:
+def _binary(data: np.ndarray, etag: str, ctx: Context, extra: dict | None = None) -> Product:
     headers = {
         "ETag": f'"{etag}"',
         "Cache-Control": "public, max-age=900",
@@ -56,33 +49,27 @@ def _binary(data: np.ndarray, etag: str, request: Request, extra: dict | None = 
         "Access-Control-Expose-Headers": "X-Grid-NY, X-Grid-NX, X-Run-Id",
         **(extra or {}),
     }
-    if request.headers.get("if-none-match") == headers["ETag"]:
-        return Response(status_code=304, headers=headers)
-    return Response(np.ascontiguousarray(data).tobytes(), media_type="application/octet-stream", headers=headers)
+    if ctx.headers.get("if-none-match") == headers["ETag"]:
+        return Product(status_code=304, headers=headers)
+    return Product(np.ascontiguousarray(data).tobytes(), media_type="application/octet-stream", headers=headers)
 
 
-# ------------------------------------------------------------------ meta
-@router.get("/health", tags=["status"], summary="Service health and the current forecast run")
-def health(request: Request) -> dict:
-    run = request.app.state.store.latest()
+def health(ctx: Context) -> dict:
+    run = ctx.state.store.latest()
     return {
         "ok": True,
         "run": run.run_id if run else None,
-        "refresher": request.app.state.refresher.status,
-        "nowcast": request.app.state.nowcast.status,
+        "refresher": ctx.state.refresher.status,
+        "nowcast": ctx.state.nowcast.status,
     }
 
 
-@router.get(
-    "/meta", tags=["forecast"], summary="Current run, layers with their encodings, colour scales and the 2 km grid"
-)
-def meta(request: Request) -> dict:
-    run = request.app.state.store.latest()
+def meta(ctx: Context) -> dict:
+    run = ctx.state.store.latest()
     static = load_static()
     return {
-        "status": request.app.state.refresher.status,
+        "status": ctx.state.refresher.status,
         "run": {**run.meta, "days": list(_day_coverage(run).values())} if run else None,
-        # each layer with the encoding the shown run was written with (older runs used narrower ones)
         "layers": [
             {**lyr.describe(), "encoding": asdict(run_encoding(run.meta, lid))} if run else lyr.describe()
             for lid, lyr in LAYERS.items()
@@ -93,31 +80,18 @@ def meta(request: Request) -> dict:
     }
 
 
-@router.get("/places", tags=["locations"], summary="Search Thai provinces, districts and populated places (GeoNames)")
-def places(
-    response: Response, q: str = Query("", max_length=80, description="Thai or English name, at least 2 characters")
-) -> dict:
-    response.headers["Cache-Control"] = "public, max-age=3600"
+def places(q: str = "") -> dict:
     return {"places": search_places(q), "attribution": PLACES_ATTRIBUTION}
 
 
-# ---------------------------------------------------------------- layers
-@router.get("/layers/{layer}", include_in_schema=False)
-def layer(
-    layer: str,
-    request: Request,
-    step: int = 0,
-    day: int = 0,
-    res: str = Query("fine", pattern="^(fine|coarse)$"),
-    run: Run = Depends(current_run),
-) -> Response:
+def layer(layer: str, ctx: Context, run: Run, step: int = 0, day: int = 0, res: str = "fine") -> Product:
     if layer not in LAYERS:
-        raise HTTPException(404, detail=f"unknown layer {layer}")
+        raise ProductError(404, detail=f"unknown layer {layer}")
     arr = run.array(res, layer)
     i = day if LAYERS[layer].daily else step
     if not 0 <= i < arr.shape[0]:
-        raise HTTPException(404, detail="time index out of range")
-    return _binary(np.asarray(arr[i]), f"{run.run_id}-{res}-{layer}-{i}", request, {"X-Run-Id": run.run_id})
+        raise ProductError(404, detail="time index out of range")
+    return _binary(np.asarray(arr[i]), f"{run.run_id}-{res}-{layer}-{i}", ctx, {"X-Run-Id": run.run_id})
 
 
 @cache
@@ -126,48 +100,38 @@ def _hillshade() -> np.ndarray:
     z = static.elev_land
     dzdy = np.gradient(z, axis=0) / static.dy_m
     dzdx = np.gradient(z, axis=1) / static.dx_m[:, None]
-    # light from the north-west, 45° altitude; north is +y on our grid
-    az, alt = np.radians(315.0), np.radians(45.0)
+    az, alt = (np.radians(315.0), np.radians(45.0))
     slope = np.arctan(2.5 * np.hypot(dzdx, dzdy))
     aspect = np.arctan2(-dzdx, -dzdy)
     shade = np.sin(alt) * np.cos(slope) + np.cos(alt) * np.sin(slope) * np.cos(az - aspect)
-    # 0 on flat ground, increasing on slopes facing away from the light
     shade = np.clip((np.sin(alt) - shade) / np.sin(alt), 0, 1) * 255
     return np.where(static.land, shade, 0).astype(np.uint8)
 
 
-@router.get("/static/{name}", include_in_schema=False)
-def static_layer(name: str, request: Request) -> Response:
+def static_layer(name: str, ctx: Context) -> Product:
     static = load_static()
     if name == "hillshade":
         data = _hillshade()
     elif name == "thai":
         data = static.thai.astype(np.uint8)
-    elif name == "elevation":  # 0..255 → 0..2550 m
+    elif name == "elevation":
         data = np.clip(static.elev_land / 10.0, 0, 255).astype(np.uint8)
     else:
-        raise HTTPException(404, detail="unknown static layer")
-    return _binary(data, f"static-{name}-v2", request)
+        raise ProductError(404, detail="unknown static layer")
+    return _binary(data, f"static-{name}-v2", ctx)
 
 
-@router.get("/geo/{name}", include_in_schema=False)
-def geo(name: str) -> FileResponse:
+def geo(name: str) -> Product:
     if name not in ("provinces", "countries"):
-        raise HTTPException(404)
-    return FileResponse(DATA_DIR / "geo" / f"{name}.geojson", media_type="application/geo+json")
+        raise ProductError(404)
+    return Product((DATA_DIR / "geo" / f"{name}.geojson").read_bytes(), media_type="application/geo+json")
 
 
-# ----------------------------------------------------------------- point
-@router.get("/point", tags=["forecast"], summary="Hourly 2 km forecast (and the raw ~25 km model) for one location")
-def point(
-    lat: float = Query(..., ge=-90, le=90, description="latitude, WGS84 (Thailand: 5.5-20.5)"),
-    lon: float = Query(..., ge=-180, le=180, description="longitude, WGS84 (Thailand: 97.3-105.7)"),
-    run: Run = Depends(current_run),
-) -> dict:
+def point(lat: float, lon: float, run: Run) -> dict:
     static = load_static()
     fine = run.fine_grid
     if not fine.contains(lat, lon):
-        raise HTTPException(422, detail="location outside the forecast domain")
+        raise ProductError(422, detail="location outside the forecast domain")
     iy, ix = fine.index(lat, lon)
     cy, cx = run.coarse_grid.index(lat, lon)
     hourly = [k for k, v in LAYERS.items() if not v.daily]
@@ -202,18 +166,7 @@ def point(
     }
 
 
-# --------------------------------------------------------------- forecast
-@router.get(
-    "/forecast",
-    tags=["forecast"],
-    summary="A weather app's view of one place: now, 48 hours, 10 days, sun, moon, PM2.5",
-)
-def forecast(
-    request: Request,
-    lat: float = Query(..., ge=-90, le=90, description="latitude, WGS84 (Thailand: 5.5-20.5)"),
-    lon: float = Query(..., ge=-180, le=180, description="longitude, WGS84 (Thailand: 97.3-105.7)"),
-    run: Run = Depends(current_run),
-) -> dict:
+def forecast(ctx: Context, lat: float, lon: float, run: Run) -> dict:
     """Days 1-2 and the hours from the 2.2 km forecast; days 3-10, pressure and the clear-sky UV
     index from MET Norway; PM2.5 from the nearest Air4Thai station; sun and moon computed. Each hour
     and day carries a condition code (clear, partly_cloudy, rain, thunderstorm, ...) for an icon."""
@@ -222,13 +175,13 @@ def forecast(
     static = load_static()
     fine = run.fine_grid
     if not fine.contains(lat, lon):
-        raise HTTPException(422, detail="location outside the forecast domain")
+        raise ProductError(422, detail="location outside the forecast domain")
     iy, ix = fine.index(lat, lon)
     pidx = int(static.province[iy, ix])
     layers = ("temp", "heat", "rh", "rain", "pop", "storm", "wind", "wind_dir", "cloud")
     series = {k: run.series("fine", k, iy, ix) for k in layers}
-    met_client = getattr(request.app.state, "met", None)
-    air_service = getattr(request.app.state, "air", None)
+    met_client = getattr(ctx.state, "met", None)
+    air_service = getattr(ctx.state, "air", None)
     met_data = met_client.get(lat, lon) if met_client else None
     air = air_service.nearest(lat, lon) if air_service else None
     body = fx.build(run.times, series, float(fine.lats[iy]), float(fine.lons[ix]), met_data, air)
@@ -244,60 +197,53 @@ def forecast(
     }
 
 
-@router.get("/air/forecast", tags=["air"], summary="PM2.5 forecast field over Thailand (FMI SILAM, 0.2°, hourly, 72 h)")
-def air_forecast(request: Request) -> Response:
+def air_forecast(ctx: Context) -> Product:
     """Hourly PM2.5 (µg/m³) on SILAM's 0.2° grid over Thailand for the next 72 hours: one base64 byte per
     cell, rows from the south, adjusted to the Air4Thai stations' latest readings (fading with distance
     and lead time; `stations_used` says how many). Refreshed every 3 hours; 503 until the first fetch."""
     from ..extras.pmforecast import adjust, to_json
 
-    svc = getattr(request.app.state, "pm", None)
+    svc = getattr(ctx.state, "pm", None)
     if svc is None or svc.field is None:
-        raise HTTPException(503, detail="PM2.5 forecast not available yet")
-    air = getattr(request.app.state, "air", None)
+        raise ProductError(503, detail="PM2.5 forecast not available yet")
+    air = getattr(ctx.state, "air", None)
     readings = [(r.lat, r.lon, r.pm25, r.time) for r in air.readings] if air else []
     field, used = adjust(svc.field, readings)
     body = {"updated": svc.updated.isoformat() if svc.updated else None, "stations_used": used, **to_json(field)}
-    return Response(
+    return Product(
         json.dumps(body, ensure_ascii=False),
         media_type="application/json",
         headers={"Cache-Control": "public, max-age=900"},
     )
 
 
-@router.get("/air/stations", tags=["air"], summary="PM2.5 now at every Air4Thai station (Pollution Control Department)")
-def air_stations(request: Request) -> Response:
+def air_stations(ctx: Context) -> Product:
     """Each station's latest hour (under 6 h old): PM2.5 µg/m³, AQI and the PCD level and colour.
     Refreshed every 20 minutes; empty when the source is unreachable."""
-    svc = getattr(request.app.state, "air", None)
+    svc = getattr(ctx.state, "air", None)
     body = {
         "updated": svc.updated.isoformat() if svc and svc.updated else None,
         "stations": svc.all() if svc else [],
         "attribution": {"name": "Air4Thai, กรมควบคุมมลพิษ", "url": "https://air4thai.pcd.go.th"},
     }
-    return Response(
+    return Product(
         json.dumps(body, ensure_ascii=False),
         media_type="application/json",
         headers={"Cache-Control": "public, max-age=300"},
     )
 
 
-# ---------------------------------------------------------- verification
-@router.get(
-    "/verification", tags=["status"], summary="How accurate the forecast has been: the latest verification report"
-)
-def verification() -> Response:
+def verification() -> Product:
     """The verify service's hourly report as data (forecast vs. station reports over 30 days, and what
     the forecast has learned from them). 404 until the first report exists."""
     p = FsPath(get_settings().data_dir) / "verification" / "report.json"
     try:
         body = p.read_bytes()
     except OSError as exc:
-        raise HTTPException(404, detail="no verification report yet") from exc
-    return Response(body, media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
+        raise ProductError(404, detail="no verification report yet") from exc
+    return Product(body, media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
 
 
-# ------------------------------------------------------------- provinces
 def _day_coverage(run: Run) -> dict[str, dict]:
     """Per forecast day: hours covered, ``partial`` flag and the Thai local
     time of the first/last step.  Derived from the step times, so runs made
@@ -322,8 +268,7 @@ def _province_days(run: Run, i: int) -> list[dict]:
     return out
 
 
-@router.get("/provinces", tags=["provinces"], summary="Daily summary for all 77 provinces")
-def provinces(run: Run = Depends(current_run)) -> dict:
+def provinces(run: Run) -> dict:
     static = load_static()
     return {
         "run_id": run.run_id,
@@ -331,14 +276,11 @@ def provinces(run: Run = Depends(current_run)) -> dict:
     }
 
 
-@router.get("/provinces/{pid}", tags=["provinces"], summary="Hourly and daily forecast for one province")
-def province(
-    pid: str = Path(..., description="province id from /provinces, e.g. TH-10"), run: Run = Depends(current_run)
-) -> dict:
+def province(pid: str, run: Run) -> dict:
     static = load_static()
     p = static.province_by_id(pid)
     if p is None:
-        raise HTTPException(404, detail="unknown province")
+        raise ProductError(404, detail="unknown province")
     i = p["index"] - 1
     steps = run.provinces["steps"]
     return {
@@ -350,11 +292,7 @@ def province(
     }
 
 
-@router.get("/alerts", tags=["alerts"], summary="Province alerts (heavy rain, storms, wind, heat, cold, frost) by day")
-def alerts(
-    min_severity: int = Query(1, ge=1, le=3, description="1 yellow (watch), 2 orange (warning), 3 red (danger)"),
-    run: Run = Depends(current_run),
-) -> dict:
+def alerts(run: Run, min_severity: int = 1) -> dict:
     static = load_static()
     cover = _day_coverage(run)
     out = []
@@ -376,7 +314,6 @@ def alerts(
     return {"run_id": run.run_id, "demo": run.meta["demo"], "alerts": out}
 
 
-# ------------------------------------------------------- admin / ingest
 class ObservationIn(BaseModel):
     station_id: str = Field(..., max_length=64)
     lat: float = Field(..., ge=-90, le=90)
@@ -386,32 +323,29 @@ class ObservationIn(BaseModel):
     elevation: float | None = Field(None, ge=-100, le=9000)
 
 
-@router.post("/observations", dependencies=[Depends(require_admin)], include_in_schema=False)
-def ingest_observations(items: list[ObservationIn], request: Request) -> dict:
+def ingest_observations(items: list[ObservationIn], ctx: Context) -> dict:
     obs = [Observation(**o.model_dump()) for o in items]
     for o in obs:
         if o.time.tzinfo is None:
-            raise HTTPException(422, detail="observation times must include a timezone")
-    total = request.app.state.observations.add(obs)
+            raise ProductError(422, detail="observation times must include a timezone")
+    total = ctx.state.observations.add(obs)
     return {"accepted": len(obs), "buffered": total, "applied_on": "next forecast run"}
 
 
-@router.post("/runs", status_code=202, dependencies=[Depends(require_admin)], include_in_schema=False)
-def trigger_run(request: Request) -> dict:
-    request.app.state.refresher.trigger()
+def trigger_run(ctx: Context) -> dict:
+    ctx.state.refresher.trigger()
     return {"status": "scheduled"}
 
 
-# --------------------------------------------------------------- nowcast
 ATTRIBUTION = [
     {"name": "RainViewer", "url": "https://www.rainviewer.com"},
     {"name": "GDACS", "url": "https://www.gdacs.org"},
 ]
 
 
-def _cyclones_for(request: Request, lat: float, lon: float, now: datetime) -> list[dict]:
+def _cyclones_for(ctx: Context, lat: float, lon: float, now: datetime) -> list[dict]:
     out = []
-    for c in request.app.state.nowcast.snapshot().cyclones:
+    for c in ctx.state.nowcast.snapshot().cyclones:
         here = position_at(c, now)
         out.append(
             {
@@ -429,16 +363,11 @@ def _cyclones_for(request: Request, lat: float, lon: float, now: datetime) -> li
     return sorted(out, key=lambda c: c["distance_now_km"])
 
 
-@router.get("/nowcast", tags=["nowcast"], summary="Radar nowcast 0-60 min for a point, plus active tropical cyclones")
-def nowcast(
-    request: Request,
-    lat: float = Query(..., ge=-90, le=90, description="latitude, WGS84 (Thailand: 5.5-20.5)"),
-    lon: float = Query(..., ge=-180, le=180, description="longitude, WGS84 (Thailand: 97.3-105.7)"),
-) -> dict:
+def nowcast(ctx: Context, lat: float, lon: float) -> dict:
     """Radar-based 0-60 min rain/storm nowcast for a point, plus active tropical cyclones."""
-    service = request.app.state.nowcast
+    service = ctx.state.nowcast
     if not service.grid.contains(lat, lon):
-        raise HTTPException(422, detail="location outside the nowcast domain")
+        raise ProductError(422, detail="location outside the nowcast domain")
     now = datetime.now(UTC)
     snap = service.snapshot()
     out: dict = {
@@ -451,7 +380,7 @@ def nowcast(
         "eta_storm": None,
         "nearest": None,
         "motion": None,
-        "cyclones": _cyclones_for(request, lat, lon, now),
+        "cyclones": _cyclones_for(ctx, lat, lon, now),
         "attribution": ATTRIBUTION,
     }
     if not service.radar_enabled:
@@ -465,7 +394,7 @@ def nowcast(
         out["reason"] = "stale"
         return out
     iy, ix = service.grid.index(lat, lon)
-    if snap.coverage is not None and not snap.coverage[iy, ix]:
+    if snap.coverage is not None and (not snap.coverage[iy, ix]):
         out["reason"] = "no_coverage"
         return out
     out.update(point_nowcast(snap.latest, snap.u, snap.v, service.grid, lat, lon, snap.coverage))
@@ -473,15 +402,14 @@ def nowcast(
     return out
 
 
-@router.get("/nowcast/layer", include_in_schema=False)
-def nowcast_layer(request: Request, lead: int = Query(0, ge=0, le=60)) -> Response:
+def nowcast_layer(ctx: Context, lead: int = 0) -> Product:
     """Radar reflectivity as uint8 (``linear`` -10..75 dBZ, 0 = no echo), advected ``lead`` min ahead."""
-    service = request.app.state.nowcast
+    service = ctx.state.nowcast
     snap = service.snapshot()
     if not service.radar_enabled or snap.frame_time is None or lead not in snap.layers:
-        raise HTTPException(404, detail="radar layer not available")
+        raise ProductError(404, detail="radar layer not available")
     if (datetime.now(UTC) - snap.frame_time).total_seconds() / 60.0 > STALE_AFTER_MIN:
-        raise HTTPException(404, detail="radar layer is stale")
+        raise ProductError(404, detail="radar layer is stale")
     frame = snap.frame_time.isoformat()
     extra = {
         "Cache-Control": "public, max-age=60",
@@ -491,21 +419,20 @@ def nowcast_layer(request: Request, lead: int = Query(0, ge=0, le=60)) -> Respon
         "X-Enc-Max": str(RADAR_ENCODING.max),
         "Access-Control-Expose-Headers": "X-Grid-NY, X-Grid-NX, X-Frame-Time, X-Lead, X-Enc-Min, X-Enc-Max",
     }
-    return _binary(snap.layers[lead], f"nowcast-{frame}-{lead}", request, extra)
+    return _binary(snap.layers[lead], f"nowcast-{frame}-{lead}", ctx, extra)
 
 
 def _frame_id(t: datetime) -> str:
     return str(int(t.timestamp()))
 
 
-@router.get("/nowcast/frames", include_in_schema=False)
-def nowcast_frames(request: Request) -> dict:
+def nowcast_frames(ctx: Context) -> dict:
     """Observed radar frames of the last ~hour for playback, oldest first (ids are stable unix times).
 
     Listed from the same snapshot that ``/nowcast/frame/{id}`` serves, so an id stays valid until the
     frame ages out (then 404).  ``stale`` is true when the newest frame is too old to call "latest".
     """
-    service = request.app.state.nowcast
+    service = ctx.state.nowcast
     snap = service.snapshot()
     out: dict = {"frames": [], "latest": None, "stale": False, "age_min": None, "attribution": ATTRIBUTION}
     if not service.radar_enabled:
@@ -525,42 +452,34 @@ def nowcast_frames(request: Request) -> dict:
     return out
 
 
-@router.get("/nowcast/frame/{frame_id}", include_in_schema=False)
-def nowcast_frame(frame_id: str, request: Request) -> Response:
+def nowcast_frame(frame_id: str, ctx: Context) -> Product:
     """One observed radar frame as uint8 (same encoding as ``/nowcast/layer``); 404 once it aged out."""
-    snap = request.app.state.nowcast.snapshot()
+    snap = ctx.state.nowcast.snapshot()
     for t, codes in snap.history:
         if _frame_id(t) == frame_id:
             extra = {
-                "Cache-Control": "public, max-age=3600, immutable",  # a frame id never changes content
+                "Cache-Control": "public, max-age=3600, immutable",
                 "X-Frame-Time": t.isoformat(),
                 "X-Lead": "0",
                 "X-Enc-Min": str(RADAR_ENCODING.min),
                 "X-Enc-Max": str(RADAR_ENCODING.max),
                 "Access-Control-Expose-Headers": "X-Grid-NY, X-Grid-NX, X-Frame-Time, X-Lead, X-Enc-Min, X-Enc-Max",
             }
-            return _binary(codes, f"radar-{frame_id}", request, extra)
-    raise HTTPException(404, detail="radar frame not available")
+            return _binary(codes, f"radar-{frame_id}", ctx, extra)
+    raise ProductError(404, detail="radar frame not available")
 
 
-@router.get("/nowcast/status", include_in_schema=False)
-def nowcast_status(request: Request) -> dict:
-    return {**request.app.state.nowcast.status, "leads": list(LEADS), "stale_after_min": STALE_AFTER_MIN}
+def nowcast_status(ctx: Context) -> dict:
+    return {**ctx.state.nowcast.status, "leads": list(LEADS), "stale_after_min": STALE_AFTER_MIN}
 
 
-# ------------------------------------------------------------------ web push
 MAX_PUSH_BODY = 4096
 
 
-def _limit_body(content_length: int | None = Header(default=None)) -> None:
-    if content_length is not None and content_length > MAX_PUSH_BODY:
-        raise HTTPException(413, detail="request body too large")
-
-
-def _push(request: Request) -> PushService:
-    service = request.app.state.push
+def _push(ctx: Context) -> PushService:
+    service = ctx.state.push
     if service is None:
-        raise HTTPException(404, detail="push notifications are disabled")
+        raise ProductError(404, detail="push notifications are disabled")
     return service
 
 
@@ -580,9 +499,9 @@ class PushPrefs(BaseModel):
     storm: bool = True
     heavy_rain: bool = True
     cyclone: bool = True
-    quiet_start: int = Field(22, ge=0, le=23)  # local (Asia/Bangkok) hours; start == end disables quiet hours
+    quiet_start: int = Field(22, ge=0, le=23)
     quiet_end: int = Field(6, ge=0, le=23)
-    heat: bool = False  # forecast heat index (opt-in)
+    heat: bool = False
 
 
 class PushSubscribe(BaseModel):
@@ -599,24 +518,22 @@ def _checked(sub: PushSubscription) -> PushSubscription:
         if len(b64url_decode(sub.keys.p256dh)) != 65 or len(b64url_decode(sub.keys.auth)) < 16:
             raise PushError("invalid subscription keys")
     except (ValueError, binascii.Error):
-        raise HTTPException(422, detail="invalid subscription keys") from None
+        raise ProductError(422, detail="invalid subscription keys") from None
     except PushError as exc:
-        raise HTTPException(exc.status, detail=str(exc)) from None
+        raise ProductError(exc.status, detail=str(exc)) from None
     return sub
 
 
-@router.get("/push/public-key", include_in_schema=False)
-def push_public_key(request: Request) -> dict:
-    return {"public_key": _push(request).keys.public}
+def push_public_key(ctx: Context) -> dict:
+    return {"public_key": _push(ctx).keys.public}
 
 
-@router.post("/push/subscribe", dependencies=[Depends(_limit_body)], include_in_schema=False)
-def push_subscribe(body: PushSubscribe, request: Request) -> dict:
+def push_subscribe(body: PushSubscribe, ctx: Context) -> dict:
     """Register (or update, when the endpoint + auth secret match) a subscription for a location."""
-    service = _push(request)
+    service = _push(ctx)
     _checked(body.subscription)
-    if not request.app.state.nowcast.grid.contains(body.lat, body.lon):
-        raise HTTPException(422, detail="location outside the supported domain")
+    if not ctx.state.nowcast.grid.contains(body.lat, body.lon):
+        raise ProductError(422, detail="location outside the supported domain")
     p = body.prefs
     try:
         sub = service.store.upsert(
@@ -629,23 +546,21 @@ def push_subscribe(body: PushSubscribe, request: Request) -> dict:
             Prefs(p.storm, p.heavy_rain, p.cyclone, p.quiet_start, p.quiet_end, p.heat),
         )
     except PushError as exc:
-        raise HTTPException(exc.status, detail=str(exc)) from None
+        raise ProductError(exc.status, detail=str(exc)) from None
     return {"id": sub.id, "lat": sub.lat, "lon": sub.lon, "label": sub.label, "prefs": asdict(sub.prefs)}
 
 
-@router.post("/push/unsubscribe", dependencies=[Depends(_limit_body)], include_in_schema=False)
-def push_unsubscribe(body: PushSubscription, request: Request) -> dict:
-    service = _push(request)
+def push_unsubscribe(body: PushSubscription, ctx: Context) -> dict:
+    service = _push(ctx)
     _checked(body)
     stored = service.store.by_endpoint(body.endpoint)
     if stored is None:
-        return {"ok": True, "deleted": False}  # idempotent
+        return {"ok": True, "deleted": False}
     if not auth_matches(stored, body.keys.auth):
-        raise HTTPException(403, detail="subscription credentials do not match")
+        raise ProductError(403, detail="subscription credentials do not match")
     return {"ok": True, "deleted": service.store.delete(stored.id)}
 
 
-@router.get("/push/status", dependencies=[Depends(require_admin)], include_in_schema=False)
-def push_status(request: Request) -> dict:
-    service = request.app.state.push
+def push_status(ctx: Context) -> dict:
+    service = ctx.state.push
     return {"enabled": False} if service is None else service.status()

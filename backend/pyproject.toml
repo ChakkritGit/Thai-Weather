@@ -4,8 +4,6 @@ version = "1.0.0"
 description = "High-resolution weather downscaling and API for Thailand"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
   "numpy>=2.0",
   "scipy>=1.13",
   "httpx>=0.27",
@@ -15,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "fastapi==0.143.0"]
 build = ["shapely>=2.0"]
 
 [tool.setuptools.packages.find]
@@ -26,6 +24,7 @@ app = ["data/*.json", "data/*.npz", "data/geo/*.geojson"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]  # test-only ASGI oracle is not installed with the numerical package
 
 [tool.ruff]
 line-length = 120
