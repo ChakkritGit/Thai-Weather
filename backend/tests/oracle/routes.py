@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Requ
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
+from app.core.static import DATA_DIR
 from app.engine import products
 from app.engine.types import Context, Product, ProductError
 from app.store import Run
@@ -86,7 +87,9 @@ def static_layer(name: str, request: Request) -> Response:
 
 @router.get("/geo/{name}", include_in_schema=False)
 def geo(name: str) -> FileResponse:
-    return _call("geo", name=name)
+    if name not in ("provinces", "countries"):
+        raise HTTPException(404)
+    return FileResponse(DATA_DIR / "geo" / f"{name}.geojson", media_type="application/geo+json")
 
 
 @router.get("/point", tags=["forecast"], summary="Hourly 2 km forecast (and the raw ~25 km model) for one location")

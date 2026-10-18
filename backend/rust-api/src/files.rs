@@ -161,5 +161,27 @@ pub async fn json_file(
             .headers_mut()
             .insert("cache-control", HeaderValue::from_static(cache));
     }
+    if content_type == "application/geo+json" {
+        // Preserve FileResponse's metadata validators; these public files are unchanged.
+        let metadata = tokio::fs::metadata(path).await.map_err(|_| bad_file())?;
+        let modified = metadata.modified().map_err(|_| bad_file())?;
+        let timestamp = modified
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| bad_file())?
+            .as_secs_f64();
+        let etag = format!(
+            "\"{:x}\"",
+            md5::compute(format!("{timestamp:?}-{}", metadata.len()))
+        );
+        response
+            .headers_mut()
+            .insert("etag", etag.parse().map_err(|_| bad_file())?);
+        response.headers_mut().insert(
+            "last-modified",
+            httpdate::fmt_http_date(modified)
+                .parse()
+                .map_err(|_| bad_file())?,
+        );
+    }
     Ok(response)
 }

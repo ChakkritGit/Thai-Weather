@@ -40,7 +40,7 @@ the HTTP integration tests explicitly skip; that is not a successful migration
 check. CI builds the binary and sets the variable. No test uses production data,
 Open-Meteo, real push recipients, Dock chat or alert mail.
 
-New Rust dependencies are exact pins with a committed lockfile; all 74 locked
+New Rust dependencies are exact pins with a committed lockfile; all 75 locked
 registry crates were audited against crates.io's release timestamps on 2026-10-17.
 Ten initially resolved transitive versions were downgraded to satisfy 14 days.
 Run `python scripts/audit_rust_lock.py --added-on YYYY-MM-DD` after changing it.

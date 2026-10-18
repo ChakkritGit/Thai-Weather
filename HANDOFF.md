@@ -208,10 +208,10 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - FastAPI/Uvicorn are removed from the production image; the old thin HTTP adapter/quota oracle is
   test-only under `backend/tests/oracle`. Python base layers were verified **identical** to the running
   pre-migration API; Python 3.12.15 and all 33 scientific/runtime package versions are retained and
-  pinned in `requirements-runtime.txt`. All 74 newly added Rust crates passed the 14-day release-age
+  pinned in `requirements-runtime.txt`. All 75 newly added Rust crates passed the 14-day release-age
   audit; ten too-new initial transitive resolutions were downgraded in the committed lockfile.
 - Local Rust build, formatting, strict Clippy and six unit tests pass. The real Rust → Python HTTP
-  integration passed 45 cases, including byte-identical layers, JSON products, 304s, search, validation,
+  integration passed 46 cases, including byte-identical layers, JSON products, 304s, search, validation,
   auth, quotas, chunked-body limits, redirects and schema. The final **332 Python tests** passed,
   including the real HTTP tests, Unix IPC, writer lease and fake push worker. Ruff lint/format passed;
   weather frontend TypeScript and its two web-owned API tests passed after comment/doc updates.
@@ -220,6 +220,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - **Remaining before declaring deployed:** final local checks; Linux build/candidate with background
   tasks off, no network and read-only production data; compare to live output; check old refresher
   idle + real run fresh, then controlled API cutover; public browser/API/Dock checks; scoped cleanup.
+  The first Linux candidate matched numerical payloads but caught missing GeoJSON file validators;
+  ETag/Last-Modified compatibility is fixed and being rechecked before cutover.
   The old API is still running from `sha256:bbd3c368ee628b990271b21ced99f73575c48c4f381b4a20a0b44d281bb9a4af`,
   also temporarily tagged `thai-weather-api-before-rust:20261017`. Do not restart verify unnecessarily
   or remove its in-use image. See `backend/rust-api/README.md` for the operational constraints.

@@ -244,7 +244,17 @@ fn params(uri: &Uri) -> Result<HashMap<String, String>, ApiError> {
 
 fn integer(p: &HashMap<String, String>, name: &str, default: i64) -> Result<i64, ApiError> {
     p.get(name).map_or(Ok(default), |v| {
-        v.parse()
+        let value = v.trim();
+        let integer = if let Some((whole, fraction)) = value.split_once('.') {
+            if fraction.is_empty() || !fraction.bytes().all(|b| b == b'0') {
+                return Err(ApiError::invalid(name, "Input should be a valid integer"));
+            }
+            whole
+        } else {
+            value
+        };
+        integer
+            .parse()
             .map_err(|_| ApiError::invalid(name, "Input should be a valid integer"))
     })
 }
@@ -254,6 +264,7 @@ fn coordinate(p: &HashMap<String, String>, name: &str, bound: f64) -> Result<f64
         .get(name)
         .ok_or_else(|| ApiError::invalid(name, "Field required"))?;
     value
+        .trim()
         .parse::<f64>()
         .ok()
         .filter(|n| n.is_finite() && n.abs() <= bound)

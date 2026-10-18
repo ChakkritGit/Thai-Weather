@@ -146,9 +146,9 @@ def test_real_http_matches_json_binary_and_cache_contracts(rust, oracle, path):
         assert actual.json() == expected.json()
     else:
         assert actual.content == expected.content
-    for name in ("content-type", "cache-control", "etag", "x-grid-ny", "x-grid-nx", "x-run-id"):
+    for name in ("content-type", "cache-control", "etag", "last-modified", "x-grid-ny", "x-grid-nx", "x-run-id"):
         assert actual.headers.get(name) == expected.headers.get(name)
-    if "etag" in expected.headers:
+    if "etag" in expected.headers and not path.startswith("/geo/"):
         cached = rust.get(path, headers={"If-None-Match": actual.headers["etag"]})
         assert cached.status_code == 304 and cached.content == b""
 
@@ -222,3 +222,13 @@ def test_trailing_slash_redirects_and_method_errors_keep_the_existing_contract(r
     assert rust.get("/does-not-exist/").status_code == 404
     wrong_method = rust.put("/meta")
     assert wrong_method.status_code == 405 and wrong_method.json() == {"detail": "Method Not Allowed"}
+
+
+def test_query_coercions_remain_compatible_with_the_previous_api(rust, oracle):
+    for value in ["0.0", " 0 ", "+0", "-0.0", "2.000", "0.01", "1e0", "2."]:
+        expected = oracle.get("/api/v1/layers/temp", params={"step": value})
+        actual = rust.get("/layers/temp", params={"step": value})
+        assert actual.status_code == expected.status_code, value
+        if actual.status_code == 200:
+            assert actual.content == expected.content
+    assert rust.get("/point", params={"lat": " 13.75 ", "lon": " 100.5 "}).status_code == 200
