@@ -12,6 +12,8 @@ case "$name" in
   services)
     docker buildx build --load -t apps-services:local \
       --build-context drivemusic="$REPOS/drive-music" services ;;
+  rust)
+    docker buildx build --load -t apps-rust:local rust-services/runtime ;;
   backup)
     docker buildx build --load -t apps-backup:local -f backup.Dockerfile . ;;
   reminders)

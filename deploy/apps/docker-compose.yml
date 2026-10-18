@@ -7,8 +7,8 @@
 #     rooms      Bun       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
 #     sync       Bun       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
-#   health       Bun       health.chakkritton.com            (containers + internal checks for the status Worker)
-#   analytics    Bun       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
+#   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
+#   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
 # chmod 600) – neither is in git. Images are built by build.sh (autodeploy.sh calls it after a pull):
@@ -35,6 +35,16 @@ x-bun: &bun
   image: apps-services:local
   restart: unless-stopped
   # Bun as PID 1 ignores SIGTERM: every restart waited 10 s for the kill (rooms/sync dropped longer on each deploy)
+  init: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  pids_limit: 128
+  mem_limit: 192m
+
+x-rust: &rust
+  image: apps-rust:local
+  restart: unless-stopped
   init: true
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
@@ -133,9 +143,8 @@ services:
   # every container's state + Docker health (a snapshot the host writes every 30 s, apps-container-health
   # timer; no Docker socket here) and the internal services. Also relays the Worker's alerts to Dock's chat.
   health:
-    <<: *bun
-    container_name: apps-health
-    command: ["bun", "src/health.ts"]
+    <<: *rust
+    command: ["health"]
     pull_policy: never
     environment:
       PORT: "8789"
@@ -147,19 +156,25 @@ services:
     env_file: ${ENVS:-/opt/apps/env}/health.env
     volumes:
       - /run/apps-health:/host:ro
-    networks: [proxy, apps]
+    networks:
+      proxy:
+        aliases: [apps-health]
+      apps:
+        aliases: [apps-health]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8789/ping"]
+      test: ["CMD", "/apps-runtime", "health", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
+      start_interval: 2s
 
   # Portfolio uploads (was a Supabase Storage bucket): public at chakkritton.com/media/, written by the
   # portfolio server on the internal network with MEDIA_TOKEN.
   media:
-    <<: *bun
+    <<: *rust
     container_name: apps-media
-    command: ["bun", "src/media.ts"]
+    command: ["media"]
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/media.env
     environment:
@@ -169,7 +184,7 @@ services:
       - media-data:/data
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8793/health"]
+      test: ["CMD", "/apps-runtime", "media", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -291,9 +306,9 @@ services:
 
   # Page views + Web Vitals: each site posts to /_a (NPM forwards it here); Dock reads /stats.
   analytics:
-    <<: *bun
+    <<: *rust
     container_name: apps-analytics
-    command: ["bun", "src/analytics.ts"]
+    command: ["analytics"]
     pull_policy: never
     environment:
       PORT: "8790"
@@ -302,7 +317,7 @@ services:
       - analytics-data:/data
     networks: [proxy]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8790/health"]
+      test: ["CMD", "/apps-runtime", "analytics", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3

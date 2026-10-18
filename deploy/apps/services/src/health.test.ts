@@ -26,7 +26,7 @@ Object.assign(process.env, {
   CONTAINERS_FILE: snap, ROOMS_URL: s, SYNC_URL: s, REMINDERS_URL: `${s}/`, ALERT_URL: `${s}/chat/alert`,
   PROBE_SECRET: 'p', STATUS_SECRET: 's', ALERT_SECRET: 'a',
 })
-const { app, parseSnapshot } = await import('./health')
+const { app, parseSnapshot } = await import('../tests/oracle/health')
 afterAll(() => {
   stub.stop(true)
   rmSync(dir, { recursive: true, force: true })

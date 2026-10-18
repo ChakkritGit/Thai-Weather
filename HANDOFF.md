@@ -35,7 +35,7 @@ Updated 2026-10-18 (Bangkok) by Codex, for the next agent. Read this file and
 | drive-music.chakkritton.com | Drive Music (Google Drive player, Party Play sync) | github.com/ChakkritGit/Drive-Music-Web | VPS (`apps`) |
 | docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
 | status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
-| health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/services/src/health.ts` | VPS |
+| health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/rust-services/runtime` | VPS |
 | nginx. / portainer.chakkritton.com | Nginx Proxy Manager / Portainer admin | images | VPS |
 
 Also on Cloudflare: Worker `mr-worldwide` (Scrolly AI, Workers AI), DNS (all proxied, SSL Full strict,
@@ -174,7 +174,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed; **health is next**. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust health/media/analytics have passed isolated HTTP and VPS
+  candidate comparisons; their production cutover is pending. The other six ports remain. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -221,6 +222,25 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 18)
+
+### Native health, media and analytics (2026-10-18, Codex)
+- Implemented `deploy/apps/rust-services/runtime` with exact Rust 1.90.0/Axum 0.8.9,
+  schema-compatible SQLite analytics, atomic media writes and streamed reads, and authenticated
+  health/dependency/alert handling. The static scratch image has no Bun or shell, uses UID/GID
+  1000, and carries the Rust stack label. Dock now recognizes health in its central-services group.
+- Five Rust unit tests, Clippy, formatting, three actual-HTTP integration suites and the seven
+  original Bun fixture tests pass. All 120 locked registry packages passed the age/yank audit.
+  Alert fixtures use only a local fake sink; production alert/notification endpoints were not tested.
+- A candidate image was built on the VPS and removed after comparison: health container/dependency
+  outcomes matched the existing Bun service; eight media reads matched byte/header values, with
+  all 17 media files hashed; six analytics queries matched Bun exactly against the same consistent
+  SQLite copy (898 views, 2,953 vitals, one salt row). Candidate media was read-only and candidate
+  alerts disabled. Cutover is pending; no unrelated service has been restarted.
+- Build with `deploy/apps/build.sh rust`; CI includes the native checks. Health rolls through its
+  existing `apps-health` network alias. Media/analytics retain their existing names and volumes;
+  stop the old writers before recreating them, with a final SQLite backup first. Native ports are
+  excluded from Bun app-autodeploy restarts. The frozen TS files are test-only oracles.
+
 
 ### Standalone Rust collector (2026-10-18, Codex — deployed and verified)
 - The owner authorized standalone Bun → Rust implementation and paused further Portfolio CPU

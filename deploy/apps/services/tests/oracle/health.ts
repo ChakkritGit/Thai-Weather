@@ -11,8 +11,8 @@
 import { Elysia } from 'elysia'
 import { timingSafeEqual } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import { musicSyncCheck, remindersCheck, roomsCheck } from './status/internal'
-import type { Container, HealthReport, Internal } from './status/types'
+import { musicSyncCheck, remindersCheck, roomsCheck } from '../../src/status/internal'
+import type { Container, HealthReport, Internal } from '../../src/status/types'
 
 const PORT = Number(process.env.PORT ?? 8789)
 const SNAPSHOT = process.env.CONTAINERS_FILE ?? '/host/containers.tsv'
@@ -92,7 +92,3 @@ export const app = new Elysia()
   // the container's own healthcheck
   .get('/ping', () => 'ok')
 
-if (import.meta.main) {
-  app.listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`health listening on :${PORT}`)
-}

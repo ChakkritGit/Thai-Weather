@@ -89,8 +89,3 @@ export function createApp(dir = process.env.MEDIA_DIR ?? '/data/media', token = 
     })
 }
 
-if (import.meta.main) {
-  if (!process.env.MEDIA_TOKEN) console.warn('MEDIA_TOKEN is not set: uploads are refused')
-  createApp().listen({ port: PORT, hostname: '0.0.0.0', maxRequestBodySize: MAX_BYTES + 1024 })
-  console.log(`media listening on :${PORT}`)
-}

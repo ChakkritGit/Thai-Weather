@@ -45,6 +45,14 @@ jobs:
           cargo +1.90.0 test --locked
           cargo +1.90.0 build --locked
           python3 tests/http_contract.py
+      - name: Rust app services and isolated HTTP contracts
+        working-directory: deploy/apps/rust-services/runtime
+        run: |
+          cargo +1.90.0 fmt --check
+          cargo +1.90.0 clippy --locked --all-targets -- -D warnings
+          cargo +1.90.0 test --locked
+          cargo +1.90.0 build --locked
+          python3 tests/http_contract.py
 
   frontend:
     runs-on: ubuntu-latest

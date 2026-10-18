@@ -2,7 +2,7 @@ import { afterAll, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createApp, safePath } from './media'
+import { createApp, safePath } from '../tests/oracle/media'
 
 const dir = mkdtempSync(join(tmpdir(), 'media-test-'))
 const server = createApp(dir, 'secret-token').listen({ port: 0, hostname: '127.0.0.1' })

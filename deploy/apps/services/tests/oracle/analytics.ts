@@ -188,7 +188,3 @@ export function stats(db: Database, hostParam: string, days: number) {
   }
 }
 
-if (import.meta.main) {
-  createApp().listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`analytics listening on :${PORT}`)
-}
