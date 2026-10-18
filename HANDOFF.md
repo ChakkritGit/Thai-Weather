@@ -82,6 +82,9 @@ existing WebSocket services retain their current behavior. See the rollout recor
     `verify` when its numerical/verification code changed; a runtime-only API change does not need it.
   - Bun services: pull, then `cd deploy/apps && ./build.sh services && docker compose up -d --no-deps <svc>`;
     the `backup` image is FROM the services image: `./build.sh services && ./build.sh backup` together.
+  - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` with the build
+    override, compare a read-only candidate first, then stop only metrics for its final history save
+    before recreating it. Retain `thai-weather_dock-metrics`; no API/verify/web restart is needed.
   - Dock: `deploy/dock/www` is a directory mount (live after `git pull`); its `nginx.conf` is a bind-mounted
     **file** → `docker restart dock` after changing it (validate with a throwaway nginx first).
   - Status Worker: `cd deploy/status-worker && npx -y wrangler@4.144.0 deploy` (wrangler is logged in on the
@@ -167,12 +170,13 @@ integration cases and is not a complete backend check. Test sockets need local s
   in iPhone Safari (third-party cookies).
 
 ### Other follow-up work
-- **Standalone Bun → Rust assessment requested on 2026-10-18.** The owner wants to consider all ten
+- **Standalone Bun → Rust migration authorized on 2026-10-18.** The scope is all ten
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok; `dock-metrics` is the active first migration. Rust can provide a separate backend for Next, as in
-  Weather; the existing Next server features still need Bun/Node. gRPC stays deferred.
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed; **health is next**. Rust can provide
+  a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
+  deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
   HTTP API and all five Next/Bun/Elysia web runtimes are deployed (see §9).
 - Whiteboard has no skeleton (the board opens fast; fine as is).
@@ -218,7 +222,7 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 18)
 
-### Standalone Rust collector (2026-10-18, Codex — candidate verified; cutover next)
+### Standalone Rust collector (2026-10-18, Codex — deployed and verified)
 - The owner authorized standalone Bun → Rust implementation and paused further Portfolio CPU
   investigation. First port: `deploy/apps/rust-services`, Rust 1.90.0/Axum; pure Rust native
   host/cgroup/NPM log collection with the old gzip history and `/metrics` JSON contracts.
@@ -228,6 +232,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   partial writes/truncation/rotation, time zones, counter/gauge buckets, missing values, persisted
   resume, gzip/status/query compatibility, graceful save, read-only serve mode and writer lease.
   Rust formatting/strict Clippy and Python lint/format passed. CI now runs these checks.
+  CI for `f5bb028` passed backend (including the Rust/HTTP tests), frontend and tokens:
+  `https://github.com/ChakkritGit/Thai-Weather/actions/runs/39124328270`.
 - Linux candidate read **one copied production history** in serve-only mode, with no network and
   read-only host/log/data views. All values, gaps and timestamps matched the Bun reader for 1h
   (360 points/25 container IDs), 24h (1440/41) and 7d (1008/322); all nginx series and static host
@@ -239,10 +245,32 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - The old Bun source is frozen under `deploy/apps/services/tests/oracle/`, excluded from runtime
   images; `src/metrics.ts` is removed. App autodeploy no longer restarts this separate Rust service.
   Dock selects Rust only for a known Bun service whose actual image label is `com.chakkrit.stack=rust`.
-- **Cutover still required:** stop old Bun and wait for its final save, back up the gzip, promote
-  the tested image to `dock-metrics:local`, start only metrics on the existing history volume,
-  check retained history/new live samples and authenticated Dock/browser charts/icon, then scoped
-  unused-image cleanup. Every volume in the 18:32 inventory was still referenced; delete none.
+- Deployed **`f5bb0287cea5fef25896382f00152a2537ece71b`**. Only `dock-metrics` was recreated:
+  container **`7fa2a9c4955baa1deec170ad1b47b0ee6d01fc4fa93dfdd03088607bdd5c63a7`**, started
+  **2026-10-18T11:43:29.580560582Z** (18:43 Bangkok), image
+  **`sha256:f3e13aa499b32cd8e48ba2996fcc8bf91168729727aac351217e80036d4a6008`**.
+  Docker health passed with zero restarts/OOMs. All other container IDs/start times stayed unchanged.
+- Waited for Bun's final save, backed it up privately at
+  `/opt/apps/backups/config/dock-metrics-before-rust-20261018T114328Z.json.gz` (1,078,461 bytes),
+  and reused **`thai-weather_dock-metrics`**. After cutover **366,352 retained values** matched;
+  new host/container samples appeared. No history/database migration or new public port/network.
+- The first ordinary periodic save completed at **2026-10-18T11:48:31.949219Z** (18:48 Bangkok),
+  without a restart or manual save. The 1,129,451-byte gzip contains the current Rust container's
+  samples and resumed offsets for 11 log files. Health stayed good, with zero restarts/OOMs.
+- Authenticated production Dock checks passed in Chromium desktop and WebKit/iPhone, light/dark:
+  both API and metrics show Rust, verify shows Python, and all five Next/Bun/Elysia triangles stay
+  20×20 px. Overview SVG charts rendered; all three metrics ranges returned correct lengths and
+  populated data. Anonymous `/api/metrics` still returns 401. No overflow/runtime errors or real
+  chat writes; served asset hashes match the checkout.
+- Removed only explicitly inventoried, unreferenced images and temporary candidate/rollback tags.
+  The old shared Bun image remains in use by other services; verify's Python image/rollback tag
+  remains in use too. The unused standalone Python base reference was removed (shared layers were
+  retained, so immediate disk gain was only ~2.3 MiB). The unused Portfolio image was removed
+  earlier. Every named volume was referenced by a container, including stopped containers:
+  **zero unused volumes, zero volume deletions**. Candidate build directories/copied data removed.
+- Remaining authorized standalone ports, in review order: **health, analytics, media, dbgw, backup,
+  Drive sync, Yjs rooms, chat, reminders**. Keep each protocol/data/notification boundary; see the
+  review document. Next/Bun/Elysia renderers remain outside the rewrite; gRPC remains deferred.
 
 ### Rust API migration (2026-10-17 → 18, Codex — deployed and verified)
 - The owner authorized Rust for the HTTP API, retaining Python numerical science. gRPC is deferred

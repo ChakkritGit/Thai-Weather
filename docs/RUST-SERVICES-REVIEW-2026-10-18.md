@@ -92,7 +92,9 @@ Disable outbound jobs in all test candidates. Stateful writers and scheduled
 notification workers must have one owner during the switch; do not run old and
 new writers together. Keep Dock's marks tied to actual deployed image labels.
 
-The first proposed implementation is **dock-metrics only**. Evaluate its measured
-result and production history before expanding to the next service. No new
+The first implementation, **dock-metrics**, was deployed on 2026-10-18 after
+fixture, live-history and isolated shadow checks. See `HANDOFF.md` for the image,
+backup, retained-history and browser verification record. **health** is next;
+evaluate each measured result and persistent-data contract before expanding. No new
 transport, DNS, Cloudflare setting, database schema or notification behavior is
 needed for this pilot.
