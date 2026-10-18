@@ -174,8 +174,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust health/media/analytics have passed isolated HTTP and VPS
-  candidate comparisons; their production cutover is pending. The other six ports remain. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. The other six ports
+  remain: dbgw, backup, sync, rooms, chat and reminders; dbgw is being implemented. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -235,7 +235,21 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   outcomes matched the existing Bun service; eight media reads matched byte/header values, with
   all 17 media files hashed; six analytics queries matched Bun exactly against the same consistent
   SQLite copy (898 views, 2,953 vitals, one salt row). Candidate media was read-only and candidate
-  alerts disabled. Cutover is pending; no unrelated service has been restarted.
+  alerts disabled. Cutover completed at 23:47 Bangkok: health rolled without a gap; media and
+  analytics were stopped before recreation so there was only one writer. All three are healthy
+  with zero restarts/OOM, native processes and Rust labels. Internal probes all pass. All 17 media
+  hashes and all 898 views/2,953 vitals/one salt row survived exactly; SQLite integrity is OK.
+  The final SQLite backup is `/opt/apps/backups/config/analytics-before-rust-20261018.db` (0600).
+  The shared native image is `sha256:d30aa7f4cd2a2ad45ca65230d3651024057aca1203144c615fbccff8bf3e27b8`.
+  Health is `apps-health-2` (ID `0bb1c8287055`, started 16:47:23Z); media `4d7a2998f6f1`
+  (16:47:40Z); analytics `c2750d01ae93` (16:47:40Z). All other containers retained start times,
+  including the Weather API, verify and the five Next runtimes.
+- Cleanup removed the old health container's empty, unreferenced anonymous `/data` volume
+  (`9307fbb5a66f…`) and temporary candidates/build sources. No unreferenced images or volumes remain;
+  the shared Bun image is still used by the six remaining ports and must stay. Production public
+  media returned 200 and unauthenticated public health returned 401. A browser recheck was unavailable
+  because the previously installed Playwright browser cache is absent; Dock's stack mapping was
+  checked directly, and the existing triangle/SVG layout was not changed.
 - Build with `deploy/apps/build.sh rust`; CI includes the native checks. Health rolls through its
   existing `apps-health` network alias. Media/analytics retain their existing names and volumes;
   stop the old writers before recreating them, with a final SQLite backup first. Native ports are
