@@ -43,7 +43,7 @@ for app in portfolio expenses whiteboard drive-music; do
   if [ "$app" = expenses ]; then deploy reminders reminders || echo "!! reminders build failed"; fi
 done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
-  deploy services sync chat
+  deploy services chat
   # dock-metrics is a separate Rust image; app changes must not restart it.
 fi
 # keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache

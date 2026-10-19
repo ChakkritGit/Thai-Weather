@@ -8,8 +8,8 @@
 import { Elysia } from 'elysia'
 import { jwtVerify } from 'jose'
 import { Rooms, type Connection } from './partyserver'
-import { SyncServer } from './vendor/drive-music/party/index'
-import { PARTY_PROTOCOL } from './vendor/drive-music/src/lib/party'
+import { SyncServer } from './drive-music/party/index'
+import { PARTY_PROTOCOL } from './drive-music/src/lib/party'
 
 const PORT = Number(process.env.PORT ?? 8788)
 const SECRET = process.env.PARTY_TOKEN_SECRET ?? ''
@@ -80,8 +80,3 @@ export function createApp(dbPath = process.env.SYNC_DB ?? '/data/sync.db') {
   return { app, rooms }
 }
 
-if (import.meta.main) {
-  if (!SECRET) console.warn('PARTY_TOKEN_SECRET is not set: every connection will be refused')
-  createApp().app.listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`drive-music sync listening on :${PORT}`)
-}

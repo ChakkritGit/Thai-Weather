@@ -7,7 +7,7 @@
 | `whiteboard` | Next.js (repo Whiteboard) | whiteboard.chakkritton.com | Vercel `whiteboard` |
 | `rooms` | Bun + Elysia, Yjs relay | whiteboard.chakkritton.com/rooms/ | Worker `whiteboard-rooms` |
 | `drive-music` | Next.js (repo Drive-Music-Web) | drive-music.chakkritton.com | Vercel `drive-music` |
-| `sync` | Bun + Elysia, Party Play (runs the repo's own `SyncServer` on a partyserver shim, SQLite storage) | drive-music.chakkritton.com/parties/ | Worker `drive-music-sync` |
+| `sync` | Rust, Party Play protocol 2 (native state machine, SQLite storage) | drive-music.chakkritton.com/parties/ | Worker `drive-music-sync` |
 | `health` | Bun + Elysia: every container's Docker health (host snapshot every 30 s) + the internal checks, for the status Worker; relays its alerts to Dock | health.chakkritton.com (needs `x-probe-secret`) | – |
 | `analytics` | Bun + Elysia, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |
 

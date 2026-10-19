@@ -59,8 +59,8 @@ Air4Thai readings on every request: inverse distance, fading ~75 km from station
 None of them use the Open-Meteo quota. Gusts and visibility are **estimates** derived from the run
 (`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
-`deploy/apps/rust-services` runs native metrics, health, media, analytics and dbgw.
-The remaining Bun containers are rooms, sync and chat (`deploy/apps/services`), plus
+`deploy/apps/rust-services` runs native metrics, health, media, analytics, dbgw and rooms.
+The remaining Bun containers are sync and chat (`deploy/apps/services`), plus
 reminders from the Spent-Cost repo. Native backup uses a separate pinned tools image.
 
 **Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
@@ -174,8 +174,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. Four ports remain: rooms, sync, chat and reminders.
-  Rooms is being implemented and tested with real JS Yjs clients. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. Three ports remain: sync, chat and reminders.
+  Sync is being implemented and tested against Party Play protocol 2. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -223,6 +223,20 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 18)
 
+### Native Drive Music sync (2026-10-19, Codex)
+- Implemented Party Play protocol 2 in native Rust, retaining account-bound HS256 JWTs,
+  per-room serialization, SQLite `kv`, playback after restart (paused), device identity,
+  leases, output handoff, generation/revision fencing and legacy snapshot controls.
+- Ten Rust unit tests and strict Clippy/fmt pass. Nine real WebSocket contract tests
+  and six frozen Bun oracle tests pass with synthetic accounts and temporary SQLite.
+  Includes queue persistence, device replacement, stale reports, pending commands and
+  lease expiry; no owner's party was joined. The legacy shim/state machine is now
+  fixture-only under `services/tests/oracle`, excluded from production image builds.
+- Cutover pending: first validate the static Linux image in an isolated no-network
+  fixture and read-only candidate. Stop the old writer before taking a consistent
+  SQLite backup and starting native sync. Keep `apps_sync-data` and the shared Bun
+  image while chat still uses it. No other app or forecast restart is required.
+
 ### Native whiteboard rooms (2026-10-19, Codex)
 - Implemented native `rooms` with Yrs 0.24.0, Yjs v1 sync/awareness, per-socket cursor
   ownership, 30-second awareness expiry, URL prefix aliases and dropping empty rooms.
@@ -232,7 +246,14 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   cursor removal, isolated rooms, bad frames/names and offline browser state seeding.
 - All 238 locked registry dependencies passed age/yank checks (2026-10-19); CI pins Bun
   1.4.2 with its official release checksum for protocol clients. No owner board was joined.
-  Production cutover is pending. The original TS relay is now only a fixture oracle.
+  Cutover completed at 08:26 Bangkok: `apps-rooms` is `8d6a584c37c9`, started
+  `2026-10-19T01:26:49.837809757Z`, image
+  `sha256:66eb6f750f0021a3bb63dee21acfd7d7d2b0bdd748b102370cbded69b5f36b35`.
+  Healthy with no restart/OOM; internal rooms/sync/reminders checks pass and all other container
+  IDs/start times are unchanged. Removed its old empty anonymous volume `9d6089fb654b…`,
+  the unused previous prepared runtime image `77e4c29ffb0e…`, trial files/tag. The original
+  TS relay is now only a fixture oracle. Browser documents stay in IndexedDB; no owner room
+  was joined or edited during verification.
 
 ### Native backup implementation (2026-10-19, Codex)
 - `apps-runtime backup` implements the original routes, single-job gate, streamed/range downloads,

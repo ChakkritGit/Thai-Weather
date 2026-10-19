@@ -5,7 +5,9 @@ mod client;
 mod dbgw;
 mod health;
 mod media;
+mod playback;
 mod rooms;
+mod sync;
 mod util;
 
 #[tokio::main(worker_threads = 2)]
@@ -18,6 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "dbgw" => 8791,
         "backup" => 8794,
         "rooms" => 8787,
+        "sync" => 8788,
         _ => return Err("unknown service".into()),
     };
     let port = util::env("PORT", &default_port.to_string()).parse()?;
@@ -38,6 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "dbgw" => util::serve(port, dbgw::router()?).await,
         "backup" => util::serve(port, backup::router()?).await,
         "rooms" => util::serve(port, rooms::router()).await,
+        "sync" => util::serve(port, sync::router()?).await,
         _ => unreachable!(),
     }
 }

@@ -55,7 +55,7 @@ jobs:
           python3 tests/http_contract.py
           python3 tests/gateway_contract.py
           python3 tests/backup_contract.py
-      - name: Native Yrs with pinned JavaScript Yjs clients
+      - name: Native WebSockets with pinned JavaScript clients
         working-directory: deploy/apps/services
         run: |
           curl -fsSL https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64.zip -o "$RUNNER_TEMP/native-bun.zip"
@@ -63,6 +63,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/native-bun.zip" -d "$RUNNER_TEMP/native-bun"
           "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" install --frozen-lockfile
           APPS_RUST_ROOMS_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/rooms_contract.test.ts
+          APPS_RUST_SYNC_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/sync_contract.test.ts
 
   frontend:
     runs-on: ubuntu-latest

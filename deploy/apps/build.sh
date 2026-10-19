@@ -10,8 +10,7 @@ ENVS=${ENVS:-/opt/apps/env}
 name=${1:?app name}
 case "$name" in
   services)
-    docker buildx build --load -t apps-services:local \
-      --build-context drivemusic="$REPOS/drive-music" services ;;
+    docker buildx build --load -t apps-services:local services ;;
   rust)
     docker buildx build --load -t apps-rust:local rust-services/runtime ;;
   backup)

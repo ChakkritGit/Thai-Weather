@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { SignJWT } from 'jose'
 
 process.env.PARTY_TOKEN_SECRET = 'test-secret-only-for-tests'
-const { createApp } = await import('./sync')
+const { createApp } = await import('../tests/oracle/sync')
 const dir = mkdtempSync(join(tmpdir(), 'sync-test-'))
 const db = join(dir, 'sync.db')
 let server = createApp(db).app.listen({ port: 0, hostname: '127.0.0.1' })

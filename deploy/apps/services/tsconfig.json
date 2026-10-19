@@ -8,7 +8,7 @@
     "noEmit": true,
     "types": ["bun"],
     "paths": {
-      "partyserver": ["./src/partyserver.ts"]
+      "partyserver": ["./tests/oracle/partyserver.ts"]
     }
   }
 }

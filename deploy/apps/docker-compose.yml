@@ -6,7 +6,7 @@
 #   whiteboard   Next.js   whiteboard.chakkritton.com        (repo Whiteboard)
 #     rooms      Rust       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
-#     sync       Bun       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
+#     sync       Rust       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
 #
@@ -104,7 +104,7 @@ services:
     volumes:
       - drive-music-cache:/app/.next/cache
 
-  # Built once, used by the three Bun services below.
+  # Native Rust WebSocket services.
   rooms:
     <<: *rust
     container_name: apps-rooms
@@ -123,7 +123,7 @@ services:
   sync:
     <<: *rust
     container_name: apps-sync
-    command: ["bun", "src/sync.ts"]
+    command: ["sync"]
     pull_policy: never
     depends_on: [rooms]
     environment:
@@ -134,7 +134,7 @@ services:
       - sync-data:/data
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8788/health"]
+      test: ["CMD", "/apps-runtime", "sync", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
