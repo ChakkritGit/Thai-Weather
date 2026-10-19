@@ -59,9 +59,10 @@ Air4Thai readings on every request: inverse distance, fading ~75 km from station
 None of them use the Open-Meteo quota. Gusts and visibility are **estimates** derived from the run
 (`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
-`deploy/apps/rust-services` runs native metrics, health, media, analytics, dbgw and rooms.
-The remaining Bun containers are chat (`deploy/apps/services`), plus
-reminders from the Spent-Cost repo. Native backup uses a separate pinned tools image.
+`deploy/apps/rust-services` now runs all ten former standalone Bun services as native Rust:
+metrics, health, media, analytics, dbgw, backup, rooms, sync, chat and reminders.
+Backup uses a separate pinned tools image. `deploy/apps/services` now holds only the
+Cloudflare status Worker and test oracles/JavaScript compatibility fixtures.
 
 **Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
 run their standalone Next servers on **Bun 1.4.2**, with **Elysia 1.4.30** handling app-owned HTTP APIs.
@@ -174,8 +175,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. Eight standalone services are deployed, including rooms and sync. Two ports remain: chat and reminders.
-  Chat is implemented locally and undergoing isolated HTTP/Web Push tests. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. **All ten standalone ports are deployed and verified**, including rooms, sync, chat and reminders.
+  No standalone Bun container remains. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -221,11 +222,11 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 18)
+## 9. Recent changes (2026-10-14 → 19)
 
 ### Native Dock chat and bill reminders (2026-10-19, Codex)
-- Both native implementations are complete locally; final image candidate validation and
-  cutover are pending. No new dependencies were added; the 238-dependency lock was already audited.
+- **Both are deployed and healthy**, completing all ten authorized standalone ports.
+  No new dependencies were added; the 238-dependency lock was already audited.
 - Chat preserves SQLite messages/digests/reports/subscriptions/settings and the existing
   VAPID key, paging/read state, secret-authenticated alerts, Thai reports/cards, optional
   Workers AI/OpenAI-compatible replies, nightly digests and once-per-month reports.
@@ -240,9 +241,42 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - Seven native reminder suites use fake REST and HTTPS push only: status/rollout guards, disabled
   candidate cron, JS-equivalent messages/rows, completed-day skips, sent/gone receipts, failed
   claim/finish, uncertain transport, explicit clock skew and ambiguous writes.
-- Fourteen Rust unit tests, fmt/strict Clippy, all five existing Python HTTP/JWT/backup fixture
-  cases pass. New HTTP tests never use an owner's data or real push providers. The shared Bun
-  image is still needed for production chat and final image fixtures until cutover succeeds.
+- Fourteen Rust unit tests, fmt/strict Clippy and all five existing Python HTTP/JWT/backup fixture
+  cases pass. The final static image passed **23 JS contract tests / 139 assertions** across
+  rooms, sync, chat and reminders in `--network none`, with synthetic HTTP/TLS services only.
+  Its read-only chat GETs matched all six legacy responses; reminders health and authenticated
+  status matched the ordinary 08:00 Bangkok heartbeat. No real chat/push/cron was triggered.
+- Deployed source `2ec8be2` at 14:44 Bangkok, image
+  `sha256:f849f77ba9644eee8a3741dfc5f934f15fdc554e4a69f8d104947e1e325dfd7b`:
+  chat `481fabaee92a`, started `2026-10-19T07:44:47.138490743Z`;
+  reminders `c763bd1c5958`, started `2026-10-19T07:44:48.879134702Z`.
+  No restart/OOM; private rooms/sync/reminders checks all pass. All other containers unchanged.
+- Chat's logical database stayed exact, including sequence, all three push subscriptions and
+  the original VAPID key. Counts: messages 0, digests 10, reports 0, push subscriptions 3,
+  settings 1. Consistent 0600 backup: `/opt/apps/backups/config/chat-before-rust-20261019.db`.
+  Reminder heartbeat stayed `2026-10-19T01:00:00.105+00:00`; native waits for its next normal
+  ten-minute slot and skips a day already complete. There was no manual production cron.
+- Removed the now-unused shared Bun image `639fd018b1ec…`, reminders image `b27b6e91909a…`,
+  intermediate candidate `e237c8bcdc41…` and trial directories. No unused volume existed at
+  this switch; named data volumes and still-referenced older native images stay.
+- Removed legacy production Dockerfiles/build targets and app-autodeploy coupling. Native
+  services now deploy solely from this repository; app pushes only roll out their Next web.
+  Historical TypeScript protocol/report code remains fixture-only. Next/Bun/Elysia triangles
+  stay; native services select Rust icons from their real deployed image labels. A direct Dock
+  resolver check passed all ten native services and all five Next composite icon mappings.
+
+- Final inventory caveat: `dock-metrics` already had restart counter 6 and last start
+  `2026-10-18T20:53:55.179012944Z` (03:53 Bangkok), before this continuation's rollouts.
+  It is healthy with no OOM flag or error/panic in its retained logs; the counter did not
+  increase during sync/chat/reminders migration. The other nine native containers have
+  zero restarts. No collector restart or CPU tuning was performed in this continuation.
+
+- Final inventory confirms ten healthy native Rust containers and five healthy, unchanged
+  Next/Bun/Elysia containers. No unreferenced image or volume remained eligible for cleanup;
+  the weather API and Python verify IDs are unchanged. No browser was available for another
+  visual check in this continuation; icon resolver checks passed and the existing composite
+  SVG layout was unchanged. Implementation CI passed all jobs:
+  https://github.com/ChakkritGit/Thai-Weather/actions/runs/39217920239 (`2ec8be2`).
 
 ### Native Drive Music sync (2026-10-19, Codex)
 - Implemented Party Play protocol 2 in native Rust, retaining account-bound HS256 JWTs,

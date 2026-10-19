@@ -96,8 +96,10 @@ The first implementation, **dock-metrics**, was deployed on 2026-10-18 after
 fixture, live-history and isolated shadow checks. See `HANDOFF.md` for the image,
 backup, retained-history and browser verification record. Native **health, media and analytics** were also deployed and verified on 2026-10-18, after
 HTTP fixtures, read-only candidate comparisons and persistent-data checks. The native database gateway was also deployed and verified on 2026-10-19. Native backup was deployed and verified on 2026-10-19 as well. Native rooms was also deployed after Yjs interoperability tests. Sync was deployed after Party Play protocol fixtures and a read-only SQLite candidate.
-Native chat and reminders are implemented and undergoing final image validation; their production
-cutovers remain pending. Evaluate each
+Native chat and reminders were deployed after 23 no-network native image suites and
+read-only candidates, completing **all ten standalone ports**. All five Next/Bun/Elysia
+renderers retain their runtimes. Replaced Bun images and temporary candidates were removed;
+named volumes, VAPID keys, subscriptions and reminder receipts were preserved. Evaluate each
 persistent-data and protocol contract before switching. No new
 transport, DNS, Cloudflare setting, database schema or notification behavior is
 needed for this pilot.
