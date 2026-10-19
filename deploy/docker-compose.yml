@@ -30,7 +30,6 @@ services:
     cap_drop: [MKNOD, NET_RAW, SYS_CHROOT, AUDIT_WRITE, SETFCAP]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 512
-    mem_limit: 768m
     ports:
       - "80:80"
       - "443:443"
@@ -52,7 +51,6 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 256
-    mem_limit: 512m
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
@@ -91,7 +89,6 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 64
-    mem_limit: 128m
     volumes:
       - /proc:/host/proc:ro
       - /sys/fs/cgroup:/host/cgroup:ro

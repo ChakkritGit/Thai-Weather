@@ -224,6 +224,12 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 19)
 
+### Remove container memory limits (2026-10-19, Antigravity)
+- Removed `mem_limit` constraints across all services in `deploy/docker-compose.yml` and
+  `deploy/apps/docker-compose.yml` per owner direction, allowing containers to use available host
+  memory freely on the 6 GB VPS (where ~3.9 GB was idle/available).
+- PIDs limits (`pids_limit`), drop capabilities, security options and health checks are retained.
+
 ### Native Dock chat and bill reminders (2026-10-19, Codex)
 - **Both are deployed and healthy**, completing all ten authorized standalone ports.
   No new dependencies were added; the 238-dependency lock was already audited.

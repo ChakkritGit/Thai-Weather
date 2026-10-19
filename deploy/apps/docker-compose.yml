@@ -22,7 +22,6 @@ x-next: &next
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
   pids_limit: 256
-  mem_limit: 384m
   healthcheck:
     test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/healthz"]
     interval: 30s
@@ -39,7 +38,6 @@ x-rust: &rust
   cap_drop: [ALL]
   read_only: true
   pids_limit: 128
-  mem_limit: 192m
 
 services:
   portfolio:
@@ -194,7 +192,6 @@ services:
     cap_add: [DAC_READ_SEARCH]
     security_opt: ["no-new-privileges:true"]
     pids_limit: 128
-    mem_limit: 512m
     environment:
       PORT: "8794"
     volumes:
@@ -220,7 +217,6 @@ services:
     env_file: ${ENVS:-/opt/apps/env}/db.env
     command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40", "-c", "log_min_duration_statement=2000"]
     shm_size: 64m
-    mem_limit: 384m
     pids_limit: 256
     security_opt: ["no-new-privileges:true"]
     volumes:
@@ -250,7 +246,6 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    mem_limit: 128m
     networks: [apps]
 
   # Checks Supabase Auth sessions, then hands requests to PostgREST / the reminders service.
@@ -284,7 +279,6 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    mem_limit: 192m
     networks: [proxy, apps]
     healthcheck:
       test: ["CMD", "/apps-runtime", "reminders", "--healthcheck"]
