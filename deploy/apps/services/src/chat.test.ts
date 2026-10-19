@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { allowedEndpoint, composeReport, reportData, createApp, digestDay, encryptPush, maybePostReport, monthName, open, page, reply, vapidKeys, type Digest } from './chat'
+import { allowedEndpoint, composeReport, reportData, createApp, digestDay, encryptPush, maybePostReport, monthName, open, page, reply, vapidKeys, type Digest } from '../tests/oracle/chat'
 
 const day = '2026-10-14'
 const from = Date.parse(`${day}T00:00:00+07:00`) / 1000

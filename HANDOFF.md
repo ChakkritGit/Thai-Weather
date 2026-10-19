@@ -60,7 +60,7 @@ None of them use the Open-Meteo quota. Gusts and visibility are **estimates** de
 (`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
 `deploy/apps/rust-services` runs native metrics, health, media, analytics, dbgw and rooms.
-The remaining Bun containers are sync and chat (`deploy/apps/services`), plus
+The remaining Bun containers are chat (`deploy/apps/services`), plus
 reminders from the Spent-Cost repo. Native backup uses a separate pinned tools image.
 
 **Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
@@ -73,14 +73,14 @@ existing WebSocket services retain their current behavior. See the rollout recor
 ## 3. Deploying
 
 - **App repos** (WebProfile, Spent-Cost, Whiteboard, Drive-Music-Web): push to `main` → `apps-autodeploy.timer`
-  (every 2 min) pulls, builds and rolls out without downtime (`deploy/rollout.sh`). A Drive-Music push also
-  rebuilds the `services` image. Check: `ssh vps 'journalctl -u apps-autodeploy --since "-15 min" | grep -E "deployed|!!"'`.
+  (every 2 min) pulls, builds and rolls out without downtime (`deploy/rollout.sh`). Native standalone
+  services are owned by this repository and are deployed separately. Check: `ssh vps 'journalctl -u apps-autodeploy --since "-15 min" | grep -E "deployed|!!"'`.
 - **This repo is NOT auto-deployed.** Branch in use: `claude/vigilant-ride-i3yr1m` (the VPS checkout tracks it).
   - weather web: `ssh vps 'cd /opt/thai-weather && flock /run/apps-autodeploy.lock git pull -q && cd deploy && exec 9>/run/apps-autodeploy.lock && flock 9 && docker compose -p thai-weather -f docker-compose.yml -f docker-compose.build.yml build web && COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml ./rollout.sh web'`
   - weather api: same pull, then `build api`; assert the old refresher is idle and the latest real
     run is < 6 h old before `up -d --no-deps api`. See `backend/rust-api/README.md`. Only restart
     `verify` when its numerical/verification code changed; a runtime-only API change does not need it.
-  - Bun services: pull, then `cd deploy/apps && ./build.sh services && docker compose up -d --no-deps <svc>`;
+  - Native app services: pull, then `cd deploy/apps && ./build.sh rust && docker compose up -d --no-deps <svc>`;
     native `backup` is separate: `./build.sh rust && ./build.sh backup`; restart only backup.
   - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` with the build
     override, compare a read-only candidate first, then stop only metrics for its final history save
@@ -174,8 +174,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. Three ports remain: sync, chat and reminders.
-  Sync is being implemented and tested against Party Play protocol 2. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. Eight standalone services are deployed, including rooms and sync. Two ports remain: chat and reminders.
+  Chat is implemented locally and undergoing isolated HTTP/Web Push tests. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -223,6 +223,27 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 18)
 
+### Native Dock chat and bill reminders (2026-10-19, Codex)
+- Both native implementations are complete locally; final image candidate validation and
+  cutover are pending. No new dependencies were added; the 238-dependency lock was already audited.
+- Chat preserves SQLite messages/digests/reports/subscriptions/settings and the existing
+  VAPID key, paging/read state, secret-authenticated alerts, Thai reports/cards, optional
+  Workers AI/OpenAI-compatible replies, nightly digests and once-per-month reports.
+- Four native HTTP/TLS suites compare reports to frozen JS and decrypt actual native Web Push
+  with WebCrypto, verify ES256 VAPID, and remove expired subscriptions. The earlier chat-only
+  static image passed all suites without networking and six GET comparisons against a
+  read-only database copy (0 messages, 10 digests, 0 reports, 3 subscriptions, 1 setting).
+- Reminders retains Bangkok's ten-minute schedule, status-vs-cron secret priority, month row
+  generation, daily claim-before-send receipts, finish acknowledgement fencing, bounded fan-out,
+  gone-subscription cleanup and heartbeat only after all deliveries resolve. Only explicit
+  pre-SQL JWT clock rejection can retry; unknown push results cannot redeliver automatically.
+- Seven native reminder suites use fake REST and HTTPS push only: status/rollout guards, disabled
+  candidate cron, JS-equivalent messages/rows, completed-day skips, sent/gone receipts, failed
+  claim/finish, uncertain transport, explicit clock skew and ambiguous writes.
+- Fourteen Rust unit tests, fmt/strict Clippy, all five existing Python HTTP/JWT/backup fixture
+  cases pass. New HTTP tests never use an owner's data or real push providers. The shared Bun
+  image is still needed for production chat and final image fixtures until cutover succeeds.
+
 ### Native Drive Music sync (2026-10-19, Codex)
 - Implemented Party Play protocol 2 in native Rust, retaining account-bound HS256 JWTs,
   per-room serialization, SQLite `kv`, playback after restart (paused), device identity,
@@ -232,10 +253,16 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   Includes queue persistence, device replacement, stale reports, pending commands and
   lease expiry; no owner's party was joined. The legacy shim/state machine is now
   fixture-only under `services/tests/oracle`, excluded from production image builds.
-- Cutover pending: first validate the static Linux image in an isolated no-network
-  fixture and read-only candidate. Stop the old writer before taking a consistent
-  SQLite backup and starting native sync. Keep `apps_sync-data` and the shared Bun
-  image while chat still uses it. No other app or forecast restart is required.
+- Deployed source `fba835a` at 14:33 Bangkok: `apps-sync` is `7ce1c0bedf9f`,
+  started `2026-10-19T07:33:03.242449985Z`, image
+  `sha256:38e88cfa0de8fa58b31463fde5160f38e682dd0ed508157d7267f4933fdd146a`.
+  The actual static image passed all nine JS WebSocket tests in `--network none`;
+  its read-only candidate also passed. Healthy, no restart/OOM, all other containers unchanged.
+- SQLite integrity and the existing one `kv` row remained exact. Consistent backup:
+  `/opt/apps/backups/config/sync-before-rust-20261019.db` (0600).
+  Retained `apps_sync-data` and shared Bun image (chat still uses it). Trial removed;
+  no unused image/volume was eligible at this cutover. No owner's party joined,
+  forecast triggered or real notification sent.
 
 ### Native whiteboard rooms (2026-10-19, Codex)
 - Implemented native `rooms` with Yrs 0.24.0, Yjs v1 sync/awareness, per-socket cursor

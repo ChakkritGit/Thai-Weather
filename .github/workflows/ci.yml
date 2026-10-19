@@ -64,6 +64,8 @@ jobs:
           "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" install --frozen-lockfile
           APPS_RUST_ROOMS_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/rooms_contract.test.ts
           APPS_RUST_SYNC_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/sync_contract.test.ts
+          APPS_RUST_CHAT_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/chat_contract.test.ts
+          APPS_RUST_REMINDERS_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/reminders_contract.test.ts
 
   frontend:
     runs-on: ubuntu-latest

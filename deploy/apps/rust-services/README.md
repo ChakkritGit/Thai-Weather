@@ -81,8 +81,44 @@ volume. The old Bun collector does not honor the Rust writer lease: do not run
 both against the real volume. Check health, old bucket preservation, resumed log
 offsets, new live samples and Dock's charts/icon. Keep a concrete rollback image
 until these pass; restore only this service if necessary. App autodeploy must no
-longer restart the separate Rust collector when Drive Music's Bun image changes.
+longer restart native services when an app repo changes.
 
 Clean up exact unused images/volumes after checking **all** container references
 (including stopped containers) and current Compose declarations. Never delete a
 history/database/uploads/cache volume just because a disposable test is stopped.
+
+
+## Native app runtime
+
+`runtime/` is a separate Cargo package with nine roles: `health`, `media`,
+`analytics`, `dbgw`, `backup`, `rooms`, `sync`, `chat` and `reminders`.
+Together with `dock-metrics`, this replaces all ten standalone VPS Bun services.
+The five Next/Bun/Elysia web runtimes and Cloudflare status Worker keep their stacks.
+
+Build with `deploy/apps/build.sh rust` on the VPS. Only restart the changed role;
+`backup` additionally needs `build.sh backup` for its pinned tool image. Native
+services deploy from this repository, independently of app-repo autodeploy.
+
+Run `cargo +1.90.0 fmt --check`, strict Clippy, `test --locked`, `build --locked`,
+and the three Python contracts in `runtime/tests/`. The JavaScript contracts in
+`../services/tests/` cross-test native Yjs/Party Play, Dock reports/Web Push and
+reminder receipts. Set `APPS_RUST_{ROOMS,SYNC,CHAT,REMINDERS}_BIN` to the built binary.
+These tests use synthetic accounts, temporary SQLite and fake HTTP/TLS services.
+Web Push is decrypted and its VAPID signature verified by browser WebCrypto;
+Rust also checks the RFC 8291 Appendix A vector byte for byte.
+
+Candidates: `CHAT_READ_ONLY=true` also disables chat writes and schedules;
+`CHAT_JOBS_DISABLED=true` disables scheduled digest/report work.
+`REMINDERS_JOBS_DISABLED=true` disables both scheduled and manual cron execution,
+while authenticated status probes remain read-only. `REMINDERS_SCHEDULE_DISABLED=true`
+is manual-cron-only mode. `PUSH_OUTBOUND_DISABLED=true` refuses outbound push.
+Push HTTP clients reject redirects; optional `SSL_CERT_FILE` adds a private CA
+without turning off normal TLS certificate verification.
+
+Before a stateful switch, stop its previous writer and take a consistent SQLite
+backup. Keep the original named data volumes, VAPID keys and subscriptions.
+Reminder receipt claims must be committed before attempting a push; unknown
+transport results and lost finish acknowledgements remain unresolved and must
+never cause automatic redelivery. Only PostgREST's explicit pre-SQL JWT clock
+rejection is eligible for a replay. Test candidates must never run a real cron,
+post an owner's chat message, send a push or trigger a forecast.

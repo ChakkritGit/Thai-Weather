@@ -1,6 +1,6 @@
 #!/bin/sh
-# Build one app image (or the Bun services image) from the repos in $REPOS.
-#   ./build.sh portfolio|expenses|whiteboard|drive-music|services|reminders|backup
+# Build one Next app or the native Rust service images.
+#   ./build.sh portfolio|expenses|whiteboard|drive-music|rust|backup
 # Not `docker compose build`: Compose's bake path refuses to read the secret file without an extra grant.
 # The app's env file is mounted only during `next build` (NEXT_PUBLIC_* are inlined) and never lands in a layer.
 set -eu
@@ -9,15 +9,11 @@ REPOS=${REPOS:-/opt/apps/repos}
 ENVS=${ENVS:-/opt/apps/env}
 name=${1:?app name}
 case "$name" in
-  services)
-    docker buildx build --load -t apps-services:local services ;;
   rust)
     docker buildx build --load -t apps-rust:local rust-services/runtime ;;
   backup)
     docker buildx build --load -t apps-backup:local -f backup.Dockerfile \
       --build-context runtime=docker-image://apps-rust:local . ;;
-  reminders)
-    docker buildx build --load -t apps-reminders:local -f reminders.Dockerfile --build-context app="$REPOS/expenses" . ;;
   portfolio|expenses|whiteboard|drive-music)
     # `next build` pre-renders the ISR pages (portfolio: home, blog, projects, topics, sitemap, feed) and needs
     # the database for that, so the build runs on the host network with the internal names pointed at the

@@ -1,7 +1,6 @@
 #!/bin/sh
 # Auto-deploy on push: every 2 minutes (apps-autodeploy.timer) fetch each app repo's main branch and,
-# when it moved, rebuild that app's image and restart it. The Bun services image is rebuilt too when
-# drive-music changed (the sync service runs its room logic).
+# when it moved, rebuild that app's image and restart it. Native services are owned by this repository.
 # Log: journalctl -u apps-autodeploy   ·   by hand: /opt/thai-weather/deploy/apps/autodeploy.sh [--force <app>]
 set -eu
 cd "$(dirname "$0")"
@@ -22,7 +21,6 @@ deploy() { # <image to build> <compose services to restart...>
 
 force=${2:-}
 [ "${1:-}" = "--force" ] || force=""
-services_dirty=""
 for app in portfolio expenses whiteboard drive-music; do
   dir="$REPOS/$app"
   git -C "$dir" fetch -q origin main
@@ -38,14 +36,7 @@ for app in portfolio expenses whiteboard drive-music; do
     git -C "$dir" reset -q --hard "$old"
     continue
   fi
-  [ "$app" = drive-music ] && services_dirty=1
-  # the reminders service is built from the expenses repo too
-  if [ "$app" = expenses ]; then deploy reminders reminders || echo "!! reminders build failed"; fi
 done
-if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
-  deploy services chat
-  # dock-metrics is a separate Rust image; app changes must not restart it.
-fi
 # keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache
 docker image prune -f >/dev/null
 docker builder prune -f --keep-storage 3gb >/dev/null 2>&1 || true

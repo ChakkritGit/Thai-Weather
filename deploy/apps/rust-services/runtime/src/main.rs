@@ -1,11 +1,15 @@
 mod analytics;
 mod backup;
+mod chat;
+mod chat_report;
 mod checks;
 mod client;
 mod dbgw;
 mod health;
 mod media;
 mod playback;
+mod push;
+mod reminders;
 mod rooms;
 mod sync;
 mod util;
@@ -21,6 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "backup" => 8794,
         "rooms" => 8787,
         "sync" => 8788,
+        "chat" => 8795,
+        "reminders" => 8792,
         _ => return Err("unknown service".into()),
     };
     let port = util::env("PORT", &default_port.to_string()).parse()?;
@@ -42,6 +48,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "backup" => util::serve(port, backup::router()?).await,
         "rooms" => util::serve(port, rooms::router()).await,
         "sync" => util::serve(port, sync::router()?).await,
+        "chat" => {
+            util::serve(
+                port,
+                chat::router().map_err(|e| -> Box<dyn std::error::Error> { e })?,
+            )
+            .await
+        }
+        "reminders" => {
+            util::serve(
+                port,
+                reminders::router().map_err(|e| -> Box<dyn std::error::Error> { e })?,
+            )
+            .await
+        }
         _ => unreachable!(),
     }
 }

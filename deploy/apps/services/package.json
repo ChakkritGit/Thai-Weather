@@ -2,10 +2,8 @@
   "name": "apps-services",
   "private": true,
   "type": "module",
-  "description": "Bun + Elysia replacements for the Cloudflare Workers: whiteboard rooms, drive-music sync, status page",
+  "description": "Cloudflare status Worker and isolated JavaScript compatibility fixtures for native Rust services",
   "scripts": {
-    "rooms": "bun src/rooms.ts",
-    "status": "bun src/status.ts",
     "test": "bun test"
   },
   "dependencies": {

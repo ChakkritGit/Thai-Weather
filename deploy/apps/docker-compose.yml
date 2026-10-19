@@ -12,7 +12,7 @@
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
 # chmod 600) – neither is in git. Images are built by build.sh (autodeploy.sh calls it after a pull):
-#   ./build.sh portfolio && docker compose up -d portfolio      # or ./build.sh services
+#   ./build.sh portfolio && docker compose up -d portfolio      # or ./build.sh rust
 # ─────────────────────────────────────────────────────────────────────────────
 name: apps
 
@@ -30,17 +30,6 @@ x-next: &next
     retries: 3
     start_period: 60s
     start_interval: 2s   # a fresh container reports healthy within seconds, so a rollout can switch to it
-
-x-bun: &bun
-  image: apps-services:local
-  restart: unless-stopped
-  # Bun as PID 1 ignores SIGTERM: every restart waited 10 s for the kill (rooms/sync dropped longer on each deploy)
-  init: true
-  security_opt: ["no-new-privileges:true"]
-  cap_drop: [ALL]
-  read_only: true
-  pids_limit: 128
-  mem_limit: 192m
 
 x-rust: &rust
   image: apps-rust:local
@@ -284,11 +273,10 @@ services:
 
   # Spent-Cost's morning bill reminders and test pushes (was the push-reminders edge function + pg_cron).
   reminders:
-    image: apps-reminders:local
+    <<: *rust
+    command: ["reminders"]
     pull_policy: never
     container_name: apps-reminders
-    restart: unless-stopped
-    init: true
     env_file: ${ENVS:-/opt/apps/env}/reminders.env
     environment:
       PORT: "8792"
@@ -299,7 +287,7 @@ services:
     mem_limit: 192m
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8792/health"]
+      test: ["CMD", "/apps-runtime", "reminders", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -326,9 +314,9 @@ services:
   # plugged in through chat.env: Cloudflare Workers AI or any OpenAI-compatible server). Reads
   # dock-metrics on Dock's internal network, the other services on proxy.
   chat:
-    <<: *bun
+    <<: *rust
     container_name: apps-chat
-    command: ["bun", "src/chat.ts"]
+    command: ["chat"]
     pull_policy: never
     env_file:
       - path: ${ENVS:-/opt/apps/env}/chat.env
@@ -341,7 +329,7 @@ services:
       - chat-data:/data
     networks: [proxy, dock]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8795/health"]
+      test: ["CMD", "/apps-runtime", "chat", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3

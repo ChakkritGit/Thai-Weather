@@ -5,18 +5,18 @@
 | `portfolio` | Next.js (repo WebProfile) | chakkritton.com, www | Vercel `web-profile` |
 | `expenses` | Next.js (repo Spent-Cost) | expenses.chakkritton.com | Vercel `spent-cost` |
 | `whiteboard` | Next.js (repo Whiteboard) | whiteboard.chakkritton.com | Vercel `whiteboard` |
-| `rooms` | Bun + Elysia, Yjs relay | whiteboard.chakkritton.com/rooms/ | Worker `whiteboard-rooms` |
+| `rooms` | Rust/Yrs, Yjs relay | whiteboard.chakkritton.com/rooms/ | Worker `whiteboard-rooms` |
 | `drive-music` | Next.js (repo Drive-Music-Web) | drive-music.chakkritton.com | Vercel `drive-music` |
 | `sync` | Rust, Party Play protocol 2 (native state machine, SQLite storage) | drive-music.chakkritton.com/parties/ | Worker `drive-music-sync` |
-| `health` | Bun + Elysia: every container's Docker health (host snapshot every 30 s) + the internal checks, for the status Worker; relays its alerts to Dock | health.chakkritton.com (needs `x-probe-secret`) | – |
-| `analytics` | Bun + Elysia, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |
+| `health` | Rust: every container's Docker health (host snapshot every 30 s) + the internal checks, for the status Worker; relays its alerts to Dock | health.chakkritton.com (needs `x-probe-secret`) | – |
+| `analytics` | Rust, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |
 
 | `db` | Postgres 17 (`expenses`, `portfolio`) | internal only | Supabase databases |
-| `rest` + `dbgw` | PostgREST behind a Bun + Elysia gateway that checks Supabase Auth sessions | expenses.chakkritton.com/data/ | Supabase `/rest/v1` |
-| `reminders` | Bun + Elysia, Spent-Cost bill reminders (built from the expenses repo) | internal | Edge Function `push-reminders` + pg_cron |
-| `media` | Bun + Elysia, portfolio uploads | chakkritton.com/media/ | Supabase Storage bucket |
-| `backup` | Bun + Elysia, whole-server backup bundles | Dock → เพิ่มเติม → สำรองข้อมูล | – |
-| `chat` | Bun + Elysia: monthly server report (last evening of the month), commands, optional LLM, Web Push | Dock → เพิ่มเติม → แชท | – |
+| `rest` + `dbgw` | PostgREST behind a Rust gateway that checks Supabase Auth sessions | expenses.chakkritton.com/data/ | Supabase `/rest/v1` |
+| `reminders` | Rust, Spent-Cost bill reminders (daily delivery receipts, scheduled in Bangkok) | internal | Edge Function `push-reminders` + pg_cron |
+| `media` | Rust, portfolio uploads | chakkritton.com/media/ | Supabase Storage bucket |
+| `backup` | Rust + pinned native tools, whole-server backup bundles | Dock → เพิ่มเติม → สำรองข้อมูล | – |
+| `chat` | Rust: monthly server report (last evening of the month), commands, optional LLM, Web Push | Dock → เพิ่มเติม → แชท | – |
 
 Stays elsewhere: the AI worker `mr-worldwide` on Cloudflare (route `chakkritton.com/api/assistant*`,
 Workers AI), and **login for Spent-Cost on Supabase Auth** (project `yavhirzrepgpvvapohyz`, now auth only).
@@ -67,7 +67,7 @@ inlined there, and never lands in an image layer.
 
 The four Next standalone servers run on **Bun 1.4.2** (`--target bun`); the pinned Node build stage
 still compiles the apps. Elysia 1.4.30 handles app-owned APIs, alongside Next's existing auth and
-server actions. Whiteboard rooms, Party Play and reminders already use separate Bun + Elysia services.
+server actions. Whiteboard rooms, Party Play, reminders and the other standalone services run as native Rust.
 All Next containers use `init: true` to forward shutdown signals and poll `/api/healthz` every 30 s;
 that probe does not render a page, query data, refresh a session or send a notification.
 

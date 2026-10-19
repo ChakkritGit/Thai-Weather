@@ -615,18 +615,3 @@ export function createApp(db = open()) {
     })
 }
 
-if (import.meta.main) {
-  const db = open()
-  const tick = async () => {
-    try {
-      await collectDigests(db)
-      await maybePostReport(db)
-    } catch (err) {
-      console.error('chat: scheduled work failed', err)
-    }
-  }
-  setTimeout(tick, 10_000)
-  setInterval(tick, 5 * 60_000)
-  createApp(db).listen(PORT)
-  console.log(`chat on :${PORT}`)
-}
