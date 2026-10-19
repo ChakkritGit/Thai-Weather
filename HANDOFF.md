@@ -1,6 +1,6 @@
 # HANDOFF
 
-Updated 2026-10-18 (Bangkok) by Codex, for the next agent. Read this file and
+Updated 2026-10-19 (Bangkok) by Codex, for the next agent. Read this file and
 `AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
 `deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
@@ -175,7 +175,7 @@ integration cases and is not a complete backend check. Test sockets need local s
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
   investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. The other six ports
-  remain: dbgw, backup, sync, rooms, chat and reminders; dbgw is being implemented. Rust can provide
+  remain: dbgw, backup, sync, rooms, chat and reminders; dbgw passed native fixtures and a read-only VPS candidate; cutover is pending. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust

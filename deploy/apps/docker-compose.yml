@@ -266,9 +266,9 @@ services:
 
   # Checks Supabase Auth sessions, then hands requests to PostgREST / the reminders service.
   dbgw:
-    <<: *bun
+    <<: *rust
     container_name: apps-dbgw
-    command: ["bun", "src/dbgw.ts"]
+    command: ["dbgw"]
     pull_policy: never
     env_file: ${ENVS:-/opt/apps/env}/dbgw.env
     environment:
@@ -277,7 +277,7 @@ services:
       REMINDERS_URL: http://apps-reminders:8792
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8791/health"]
+      test: ["CMD", "/apps-runtime", "dbgw", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3

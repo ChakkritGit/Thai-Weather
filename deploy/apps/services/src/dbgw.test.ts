@@ -4,7 +4,7 @@ import { SignJWT, decodeJwt, exportJWK, generateKeyPair, createLocalJWKSet, jwtV
 process.env.SUPABASE_URL = 'https://ref.supabase.co'
 process.env.SUPABASE_ANON_KEY = 'anon-key-jwt'
 process.env.PGRST_JWT_SECRET = 'x'.repeat(48)
-const { identify, restToken } = await import('./dbgw')
+const { identify, restToken } = await import('../tests/oracle/dbgw')
 const secret = new TextEncoder().encode('x'.repeat(48))
 
 const { publicKey, privateKey } = await generateKeyPair('ES256')

@@ -132,8 +132,3 @@ async function forwardFunction(request: Request) {
   return new Response(res.body, { status: res.status, headers: { 'content-type': res.headers.get('content-type') ?? 'application/json' } })
 }
 
-if (import.meta.main) {
-  if (!SUPABASE_URL || !SECRET.length) console.warn('SUPABASE_URL / PGRST_JWT_SECRET missing: sessions cannot be checked')
-  createApp().listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`db gateway listening on :${PORT}`)
-}

@@ -21,6 +21,9 @@ sha2 = "=0.10.9"
 uuid = { version = "=1.18.1", features = ["v4"] }
 url = "=2.5.7"
 percent-encoding = "=2.3.2"
+reqwest = { version = "=0.12.23", default-features = false, features = ["rustls-tls", "json", "stream"] }
+jsonwebtoken = "=9.3.1"
+base64 = "=0.22.1"
 tokio-util = { version = "=0.7.19", features = ["io"] }
 
 [profile.release]

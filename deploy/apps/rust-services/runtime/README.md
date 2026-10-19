@@ -1,6 +1,6 @@
 # Native app services
 
-`apps-runtime health|media|analytics` runs one native service per container.
+`apps-runtime health|media|analytics|dbgw` runs one native service per container.
 The image has no JavaScript runtime. The five Next/Bun/Elysia web apps stay.
 The parent directory still builds the independent metrics collector.
 Original HTTP paths, environment names, volume paths, secrets and SQLite schemas
@@ -15,6 +15,7 @@ cargo +1.90.0 clippy --locked --all-targets -- -D warnings
 cargo +1.90.0 test --locked
 cargo +1.90.0 build --locked
 python3 tests/http_contract.py
+python3 tests/gateway_contract.py
 python3 ../../../../backend/scripts/audit_rust_lock.py --added-on 2026-10-18 --lock Cargo.lock
 ```
 
@@ -40,3 +41,10 @@ and a consistent SQLite backup, then stop and recreate only these services.
 Verify native process, health, data and public routes. Do not restart Weather
 API/verify/web. Remove only exact unused images and unreferenced volumes after
 checking all running and stopped containers.
+
+Database gateway candidates must set `DBGW_READ_ONLY=true`: only GET/HEAD are
+allowed and authenticated profile creation is skipped. JWT/first-user profile,
+RLS claim and write forwarding tests run against a disposable fake PostgREST and
+JWKS server with synthetic ES256 and HS256 keys. Never test writes with owner
+sessions. Production preserves the `apps-dbgw` name and restarts only this proxy.
+The five Next runtimes and Postgres/PostgREST are not restarted.
