@@ -12,16 +12,18 @@ import tempfile
 import threading
 import time
 import unittest
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import ClassVar
 
 ROOT = Path(__file__).resolve().parents[1]
 BIN = os.environ.get("APPS_RUST_TEST_BIN", str(ROOT / "target/debug/apps-runtime"))
+HOSTS = {}
 
 
 def request(port, path, method="GET", body=None, headers=None):
-    c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    c = http.client.HTTPConnection(HOSTS.get(port, "127.0.0.1"), port, timeout=5)
     if isinstance(body, (dict, list)):
         body = json.dumps(body).encode()
         headers = {"content-type": "application/json", **(headers or {})}
@@ -37,10 +39,80 @@ def value(r):
 
 
 @contextlib.contextmanager
+def container_running(service, port, env, image):
+    # Only disposable fixture data is mounted; the internal network has no egress.
+    root = str(Path(env["BUNDLE_DIR"]).parent)
+    name = "apps-rust-fixture-" + uuid.uuid4().hex
+    network = name + "-net"
+    subprocess.run(
+        ["docker", "network", "create", "--internal", network],
+        check=True,
+        capture_output=True,
+    )
+    try:
+        command = [
+            "docker",
+            "run",
+            "-d",
+            "--name",
+            name,
+            "--network",
+            network,
+            "--read-only",
+            "--cap-drop=ALL",
+            "--security-opt=no-new-privileges:true",
+            "--memory",
+            "192m",
+            "--pids-limit",
+            "128",
+            "-v",
+            root + ":" + root,
+        ]
+        for key, val in {**env, "PORT": str(port)}.items():
+            if key == "PATH":
+                val = (
+                    str(Path(root) / "bin")
+                    + ":/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                )
+            command.extend(["-e", key + "=" + val])
+        subprocess.run([*command, image, service], check=True, capture_output=True)
+        container = json.loads(subprocess.check_output(["docker", "inspect", name]))[0]
+        HOSTS[port] = container["NetworkSettings"]["Networks"][network]["IPAddress"]
+        for _ in range(150):
+            try:
+                if request(port, "/health")[0] == 200:
+                    break
+            except OSError:
+                time.sleep(0.02)
+        else:
+            raise AssertionError(
+                subprocess.check_output(
+                    ["docker", "logs", name], stderr=subprocess.STDOUT
+                ).decode()
+            )
+        subprocess.run(
+            ["docker", "exec", name, "/apps-runtime", service, "--healthcheck"],
+            check=True,
+            capture_output=True,
+        )
+        yield port
+    finally:
+        HOSTS.pop(port, None)
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)
+        subprocess.run(
+            ["docker", "network", "rm", network], capture_output=True, check=False
+        )
+
+
+@contextlib.contextmanager
 def running(service, **env):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
+    if image := os.environ.get("APPS_RUST_TEST_IMAGE"):
+        with container_running(service, port, env, image):
+            yield port
+        return
     with tempfile.TemporaryFile() as log:
         p = subprocess.Popen(
             [BIN, service],

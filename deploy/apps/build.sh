@@ -15,7 +15,8 @@ case "$name" in
   rust)
     docker buildx build --load -t apps-rust:local rust-services/runtime ;;
   backup)
-    docker buildx build --load -t apps-backup:local -f backup.Dockerfile . ;;
+    docker buildx build --load -t apps-backup:local -f backup.Dockerfile \
+      --build-context runtime=docker-image://apps-rust:local . ;;
   reminders)
     docker buildx build --load -t apps-reminders:local -f reminders.Dockerfile --build-context app="$REPOS/expenses" . ;;
   portfolio|expenses|whiteboard|drive-music)

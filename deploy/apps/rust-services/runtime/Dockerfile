@@ -3,14 +3,17 @@ WORKDIR /build
 ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-RUN RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --locked --target x86_64-unknown-linux-gnu \
+RUN --mount=type=cache,id=apps-rust-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=apps-rust-target,target=/build/target,sharing=locked \
+    RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --locked --target x86_64-unknown-linux-gnu \
     && test -z "$(readelf -l target/x86_64-unknown-linux-gnu/release/apps-runtime | sed -n '/INTERP/p')" \
-    && mkdir /empty-data
+    && mkdir /empty-data /out \
+    && cp target/x86_64-unknown-linux-gnu/release/apps-runtime /out/apps-runtime
 FROM scratch
 LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weather" \
       org.opencontainers.image.description="Native Rust internal app services" \
       com.chakkrit.stack="rust"
-COPY --from=build /build/target/x86_64-unknown-linux-gnu/release/apps-runtime /apps-runtime
+COPY --from=build /out/apps-runtime /apps-runtime
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build --chown=1000:1000 /empty-data /data
 USER 1000:1000

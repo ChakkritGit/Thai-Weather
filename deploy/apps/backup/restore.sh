@@ -29,7 +29,7 @@ say "Checking the bundle"
 
 if [ -z "${BUNDLE_PASS:-}" ]; then read -r -s -p "Passphrase: " BUNDLE_PASS; echo; fi
 export BUNDLE_PASS
-WORK=/root/restore-$(date +%Y%m%d-%H%M%S)
+WORK=$(mktemp -d "${TMPDIR:-/root}/restore-XXXXXXXX")
 mkdir -p "$WORK/payload" && chmod 700 "$WORK"
 # the decrypted copy holds every secret: removed whatever happens (success, error, wrong passphrase)
 trap 'rm -rf "$WORK"' EXIT

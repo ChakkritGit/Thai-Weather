@@ -54,6 +54,7 @@ jobs:
           cargo +1.90.0 build --locked
           python3 tests/http_contract.py
           python3 tests/gateway_contract.py
+          python3 tests/backup_contract.py
 
   frontend:
     runs-on: ubuntu-latest

@@ -44,7 +44,6 @@ for app in portfolio expenses whiteboard drive-music; do
 done
 if [ -n "$services_dirty" ] || [ "$force" = "services" ]; then
   deploy services rooms sync chat
-  deploy backup backup
   # dock-metrics is a separate Rust image; app changes must not restart it.
 fi
 # keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache

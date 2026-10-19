@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { includeVolume, gitHead } from './backup'
+import { includeVolume, gitHead } from '../tests/oracle/backup'
 
 test('which volumes go into a bundle', () => {
   for (const v of ['thai-weather_npm-data', 'thai-weather_npm-letsencrypt', 'thai-weather_portainer-data', 'thai-weather_thwx-data', 'apps_media-data', 'apps_sync-data']) expect(includeVolume(v)).toBe(true)

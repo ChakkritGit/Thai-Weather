@@ -1,4 +1,5 @@
 mod analytics;
+mod backup;
 mod checks;
 mod client;
 mod dbgw;
@@ -14,6 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "media" => 8793,
         "analytics" => 8790,
         "dbgw" => 8791,
+        "backup" => 8794,
         _ => return Err("unknown service".into()),
     };
     let port = util::env("PORT", &default_port.to_string()).parse()?;
@@ -32,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "media" => util::serve(port, media::router()).await,
         "analytics" => util::serve(port, analytics::router()?).await,
         "dbgw" => util::serve(port, dbgw::router()?).await,
+        "backup" => util::serve(port, backup::router()?).await,
         _ => unreachable!(),
     }
 }

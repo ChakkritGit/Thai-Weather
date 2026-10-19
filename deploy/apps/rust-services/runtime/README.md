@@ -1,6 +1,6 @@
 # Native app services
 
-`apps-runtime health|media|analytics|dbgw` runs one native service per container.
+`apps-runtime health|media|analytics|dbgw|backup` runs one native service per container.
 The image has no JavaScript runtime. The five Next/Bun/Elysia web apps stay.
 The parent directory still builds the independent metrics collector.
 Original HTTP paths, environment names, volume paths, secrets and SQLite schemas
@@ -16,6 +16,7 @@ cargo +1.90.0 test --locked
 cargo +1.90.0 build --locked
 python3 tests/http_contract.py
 python3 tests/gateway_contract.py
+python3 tests/backup_contract.py
 python3 ../../../../backend/scripts/audit_rust_lock.py --added-on 2026-10-18 --lock Cargo.lock
 ```
 
@@ -48,3 +49,15 @@ RLS claim and write forwarding tests run against a disposable fake PostgREST and
 JWKS server with synthetic ES256 and HS256 keys. Never test writes with owner
 sessions. Production preserves the `apps-dbgw` name and restarts only this proxy.
 The five Next runtimes and Postgres/PostgREST are not restarted.
+
+Backup uses the same native binary in a pinned Alpine 3.22.5 image with the
+existing pinned pg_dump 17.11, GNU tar 1.35, OpenSSL 3.5.9 and zip 3.0 toolset.
+Run `./build.sh rust && ./build.sh backup`. Every Alpine package is pinned;
+base digest and package build dates were checked against the 14-day rule.
+The restore format remains AES-256-CBC/PBKDF2-600000 inside the existing zip.
+The native integration suite builds/decrypts a temporary fixture bundle with a
+fake pg_dump; it checks nested volume archives, metadata, retention, links and
+range downloads. Production candidates require `BACKUP_JOBS_DISABLED=true`
+and read-only bundle mounts. Never start a production bundle as a test.
+Before cutover, require no active backup job and compare the existing bundle
+list/hashes. Retain all original mounts/capabilities and restart only backup.

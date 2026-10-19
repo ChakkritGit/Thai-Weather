@@ -218,7 +218,7 @@ services:
       - /opt/apps/backups/bundles:/bundles
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8794/health"]
+      test: ["CMD", "/apps-runtime", "backup", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3

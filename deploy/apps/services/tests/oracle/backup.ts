@@ -203,8 +203,3 @@ export function createApp() {
     })
 }
 
-if (import.meta.main) {
-  await mkdir(OUT, { recursive: true })
-  createApp().listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`backup listening on :${PORT}`)
-}

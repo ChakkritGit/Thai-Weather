@@ -59,9 +59,9 @@ Air4Thai readings on every request: inverse distance, fading ~75 km from station
 None of them use the Open-Meteo quota. Gusts and visibility are **estimates** derived from the run
 (`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
-`deploy/apps/services` (one Bun image, several containers): rooms (whiteboard), sync (Party Play),
-health, analytics (page views + Web Vitals for Dock), dbgw, media (portfolio uploads), chat (Dock chat,
-monthly report, web push), backup (Dock backups). `reminders` is built from the Spent-Cost repo.
+`deploy/apps/rust-services` runs native metrics, health, media, analytics and dbgw.
+The remaining Bun containers are rooms, sync, chat and backup (`deploy/apps/services`), plus
+reminders from the Spent-Cost repo. Backup is implemented in Rust but its cutover is pending.
 
 **Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
 run their standalone Next servers on **Bun 1.4.2**, with **Elysia 1.4.30** handling app-owned HTTP APIs.
@@ -174,8 +174,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. The other six ports
-  remain: dbgw, backup, sync, rooms, chat and reminders; dbgw passed native fixtures and a read-only VPS candidate; cutover is pending. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw is also deployed**. Five ports remain: backup, sync, rooms, chat and reminders.
+  Backup is now being implemented. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -222,6 +222,40 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 18)
+
+### Native backup implementation (2026-10-19, Codex)
+- `apps-runtime backup` implements the original routes, single-job gate, streamed/range downloads,
+  ten-minute links, retention, volume exclusions, git metadata and AES-256-CBC/PBKDF2-600000 zip
+  layout. Its image has no Bun or node_modules, uses pinned Alpine 3.22.5 plus the same pg_dump
+  17.11/OpenSSL 3.5.9/GNU tar 1.35/zip 3.0 tools. Twenty-six APK versions are explicit pins; the
+  base and all package build dates were checked against the 14-day rule.
+- Seven Rust unit tests, Clippy/fmt, all native HTTP regression suites, two legacy Bun backup
+  tests and a real create/decrypt/retention/download suite pass. The final Docker image also
+  passed the suite in an internal network with no egress, fake pg_dump and temporary data.
+  Its bundled real `restore.sh --check` passed on the VPS against that fixture, without
+  changing any owner data. Restore's workspace now uses mktemp; TMPDIR can confine checks.
+- The production candidate disables jobs, mounts only bundles read-only and compares existing
+  bundle metadata/hashes. Production cutover is pending. No real backup was triggered as a test.
+  Build `./build.sh rust && ./build.sh backup`; app-autodeploy no longer rebuilds this service
+  for unrelated Bun/Drive source changes. The old TS driver is retained only as a test oracle.
+
+### Native database gateway (2026-10-19, Codex)
+- Deployed source `0d504d2`: `apps-dbgw` is native Rust (`681eb9f16703`, started
+  `2026-10-19T01:03:50.719101433Z`), image
+  `sha256:b0cd64b01deac6a0927636c056b1613a2dc5ae67c0fadf7c2a661d5c87512930`.
+  Healthy, no restart/OOM. Every other container retained its ID/start time.
+- Synthetic ES256/JWKS and HS256 tests cover issuer/audience/expiry, wrong role/signature,
+  RLS session claims, short-lived re-signing, first-user profile creation against a fake
+  PostgREST, streamed writes, manual REST redirects and heartbeat function forwarding.
+  Six Rust unit tests, native HTTP suites and four original Bun JWT tests pass; all 179
+  locked dependencies passed age/yank auditing. The old TS implementation is test-only.
+- A read-only VPS candidate matched three existing GET responses byte-for-byte, two invalid
+  auth responses, and a signed local anon token. `DBGW_READ_ONLY=true` blocks writes and
+  profile creation in candidates. Production status/reminders heartbeat passes through the
+  native gateway, verifying the real service_role read path without sending notifications.
+- Removed its empty, unreferenced anonymous `/data` volume (`b6a7a2b8f1a7…`), candidate
+  container/tag and trial sources. The shared Bun image remains in use by the five ports
+  still pending. No database/schema/transport or Next runtime was changed.
 
 ### Native health, media and analytics (2026-10-18, Codex)
 - Implemented `deploy/apps/rust-services/runtime` with exact Rust 1.90.0/Axum 0.8.9,
