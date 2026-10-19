@@ -4,7 +4,7 @@
 #   portfolio    Next.js   chakkritton.com, www              (repo WebProfile)
 #   expenses     Next.js   expenses.chakkritton.com          (repo Spent-Cost)
 #   whiteboard   Next.js   whiteboard.chakkritton.com        (repo Whiteboard)
-#     rooms      Bun       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
+#     rooms      Rust       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
 #     sync       Bun       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
@@ -106,22 +106,22 @@ services:
 
   # Built once, used by the three Bun services below.
   rooms:
-    <<: *bun
+    <<: *rust
     container_name: apps-rooms
     pull_policy: never
-    command: ["bun", "src/rooms.ts"]
+    command: ["rooms"]
     environment:
       PORT: "8787"
       PATH_PREFIX: /rooms
     networks: [proxy, apps]
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8787/__health"]
+      test: ["CMD", "/apps-runtime", "rooms", "--healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
 
   sync:
-    <<: *bun
+    <<: *rust
     container_name: apps-sync
     command: ["bun", "src/sync.ts"]
     pull_policy: never

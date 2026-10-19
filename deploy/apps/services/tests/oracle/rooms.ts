@@ -146,7 +146,3 @@ export const app = new Elysia()
     },
   })
 
-if (import.meta.main) {
-  app.listen({ port: PORT, hostname: '0.0.0.0' })
-  console.log(`rooms listening on :${PORT}`)
-}

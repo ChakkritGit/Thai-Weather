@@ -60,8 +60,8 @@ None of them use the Open-Meteo quota. Gusts and visibility are **estimates** de
 (`backend/app/extras/estimates.py`), labelled as such in the UI, API and /developers.
 
 `deploy/apps/rust-services` runs native metrics, health, media, analytics and dbgw.
-The remaining Bun containers are rooms, sync, chat and backup (`deploy/apps/services`), plus
-reminders from the Spent-Cost repo. Backup is implemented in Rust but its cutover is pending.
+The remaining Bun containers are rooms, sync and chat (`deploy/apps/services`), plus
+reminders from the Spent-Cost repo. Native backup uses a separate pinned tools image.
 
 **Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
 run their standalone Next servers on **Bun 1.4.2**, with **Elysia 1.4.30** handling app-owned HTTP APIs.
@@ -81,7 +81,7 @@ existing WebSocket services retain their current behavior. See the rollout recor
     run is < 6 h old before `up -d --no-deps api`. See `backend/rust-api/README.md`. Only restart
     `verify` when its numerical/verification code changed; a runtime-only API change does not need it.
   - Bun services: pull, then `cd deploy/apps && ./build.sh services && docker compose up -d --no-deps <svc>`;
-    the `backup` image is FROM the services image: `./build.sh services && ./build.sh backup` together.
+    native `backup` is separate: `./build.sh rust && ./build.sh backup`; restart only backup.
   - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` with the build
     override, compare a read-only candidate first, then stop only metrics for its final history save
     before recreating it. Retain `thai-weather_dock-metrics`; no API/verify/web restart is needed.
@@ -174,8 +174,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
   Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
   `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw is also deployed**. Five ports remain: backup, sync, rooms, chat and reminders.
-  Backup is now being implemented. Rust can provide
+  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. Four ports remain: rooms, sync, chat and reminders.
+  Rooms is being implemented and tested with real JS Yjs clients. Rust can provide
   a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
   deferred.
 - **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
@@ -223,6 +223,17 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 18)
 
+### Native whiteboard rooms (2026-10-19, Codex)
+- Implemented native `rooms` with Yrs 0.24.0, Yjs v1 sync/awareness, per-socket cursor
+  ownership, 30-second awareness expiry, URL prefix aliases and dropping empty rooms.
+  Eight Rust unit tests, fmt/Clippy, four Bun oracle tests and three native JS interoperability
+  suites pass. The native image itself passed the JS suites in `--network none`, with only
+  synthetic documents: bidirectional strokes, late join, Unicode/rich text, binary map values,
+  cursor removal, isolated rooms, bad frames/names and offline browser state seeding.
+- All 238 locked registry dependencies passed age/yank checks (2026-10-19); CI pins Bun
+  1.4.2 with its official release checksum for protocol clients. No owner board was joined.
+  Production cutover is pending. The original TS relay is now only a fixture oracle.
+
 ### Native backup implementation (2026-10-19, Codex)
 - `apps-runtime backup` implements the original routes, single-job gate, streamed/range downloads,
   ten-minute links, retention, volume exclusions, git metadata and AES-256-CBC/PBKDF2-600000 zip
@@ -235,7 +246,14 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   Its bundled real `restore.sh --check` passed on the VPS against that fixture, without
   changing any owner data. Restore's workspace now uses mktemp; TMPDIR can confine checks.
 - The production candidate disables jobs, mounts only bundles read-only and compares existing
-  bundle metadata/hashes. Production cutover is pending. No real backup was triggered as a test.
+  bundle metadata/hashes. Cutover completed at 08:18 Bangkok: `apps-backup` is
+  `d49160d0d6e5`, started `2026-10-19T01:18:24.431516611Z`, image
+  `sha256:738d0a68c6e8d90186060dd7579fb6ff0d29d5fba2e3ca70da0a85ffa3619405`.
+  Healthy with no restart/OOM; every other container retained its ID/start time. The existing
+  128,727,949-byte bundle from 2026-10-17 retained its hash. Removed the unused old Bun backup
+  image `4fe85af09c33…`, its empty anonymous `/data` volume `c69fa86f732d…`, candidate tags
+  and trial files; no unreferenced volumes remain. The prepared `apps-rust:local` image is kept
+  for the next ports. No real backup was triggered as a test.
   Build `./build.sh rust && ./build.sh backup`; app-autodeploy no longer rebuilds this service
   for unrelated Bun/Drive source changes. The old TS driver is retained only as a test oracle.
 

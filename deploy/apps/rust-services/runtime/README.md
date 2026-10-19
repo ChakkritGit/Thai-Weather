@@ -1,6 +1,6 @@
 # Native app services
 
-`apps-runtime health|media|analytics|dbgw|backup` runs one native service per container.
+`apps-runtime health|media|analytics|dbgw|backup|rooms` runs one native service per container.
 The image has no JavaScript runtime. The five Next/Bun/Elysia web apps stay.
 The parent directory still builds the independent metrics collector.
 Original HTTP paths, environment names, volume paths, secrets and SQLite schemas
@@ -61,3 +61,18 @@ range downloads. Production candidates require `BACKUP_JOBS_DISABLED=true`
 and read-only bundle mounts. Never start a production bundle as a test.
 Before cutover, require no active backup job and compare the existing bundle
 list/hashes. Retain all original mounts/capabilities and restart only backup.
+
+Rooms uses Yrs 0.24.0 with Yjs v1 sync/awareness, per-socket cursor ownership,
+30-second awareness expiry, prefix aliases and ephemeral rooms. Interoperability
+uses official JavaScript Yjs clients over real WebSockets, with no BroadcastChannel:
+
+```
+cd ../../services
+APPS_RUST_ROOMS_BIN=/absolute/path/to/apps-runtime bun test tests/rooms_contract.test.ts
+```
+
+The suite covers bidirectional strokes, Unicode/rich text, binary map values,
+late joins, offline seeding, cursor withdrawal, isolated rooms and malformed
+frames/names. Production candidates must use an isolated network and synthetic
+room names; never join an owner's board. Keep the `apps-rooms` name and PATH_PREFIX,
+then restart only rooms. Browsers reconnect/resync their IndexedDB documents.

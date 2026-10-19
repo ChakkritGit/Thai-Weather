@@ -95,8 +95,8 @@ new writers together. Keep Dock's marks tied to actual deployed image labels.
 The first implementation, **dock-metrics**, was deployed on 2026-10-18 after
 fixture, live-history and isolated shadow checks. See `HANDOFF.md` for the image,
 backup, retained-history and browser verification record. Native **health, media and analytics** were also deployed and verified on 2026-10-18, after
-HTTP fixtures, read-only candidate comparisons and persistent-data checks. The native database gateway was also deployed and verified on 2026-10-19. Five standalone
-services remain: backup, sync, rooms, chat and reminders; backup is being implemented. Evaluate each
+HTTP fixtures, read-only candidate comparisons and persistent-data checks. The native database gateway was also deployed and verified on 2026-10-19. Native backup was deployed and verified on 2026-10-19 as well. Four standalone services
+remain: rooms, sync, chat and reminders; rooms is being implemented. Evaluate each
 persistent-data and protocol contract before switching. No new
 transport, DNS, Cloudflare setting, database schema or notification behavior is
 needed for this pilot.

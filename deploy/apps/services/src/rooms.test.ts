@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from 'bun:test'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
-import { app } from './rooms'
+import { app } from '../tests/oracle/rooms'
 
 const server = app.listen({ port: 0, hostname: '127.0.0.1' })
 const url = `ws://127.0.0.1:${server.server!.port}`
@@ -55,7 +55,7 @@ test('garbage bytes close only that socket', async () => {
 })
 
 test('a /rooms prefix is dropped when PATH_PREFIX is set', async () => {
-  const proc = Bun.spawn(['bun', 'src/rooms.ts'], { env: { ...process.env, PORT: '18787', PATH_PREFIX: '/rooms' }, stdout: 'pipe' })
+  const proc = Bun.spawn(['bun', 'tests/oracle/rooms-server.ts'], { env: { ...process.env, PORT: '18787', PATH_PREFIX: '/rooms' }, stdout: 'pipe' })
   await Bun.sleep(400)
   try {
     const a = new Y.Doc(), b = new Y.Doc()
