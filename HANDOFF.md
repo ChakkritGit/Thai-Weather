@@ -95,6 +95,10 @@ Python numerical worker and separate Python verification container retained. See
     **file** → `docker restart dock` after changing it (validate with a throwaway nginx first).
   - Status Worker: `cd deploy/status-worker && npx -y wrangler@4.144.0 deploy` (wrangler is logged in on the
     owner's Mac). New cron triggers take ~15 min to start firing.
+- **Use `umask 022` for the locked `git pull`.** Dock serves a bind-mounted
+  public directory: tracked static files must be 0644 and directories 0755.
+  A pull under `umask 077` creates 0600 replacements and nginx returns 403.
+  Apply 077 only to private backup/env creation, never the whole deploy shell.
 - One SSH connection per batch of commands: ufw allows **6 SSH connections per 30 s**; beyond that you get
   "Connection refused" for ~30–60 s. Don't poll SSH in tight loops.
 - Cloudflare cache: `cf cache invalidate --zone chakkritton.com --body '{"purge_everything":true}' --force`.
@@ -297,6 +301,11 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   existing signing secret (values were not printed). Public probes pass for
   Expenses login/health, Portfolio search, Whiteboard, Weather text and Dock;
   Drive's unauthenticated token route correctly returns 401.
+- Final static checks caught a deployment permissions error: pulling under 077
+  made replaced Dock assets unreadable to nginx. Repaired tracked public assets
+  to 0644/directories 0755 without a restart. Public and origin SHA-256 checks
+  now match for app.js/style.css/brands.js (all HTTP 200). The deploy rule above prevents it;
+  private env/backup files keep their restrictive permissions.
 - Cleanup checked all running/stopped container references: removed the replaced
   metrics image and stale rollback tags; old web images had already been pruned
   by the normal timer. No unreferenced volume remains. Current API/verify and
