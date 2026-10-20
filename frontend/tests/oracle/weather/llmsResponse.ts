@@ -1,4 +1,4 @@
-import { bangkokTime, machineData, textResponse } from "@/lib/machineText";
+import { bangkokTime, machineData, textResponse } from "./machineText";
 import { paths } from "@/lib/paths";
 
 

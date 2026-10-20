@@ -2,8 +2,8 @@
 
 The owner authorized replacing standalone Bun services on 2026-10-18. The first
 binary is `dock-metrics`: Axum HTTP, native host/cgroup/log readers, gzip history
-and the existing Dock JSON contract. Next/Bun/Elysia web runtimes stay unchanged;
-gRPC remains deferred. See `HANDOFF.md` for rollout status and
+and the existing Dock JSON contract. Next keeps Bun for SSR/auth/server actions;
+its former Elysia APIs now use native Rust. gRPC remains deferred. See `HANDOFF.md` for rollout status and
 `docs/RUST-SERVICES-REVIEW-2026-10-18.md` for the remaining service inventory.
 
 ## Build and test
@@ -106,10 +106,12 @@ history/database/uploads/cache volume just because a disposable test is stopped.
 
 ## Native app runtime
 
-`runtime/` is a separate Cargo package with nine roles: `health`, `media`,
-`analytics`, `dbgw`, `backup`, `rooms`, `sync`, `chat` and `reminders`.
+`runtime/` is a separate Cargo package with eleven roles: `health`, `media`,
+`analytics`, `dbgw`, `backup`, `rooms`, `sync`, `chat`, `reminders`,
+`portfolio-api` and `weather-web-api`.
 Together with `dock-metrics`, this replaces all ten standalone VPS Bun services.
-The five Next/Bun/Elysia web runtimes and Cloudflare status Worker keep their stacks.
+The five Next runtimes use Bun with native Rust APIs (see `runtime/README.md`).
+The Cloudflare status Worker retains its off-VPS stack.
 
 Build with `deploy/apps/build.sh rust` on the VPS. Only restart the changed role;
 `backup` additionally needs `build.sh backup` for its pinned tool image. Native

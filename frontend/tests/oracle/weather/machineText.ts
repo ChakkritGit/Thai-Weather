@@ -1,6 +1,6 @@
 /** Shared bits of the machine-readable routes: /feed.xml, /llms.txt, /llms-full.txt. */
-import type { AlertEntry, Meta, ProvinceWithDays } from "./api";
-import { fromApi, siteUrl } from "./server";
+import type { AlertEntry, Meta, ProvinceWithDays } from "@/lib/api";
+import { fromApi, siteUrl } from "@/lib/server";
 
 export const xml = (s: string) =>
   s

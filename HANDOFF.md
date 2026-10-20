@@ -31,7 +31,7 @@ Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
 
 | URL | What | Code | Runs on |
 |---|---|---|---|
-| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16 + Bun + Elysia), `backend/` (Rust HTTP + Python science/`verify/`) | VPS, stack `deploy/` |
+| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16 + Bun, native Rust web APIs), `backend/` (Rust HTTP + Python science/`verify/`) | VPS, stack `deploy/` |
 | chakkritton.com, www | Portfolio + blog, studio, Scrolly assistant | github.com/ChakkritGit/WebProfile | VPS, stack `deploy/apps` |
 | expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
 | whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
@@ -67,12 +67,14 @@ metrics, health, media, analytics, dbgw, backup, rooms, sync, chat and reminders
 Backup uses a separate pinned tools image. `deploy/apps/services` now holds only the
 Cloudflare status Worker and test oracles/JavaScript compatibility fixtures.
 
-**Next runtime migration (2026-10-17, Codex):** Portfolio, Spent/Cost, Whiteboard and Drive Music now
-run their standalone Next servers on **Bun 1.4.2**, with **Elysia 1.4.30** handling app-owned HTTP APIs.
-Thai Weather's web runs the same stack. Its API has run **Rust/Axum** since 2026-10-18, retaining one
-private Python numerical worker and the existing separate Python verification container.
-Builds still use pinned Node 24.21.0. Auth.js/NextAuth, Supabase Auth, Next server actions and the
-existing WebSocket services retain their current behavior. See the rollout record in §9.
+**Current Next stack (2026-10-20):** Portfolio, Spent/Cost, Whiteboard, Drive Music
+and Thai Weather keep **Next 16.3.8 on Bun 1.4.2** for SSR, sessions and server actions.
+Their formerly Elysia-owned APIs are native Rust: published Portfolio search/DB health,
+Spent/Cost dependency health, Drive token signing, Weather text/RSS; Whiteboard already
+uses native Rooms. No Elysia package remains in the new web images. Portfolio Studio
+mutations and SSR Prisma reads stay in Next. Builds retain pinned Node 24.21.0.
+Thai Weather's numerical HTTP API has run Rust/Axum since Oct 18, with the private
+Python numerical worker and separate Python verification container retained. See §9.
 
 ## 3. Deploying
 
@@ -174,16 +176,10 @@ integration cases and is not a complete backend check. Test sockets need local s
   in iPhone Safari (third-party cookies).
 
 ### Other follow-up work
-- **Standalone Bun → Rust migration authorized on 2026-10-18.** The scope is all ten
-  standalone Bun services after the current work, excluding the five Next/Bun/Elysia web runtimes.
-  Inventory, proposed order, protocol/data requirements and Next/Rust options are documented in
-  `docs/RUST-SERVICES-REVIEW-2026-10-18.md`. The owner approved implementation and paused CPU
-  investigation at 18:30 Bangkok. `dock-metrics` is deployed. Native Rust **health, media and analytics are deployed** and verified. **dbgw and backup are also deployed**. **All ten standalone ports are deployed and verified**, including rooms, sync, chat and reminders.
-  No standalone Bun container remains. Rust can provide
-  a separate backend for Next, as in Weather; Next server features still need Bun/Node. gRPC stays
-  deferred.
-- **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes. The Rust
-  HTTP API and all five Next/Bun/Elysia web runtimes are deployed (see §9).
+- **All ten standalone Bun → Rust ports are complete and deployed.** The five web
+  apps retain Next/Bun and now call native Rust for their formerly Elysia-owned APIs.
+  See §9 and `deploy/apps/rust-services/runtime/README.md` for boundaries/deploy order.
+- **gRPC is deferred** at the owner's request; use HTTP/2 when that separate work resumes.
 - Whiteboard has no skeleton (the board opens fast; fine as is).
 - Portfolio redirects `/` → `/en` for English browsers (~0.8 s on Lighthouse, which browses in en-US).
 - `restore.sh` has been exercised with `--check` and partial restores, never end-to-end on a fresh server.
@@ -225,7 +221,7 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 19)
+## 9. Recent changes (2026-10-14 → 20)
 
 ### Expenses auth and metrics memory (2026-10-20, Codex)
 - Spent/Cost `7d6b289` is deployed: callbacks/protected-route redirects use the
@@ -253,14 +249,62 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   hostname and no duplicate AAAA; SSL remains strict. No DNS, certificate or
   Cloudflare security changes were made.
 
-### Next + Rust implementation (2026-10-20, rollout pending)
-- The four app checkouts are under `/private/tmp/next-rust-migration`; their
-  thin adapters and Elysia dependency removal are validated but not yet pushed.
+### Next + Rust implementation (2026-10-20)
+- **All five Next adapters and native destinations are deployed and healthy.**
+  The four app checkouts are under `/private/tmp/next-rust-migration`; their
+  thin adapters and Elysia dependency removal are validated and pushed.
   Native additions: Portfolio published search/DB probe, Spent/Cost read-only
   health in dbgw, private Drive token signer in sync, Weather text/RSS role.
   Whiteboard already uses Rust Rooms. Deploy destinations before adapters.
 - Next/Bun still handles SSR, sessions, server actions and Portfolio Studio
   mutations; this is not a native Rust replacement for Next itself. gRPC stays deferred.
+- App commits: Portfolio `d7bb8cd`, Spent/Cost `480287c` (includes login fix
+  `7d6b289`), Whiteboard `8f29ce8`, Drive Music `f36ba79`; Weather runtime `d717725`.
+  Five production builds and rolling swaps completed. All run `bun server.js`,
+  all liveness GET/HEAD checks pass, and no image can resolve Elysia. Spent/Cost
+  dependency health is 200 and callback redirects stay canonical; anonymous Drive
+  token requests remain 401. Real OAuth sessions were mocked in tests, not exercised.
+- Dock recognizes `next-bun-rust` and retains the 20×20 px composite footprint:
+  Next on top, Bun/Rust below. Native destination rows have Rust icons and the
+  correct app groups. Desktop Safari fixture visual check passed; no physical
+  iPhone or signed-in production UI was tested in this rollout.
+- Runtime image is `e2d237238fa3c96da81c17b220150ba2cbee624b18e7b373abafb793b3078df5`.
+  Web rollout snapshot: `/opt/apps/backups/config/next-rust-web-20261020T115057Z`.
+  Current web container/image prefixes:
+
+  | App | Container | Image |
+  |---|---|---|
+  | Portfolio | `6fb774297de5` | `589a13d31abd` |
+  | Spent/Cost | `525c3ff8cc1e` | `86a5add0b5bf` |
+  | Whiteboard | `2b80e9bf1808` | `8c08a4a30e22` |
+  | Drive Music | `63dfb317ab1e` | `c44e62986d17` |
+  | Weather web | `1ccab7b538c0` | `bea199724d25` |
+
+- Root commit `d717725` passed all GitHub CI jobs. Real Postgres fixture verifies
+  SQL, translation fallback, published-only data, ordering and read-only sessions.
+  Public Portfolio search matches all three locales on real data; Weather text/RSS
+  matches every byte (including the 204 KB full text). Native destinations were
+  deployed before any adapter push; only dbgw/sync restarted, with SQLite backup
+  under `/opt/apps/backups/config/next-rust-20261020T114950Z`.
+- Validation: 18 native unit tests, 11 HTTP contracts and the disposable Postgres
+  SQL contract; Weather 89 tests including seven native golden cases; Portfolio
+  28, Spent/Cost 116 and Drive 357 unit tests, plus Whiteboard design/liveness
+  checks. Typechecks and all local/VPS production builds passed. Frozen machine
+  response functions/helpers live under `frontend/tests/oracle/weather` only.
+- Final checks: all **24 containers** run normally (every configured healthcheck
+  healthy), with memory/NanoCpus/CpuQuota all zero. All five Next image-cache
+  directories are writable by Bun; Drive web and native Sync share the same
+  existing signing secret (values were not printed). Public probes pass for
+  Expenses login/health, Portfolio search, Whiteboard, Weather text and Dock;
+  Drive's unauthenticated token route correctly returns 401.
+- Cleanup checked all running/stopped container references: removed the replaced
+  metrics image and stale rollback tags; old web images had already been pruned
+  by the normal timer. No unreferenced volume remains. Current API/verify and
+  still-in-use native/backup images, data and caches were retained. No extra
+  forecast, real login, chat post, push or email was triggered.
+- Final follow-up source changes only move unused machine-text helpers to the
+  test oracle and update docs; they require a locked pull, not another runtime
+  rebuild. Weather 89 tests and TypeScript passed after this move.
 - Root runtime lock has 266 pinned crates, audited non-yanked and at least
   fourteen days old on Oct 20. `runtime/README.md` documents contracts/checks.
 

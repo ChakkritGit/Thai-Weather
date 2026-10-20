@@ -5,7 +5,7 @@ import {
   machineData,
   textResponse,
   thaiDay,
-} from "@/lib/machineText";
+} from "./machineText";
 import { paths } from "@/lib/paths";
 import { thaiPlace } from "@/lib/seo";
 

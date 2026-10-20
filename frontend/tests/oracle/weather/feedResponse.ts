@@ -10,7 +10,7 @@ import {
   textResponse,
   thaiDay,
   xml,
-} from "@/lib/machineText";
+} from "./machineText";
 import { paths } from "@/lib/paths";
 import { thaiPlace } from "@/lib/seo";
 
