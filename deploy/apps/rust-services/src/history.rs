@@ -14,8 +14,16 @@ pub fn tier(name: &str) -> Option<(i64, usize)> {
 }
 impl Tiered {
     pub fn add(&mut self, ts: f64, values: &Values) {
-        for (name, step, _) in TIERS {
+        self.add_retained(ts, values, ts);
+    }
+    pub fn add_retained(&mut self, ts: f64, values: &Values, now: f64) {
+        for (name, step, count) in TIERS {
             let start = (ts / step as f64).floor() as i64 * step;
+            // Log backfill spans seven days, but short tiers must never grow to
+            // that whole span before their first normal sampling/prune cycle.
+            if (start as f64) < now - step as f64 * count as f64 {
+                continue;
+            }
             let bucket = self
                 .0
                 .entry(name.into())
@@ -98,5 +106,21 @@ mod tests {
         assert_eq!(restored.series("1h", 30.), h.series("1h", 30.));
         h.prune(4000.);
         assert!(h.0["1h"].is_empty());
+    }
+    #[test]
+    fn backfill_allocates_only_buckets_inside_each_tiers_retention() {
+        let mut h = Tiered::default();
+        let now = 7. * 86400.;
+        let values = Values::from([("ng:all:s2".into(), 1.)]);
+        for ts in (0..=now as i64).step_by(10) {
+            h.add_retained(ts as f64, &values, now);
+        }
+        for (name, step, count) in TIERS {
+            assert_eq!(h.0[name].len(), count + 1);
+            assert_eq!(
+                h.0[name].first_key_value().unwrap().0,
+                &(now as i64 - step * count as i64)
+            );
+        }
     }
 }

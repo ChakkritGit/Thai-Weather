@@ -168,7 +168,7 @@ impl LogTail {
         } else {
             "s0".into()
         };
-        hist.add(
+        hist.add_retained(
             ts as f64,
             &Values::from([
                 (format!("ng:{host}:req"), 1.),
@@ -176,6 +176,7 @@ impl LogTail {
                 (format!("ng:{host}:bytes"), bytes as f64),
                 (format!("ng:all:{class}"), 1.),
             ]),
+            now,
         );
         let hour = ts.div_euclid(3600) * 3600;
         if !asset(path) {

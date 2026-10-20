@@ -5,11 +5,11 @@ use crate::{
 };
 use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{Read, Write},
+    io::{BufReader, BufWriter, Read, Write},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -19,16 +19,35 @@ pub fn now() -> f64 {
         .unwrap_or_default()
         .as_secs_f64()
 }
-pub fn gzip(bytes: &[u8]) -> std::io::Result<Vec<u8>> {
-    let mut out = GzEncoder::new(Vec::new(), Compression::default());
-    out.write_all(bytes)?;
-    out.finish()
+fn write_gzip<W: Write, T: Serialize>(writer: W, value: &T) -> std::io::Result<W> {
+    // Batch serde's small token writes before compression while keeping memory fixed.
+    let mut buffered =
+        BufWriter::with_capacity(64 * 1024, GzEncoder::new(writer, Compression::default()));
+    serde_json::to_writer(&mut buffered, value)?;
+    buffered.into_inner().map_err(|e| e.into_error())?.finish()
 }
 #[derive(Serialize, Deserialize)]
 struct Saved {
     hist: Tiered,
     #[serde(default)]
     logpos: Positions,
+}
+#[derive(Serialize)]
+struct SavedRef<'a> {
+    hist: &'a Tiered,
+    logpos: &'a Positions,
+}
+#[derive(Serialize)]
+struct Payload<'a> {
+    range: &'a str,
+    step: i64,
+    times: Vec<i64>,
+    host: Columns,
+    containers: BTreeMap<String, Columns>,
+    nginx: BTreeMap<String, Columns>,
+    snapshot: Value,
+    top: Value,
+    collector_uptime_s: f64,
 }
 struct Sample {
     t: f64,
@@ -54,18 +73,19 @@ impl Collector {
             prev: None,
         };
         let saved = File::open(out.paths.data.join("history.json.gz")).and_then(|f| {
-            let mut bytes = Vec::new();
-            GzDecoder::new(f)
-                .take(128 * 1024 * 1024 + 1)
-                .read_to_end(&mut bytes)?;
-            if bytes.len() > 128 * 1024 * 1024 {
+            // Decode directly into the retained buckets, without a second full JSON buffer.
+            let mut reader = BufReader::new(GzDecoder::new(f).take(128 * 1024 * 1024 + 1));
+            let saved =
+                serde_json::from_reader::<_, Saved>(&mut reader).map_err(std::io::Error::other)?;
+            if reader.get_ref().limit() == 0 {
                 return Err(std::io::Error::other("history exceeds limit"));
             }
-            serde_json::from_slice::<Saved>(&bytes).map_err(std::io::Error::other)
+            Ok(saved)
         });
         match saved {
             Ok(saved) => {
                 out.hist = saved.hist;
+                out.hist.prune(now);
                 out.logs.pos = saved.logpos;
                 eprintln!("loaded saved history");
             }
@@ -83,10 +103,18 @@ impl Collector {
     }
     pub fn save(&self) -> std::io::Result<()> {
         fs::create_dir_all(&self.paths.data)?;
-        let bytes = serde_json::to_vec(&json!({"hist":self.hist,"logpos":self.logs.pos}))?;
         let tmp = self.paths.data.join("history.json.gz.tmp");
-        let mut file = File::create(&tmp)?;
-        file.write_all(&gzip(&bytes)?)?;
+        // Borrow the history and stream through gzip: a Value tree plus raw JSON can
+        // otherwise exceed the collector's entire resident history several times over.
+        let mut writer = write_gzip(
+            BufWriter::new(File::create(&tmp)?),
+            &SavedRef {
+                hist: &self.hist,
+                logpos: &self.logs.pos,
+            },
+        )?;
+        writer.flush()?;
+        let file = writer.into_inner().map_err(|e| e.into_error())?;
         file.sync_all()?;
         fs::rename(tmp, self.paths.data.join("history.json.gz"))?;
         File::open(&self.paths.data)?.sync_all()?;
@@ -155,7 +183,10 @@ impl Collector {
         self.hist.prune(now);
         Ok(())
     }
-    pub fn payload(&self, range: &str, now: f64) -> std::io::Result<Value> {
+    pub fn gzip_payload(&self, range: &str, now: f64) -> std::io::Result<Vec<u8>> {
+        write_gzip(Vec::new(), &self.payload(range, now)?)
+    }
+    fn payload<'a>(&self, range: &'a str, now: f64) -> std::io::Result<Payload<'a>> {
         let (step, count) = tier(range).ok_or_else(|| std::io::Error::other("bad range"))?;
         let (times, cols) = self.hist.series(range, now);
         let mut host = Columns::new();
@@ -178,15 +209,24 @@ impl Collector {
                 host.insert(key, col);
             }
         }
-        Ok(
-            json!({"range":range,"step":step,"times":times,"host":host,"containers":containers,"nginx":nginx,"snapshot":host::snapshot(&self.paths)?,"top":self.logs.top(now-step as f64*count as f64),"collector_uptime_s":(now-self.started).floor()}),
-        )
+        Ok(Payload {
+            range,
+            step,
+            times,
+            host,
+            containers,
+            nginx,
+            snapshot: host::snapshot(&self.paths)?,
+            top: self.logs.top(now - step as f64 * count as f64),
+            collector_uptime_s: (now - self.started).floor(),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::path::PathBuf;
     fn fixture() -> Value {
         serde_json::from_str(include_str!("../tests/fixtures/bun-contract.json")).unwrap()
@@ -235,6 +275,48 @@ mod tests {
             );
         }
         equal_json(&logs.top(f["now"].as_f64().unwrap() - 86400.), &f["top"]);
+    }
+    #[test]
+    fn streamed_payload_preserves_columns_and_gzip_contract() {
+        let f = fixture();
+        let dir = Temp::new();
+        fs::write(dir.0.join("hostname"), "fixture-host\n").unwrap();
+        let mut c = Collector::load(paths(&dir), f["now"].as_f64().unwrap());
+        c.hist = serde_json::from_value(f["hist"].clone()).unwrap();
+        for (range, _, _) in crate::history::TIERS {
+            let bytes = c.gzip_payload(range, c.started).unwrap();
+            let actual: Value = serde_json::from_reader(GzDecoder::new(&bytes[..])).unwrap();
+            assert_eq!(actual["range"], range);
+            let mut columns = BTreeMap::new();
+            for (key, values) in actual["host"].as_object().unwrap() {
+                columns.insert(key.clone(), values);
+            }
+            for (section, prefix) in [("containers", "c"), ("nginx", "ng")] {
+                for (name, fields) in actual[section].as_object().unwrap() {
+                    for (field, values) in fields.as_object().unwrap() {
+                        columns.insert(format!("{prefix}:{name}:{field}"), values);
+                    }
+                }
+            }
+            let compact: BTreeMap<_, _> = columns
+                .into_iter()
+                .map(|(key, values)| {
+                    let values: Vec<_> = values
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, value)| !value.is_null())
+                        .map(|(i, value)| json!([i, value]))
+                        .collect();
+                    (key, values)
+                })
+                .collect();
+            equal_json(
+                &serde_json::to_value(compact).unwrap(),
+                &f["series"][range]["cols"],
+            );
+        }
     }
     #[test]
     fn host_and_cgroup_rates_match_legacy_units_and_exclude_virtual_traffic() {

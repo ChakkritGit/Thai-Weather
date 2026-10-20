@@ -21,6 +21,7 @@ cargo +1.90.0 clippy --locked --all-targets -- -D warnings
 cargo +1.90.0 test --locked
 cargo +1.90.0 build --locked
 python3 tests/http_contract.py
+python3 tests/memory_regression.py
 python3 ../../../backend/scripts/audit_rust_lock.py --added-on YYYY-MM-DD --lock Cargo.lock
 ```
 
@@ -58,6 +59,21 @@ migration. Top paths and hashed-client sets remain memory-only, as before, and
 restart from new log lines after a saved-history load. Log contents/client IPs
 are never persisted in the history file. A nonblocking `collector.lock` lease
 prevents two Rust writers from owning one data directory.
+
+History load decodes gzip directly into buckets; saves borrow the retained history
+and stream JSON through a fixed 64 KiB buffer into gzip and an atomic file rename.
+Metrics responses serialize typed columns directly into gzip, with one active
+serializer and asynchronous waiting requests, so concurrent requests cannot retain
+multiple JSON trees/raw JSON buffers. Log backfill applies each tier's retention
+before allocating buckets. The JSON/gzip contract and persisted format are unchanged.
+
+`tests/memory_regression.py` uses synthetic history with all 2,808 retained buckets,
+206 columns (24 containers and ten nginx hosts), 16 concurrent requests, normal
+sampling and shutdown save. It samples the child process RSS with `ps` on macOS
+or Linux and defaults to a 128 MiB regression budget; this is a test threshold,
+not a runtime limit. Use `--binary PATH`, `--requests N`, or `--max-rss-mib N`
+to compare candidates. It requires localhost socket permission, accesses no real
+logs/host metrics, and does not notify anyone or request a forecast.
 
 For a candidate set **`METRICS_SERVE_ONLY=true`**, mount copied history **read-only**
 and use no public routing/network. This mode performs no periodic sampling,

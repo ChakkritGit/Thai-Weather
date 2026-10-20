@@ -10,7 +10,7 @@ use axum::{
     http::{Response, StatusCode},
     routing::get,
 };
-use collector::{Collector, gzip, now};
+use collector::{Collector, now};
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Write},
@@ -22,6 +22,7 @@ use std::{
 #[derive(Clone)]
 struct App {
     collector: Arc<Mutex<Collector>>,
+    serializers: Arc<tokio::sync::Semaphore>,
     fixed: Option<f64>,
 }
 async fn not_found() -> Response<Body> {
@@ -42,14 +43,21 @@ async fn metrics(State(app): State<App>, RawQuery(query): RawQuery) -> Response<
             .body(Body::from("bad range"))
             .unwrap();
     }
+    // Queue asynchronously before starting a blocking worker. The mutex alone
+    // permits many worker threads and detached payloads to accumulate under load.
+    let Ok(permit) = app.serializers.clone().acquire_owned().await else {
+        return Response::builder()
+            .status(StatusCode::SERVICE_UNAVAILABLE)
+            .body(Body::from("metrics unavailable"))
+            .unwrap();
+    };
     let result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
-        let payload = app
-            .collector
+        let _permit = permit;
+        app.collector
             .lock()
             .map_err(|_| "collector unavailable")?
-            .payload(&range, app.fixed.unwrap_or_else(now))
-            .map_err(|e| e.to_string())?;
-        gzip(&serde_json::to_vec(&payload).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+            .gzip_payload(&range, app.fixed.unwrap_or_else(now))
+            .map_err(|e| e.to_string())
     })
     .await;
     match result {
@@ -119,6 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             paths,
             fixed.unwrap_or_else(now),
         ))),
+        serializers: Arc::new(tokio::sync::Semaphore::new(1)),
         fixed,
     };
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port()?)).await?;
