@@ -54,6 +54,7 @@ jobs:
           cargo +1.90.0 build --locked
           python3 tests/http_contract.py
           python3 tests/gateway_contract.py
+          python3 tests/web_api_contract.py
           python3 tests/backup_contract.py
       - name: Native WebSockets with pinned JavaScript clients
         working-directory: deploy/apps/services
@@ -66,6 +67,14 @@ jobs:
           APPS_RUST_SYNC_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/sync_contract.test.ts
           APPS_RUST_CHAT_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/chat_contract.test.ts
           APPS_RUST_REMINDERS_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" "$RUNNER_TEMP/native-bun/bun-linux-x64/bun" test tests/reminders_contract.test.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Native Weather text and RSS golden parity
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          APPS_RUST_TEST_BIN="$GITHUB_WORKSPACE/deploy/apps/rust-services/runtime/target/debug/apps-runtime" npx vitest run src/lib/weather-native.test.ts
 
   frontend:
     runs-on: ubuntu-latest

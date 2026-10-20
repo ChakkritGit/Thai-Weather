@@ -637,6 +637,53 @@ async fn health(State(hub): State<Arc<Hub>>) -> Response {
     );
     r
 }
+// Only the session-verifying Next server may request a Party Play token. Never trust browser account input.
+async fn issue_token(
+    State(hub): State<Arc<Hub>>,
+    headers: axum::http::HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    if hub.secret.is_empty() || hub.readonly {
+        return util::json(503, json!({"error":"Sync is not configured"}));
+    }
+    if !util::secret(
+        headers
+            .get("x-sync-secret")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or(""),
+        &hub.secret,
+    ) {
+        return util::json(403, json!({"error":"Forbidden"}));
+    }
+    let v = serde_json::from_slice::<Value>(&body).unwrap_or(Value::Null);
+    let Some(account) = v["account"]
+        .as_str()
+        .filter(|s| !s.is_empty() && s.encode_utf16().count() <= 4096)
+    else {
+        return util::json(400, json!({"error":"Invalid account"}));
+    };
+    use sha2::{Digest, Sha256};
+    let room_id = format!(
+        "{:x}",
+        Sha256::digest(account.trim().to_lowercase().as_bytes())
+    );
+    let now = millis() / 1000;
+    let header = jsonwebtoken::Header {
+        typ: None,
+        ..jsonwebtoken::Header::new(Algorithm::HS256)
+    };
+    let Ok(token) = jsonwebtoken::encode(
+        &header,
+        &json!({"sub":room_id,"iat":now,"exp":now+300}),
+        &jsonwebtoken::EncodingKey::from_secret(hub.secret.as_bytes()),
+    ) else {
+        return util::json(500, json!({"error":"Internal server error"}));
+    };
+    let mut r = util::json(200, json!({"token":token,"roomId":room_id}));
+    r.headers_mut()
+        .insert("cache-control", "private, no-store".parse().unwrap());
+    r
+}
 pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
     let readonly = util::env("SYNC_READ_ONLY", "") == "true";
     let path = util::env("SYNC_DB", "/data/sync.db");
@@ -693,6 +740,7 @@ pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
         }
     });
     Ok(Router::new()
+        .route("/internal/token", axum::routing::post(issue_token))
         .route("/health", get(health))
         .route("/health/", get(health))
         .fallback(upgrade)

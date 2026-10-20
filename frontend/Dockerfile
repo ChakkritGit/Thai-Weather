@@ -12,7 +12,7 @@ RUN npm run build
 FROM oven/bun:1.4.2-alpine
 LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weather" \
       org.opencontainers.image.description="Thai Weather HD – Next.js web app" \
-      com.chakkrit.stack="next-bun-elysia"
+      com.chakkrit.stack="next-bun-rust"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./

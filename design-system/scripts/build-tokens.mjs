@@ -158,6 +158,7 @@ const copies = {
   [join(REPO, 'frontend/src/design/generated/tokens.css')]: css,
   [join(REPO, 'frontend/src/design/generated/tokens.ts')]: ts,
   [join(REPO, 'backend/app/data/weather_scales.json')]: outputs['dist/weather-scales.json'],
+  [join(REPO, 'deploy/apps/rust-services/runtime/assets/weather-scales.json')]: outputs['dist/weather-scales.json'],
 };
 
 let stale = [];

@@ -1,0 +1,19 @@
+# ฟ้าละเอียด · Thai Weather HD — full text
+
+> 2.2 km weather forecasts for Thailand. Site: @THWX_0@. API docs: @THWX_1@@THWX_2@. Not an official TMD warning service; for official warnings see the Thai Meteorological Department (tmd.go.th).
+@THWX_3@
+
+## Method
+
+1. Global model fields (GFS, ECMWF IFS, ICON via Open-Meteo, ~25–28 km) are interpolated to a 2.2 km grid (@THWX_4@ points).
+2. Temperature is corrected for the real terrain height (lapse rate), cold-air pooling in valleys, sea/land contrast and Bangkok's urban heat island.
+3. Rain uses a @THWX_5@-member stochastic ensemble of convective cells, so it is given as chance of rain and % of area rather than a single deterministic field.
+4. Live station reports (METAR) correct the first hours; a temperature bias learned per station and hour of day from the last 30 days is subtracted from every hour.
+5. Chance of rain is recalibrated daily against the rain stations report.
+6. Verified every 15 minutes against independent hold-out stations; temperature is off by about 1.5 °C on average.
+
+Limitations: it cannot create storms the global model lacks; exact positions of convective cells are uncertain; mountain stations are scarce.
+
+## Alert thresholds
+
+Severity: 1 = yellow (watch), 2 = orange (warning), 3 = red (danger). Province alerts use province-wide statistics (thunderstorms, rain and wind need ~5 % of the province, not one cell).

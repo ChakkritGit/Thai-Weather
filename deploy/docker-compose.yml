@@ -162,6 +162,7 @@ services:
     environment:
       SITE_URL: ${SITE_URL:-https://thai-weather.chakkritton.com}
       THWX_API_URL: http://api:8000
+      THWX_WEB_API_URL: http://weather-web-api:8801
     depends_on:
       - api
     healthcheck:
@@ -175,6 +176,28 @@ services:
       internal: {}
       proxy:
         aliases: [thai-weather-web]
+
+  # Native formatting of the public machine-readable forecasts; reads the existing API only.
+  weather-web-api:
+    image: apps-rust:local
+    pull_policy: never
+    command: ["weather-web-api"]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    environment:
+      PORT: "8801"
+      SITE_URL: ${SITE_URL:-https://thai-weather.chakkritton.com}
+      THWX_API_URL: http://api:8000
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "/apps-runtime", "weather-web-api", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 networks:
   proxy:

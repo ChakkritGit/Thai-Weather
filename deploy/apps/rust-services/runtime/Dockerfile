@@ -3,6 +3,7 @@ WORKDIR /build
 ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY assets ./assets
 RUN --mount=type=cache,id=apps-rust-registry,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=apps-rust-target,target=/build/target,sharing=locked \
     RUSTFLAGS="-C target-feature=+crt-static" cargo build --release --locked --target x86_64-unknown-linux-gnu \

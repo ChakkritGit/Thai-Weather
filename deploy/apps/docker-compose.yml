@@ -67,6 +67,22 @@ services:
     volumes:
       - expenses-cache:/app/.next/cache
 
+  # Published Portfolio search and its read-only database probe; Next retains SSR and Studio auth.
+  portfolio-api:
+    <<: *rust
+    container_name: apps-portfolio-api
+    pull_policy: never
+    command: ["portfolio-api"]
+    env_file: ${ENVS:-/opt/apps/env}/portfolio-api.env
+    environment:
+      PORT: "8800"
+    networks: [apps]
+    healthcheck:
+      test: ["CMD", "/apps-runtime", "portfolio-api", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   whiteboard:
     <<: *next
     image: apps-whiteboard:local

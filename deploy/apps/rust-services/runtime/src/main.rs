@@ -8,11 +8,13 @@ mod dbgw;
 mod health;
 mod media;
 mod playback;
+mod portfolio_api;
 mod push;
 mod reminders;
 mod rooms;
 mod sync;
 mod util;
+mod weather_web;
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,6 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "sync" => 8788,
         "chat" => 8795,
         "reminders" => 8792,
+        "portfolio-api" => 8800,
+        "weather-web-api" => 8801,
         _ => return Err("unknown service".into()),
     };
     let port = util::env("PORT", &default_port.to_string()).parse()?;
@@ -62,6 +66,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .await
         }
+        "portfolio-api" => util::serve(port, portfolio_api::router()).await,
+        "weather-web-api" => util::serve(port, weather_web::router()).await,
         _ => unreachable!(),
     }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>ฟ้าละเอียด · แจ้งเตือนสภาพอากาศรายจังหวัด</title>
+    <link>@THWX_0@@THWX_1@</link>
+    <atom:link href="@THWX_2@/feed.xml@THWX_3@" rel="self" type="application/rss+xml" />
+    <description>การแจ้งเตือนฝนหนัก พายุ ลมแรง ความร้อน และอากาศหนาวรายจังหวัด จากพยากรณ์ความละเอียด 2.2 กม. อัปเดตทุก 6 ชั่วโมง (ไม่ใช่ประกาศทางการของกรมอุตุนิยมวิทยา)</description>
+    <language>th</language>
+    <lastBuildDate>@THWX_4@</lastBuildDate>
+    <ttl>60</ttl>
+    <image><url>@THWX_5@/app-icons/icon-192.png</url><title>ฟ้าละเอียด</title><link>@THWX_6@@THWX_7@</link></image>
+@THWX_8@
+  </channel>
+</rss>

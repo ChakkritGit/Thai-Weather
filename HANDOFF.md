@@ -1,6 +1,6 @@
 # HANDOFF
 
-Updated 2026-10-19 (Bangkok) by Codex, for the next agent. Read this file and
+Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
 `AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
 `deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
@@ -17,6 +17,9 @@ Updated 2026-10-19 (Bangkok) by Codex, for the next agent. Read this file and
   **Rust weather HTTP API** on 2026-10-17; the numerical forecast/verification engine stays Python.
   On 2026-10-18 the owner also authorized migrating the ten standalone Bun services to Rust,
   starting with `dock-metrics`; the five Next/Bun/Elysia web runtimes stay.
+  On 2026-10-19 the owner approved option 1 for **Next + Rust**: keep Next on
+  Bun for SSR/auth/server actions and replace the Elysia APIs with native Rust.
+  This newer explicit direction takes precedence over the Bun/Elysia default.
   **Defer gRPC**, using HTTP/2 when that separate work is resumed.
 - Dependency and image versions: **exact pins, at least 14 days old** at the time you add them.
 - The owner tests on an **iPhone** (Safari + home-screen PWA). Check phone layouts, safe areas and iOS
@@ -223,6 +226,43 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 19)
+
+### Expenses auth and metrics memory (2026-10-20, Codex)
+- Spent/Cost `7d6b289` is deployed: callbacks/protected-route redirects use the
+  canonical public HTTPS origin rather than Next's `0.0.0.0:3000` bind address.
+  Safe `next` paths remain supported; Host/forwarded-header spoofing and a
+  second-resolution `//` redirect are rejected. Auth-only isolated build,
+  TypeScript, lint and 114 mocked tests passed. Public callback GET without an
+  auth code returns the correct same-site Location; no real login was attempted.
+- Metrics `2fff7c4` is deployed and healthy. Streaming JSON/gzip and serialized
+  requests reduce synthetic peak memory from 273 to 91.4 MiB (206 columns,
+  2,808 retained buckets, 16 concurrent requests, Mac debug). Backfill and startup
+  prune short tiers before allocating expired data. Ten unit tests, three HTTP
+  tests, strict Clippy and the memory regression pass.
+- Candidate 1h/24h/7d histories matched (startup pruning can remove expired
+  counter keys whose entire visible series is zero). Final continuity checked
+  413,499 saved values; all 21 other containers were unchanged. New metrics
+  image `6cfd27d97e4e7c0a3abf373c42f5627f44b95fe803a8c448158cbffdc44e1fd5`.
+  Rollout backup: `/opt/apps/backups/config/metrics-memory-20261020T114225Z`.
+- All containers have memory=0, NanoCpus=0 and CpuQuota=0 after `697d547`.
+  PID/security limits remain. Do not restore CPU/RAM ceilings.
+- Oct 19 screenshots show Cloudflare 522/525; the root cause is **unproven**.
+  An orderly VPS reboot occurred at 10:23 UTC; no host OOM was found. Metrics
+  previously hit its own 128 MiB cgroup ceiling, but that does not establish a
+  cause for origin timeouts/TLS errors. DNS has one correct proxied A per web
+  hostname and no duplicate AAAA; SSL remains strict. No DNS, certificate or
+  Cloudflare security changes were made.
+
+### Next + Rust implementation (2026-10-20, rollout pending)
+- The four app checkouts are under `/private/tmp/next-rust-migration`; their
+  thin adapters and Elysia dependency removal are validated but not yet pushed.
+  Native additions: Portfolio published search/DB probe, Spent/Cost read-only
+  health in dbgw, private Drive token signer in sync, Weather text/RSS role.
+  Whiteboard already uses Rust Rooms. Deploy destinations before adapters.
+- Next/Bun still handles SSR, sessions, server actions and Portfolio Studio
+  mutations; this is not a native Rust replacement for Next itself. gRPC stays deferred.
+- Root runtime lock has 266 pinned crates, audited non-yanked and at least
+  fourteen days old on Oct 20. `runtime/README.md` documents contracts/checks.
 
 ### Remove container memory limits (2026-10-19, Antigravity)
 - Removed `mem_limit` constraints across all services in `deploy/docker-compose.yml` and

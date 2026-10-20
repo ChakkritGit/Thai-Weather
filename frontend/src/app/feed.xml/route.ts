@@ -1,4 +1,9 @@
-import { publicApi } from "@/server/publicApi";
+import { nativeApi } from "@/server/native-api";
 
 export const dynamic = "force-dynamic";
-export const GET = publicApi.fetch;
+
+export function GET(request: Request) {
+  return nativeApi(request, "/feed.xml");
+}
+
+export const HEAD = GET;

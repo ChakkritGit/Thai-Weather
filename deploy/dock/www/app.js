@@ -244,7 +244,8 @@ function nameOf(c) {
 /** compose project/service → [brand mark, group] */
 const SERVICES = {
   'thai-weather/web': ['nextdotjs', 'ฟ้าละเอียด'], 'thai-weather/api': ['fastapi', 'ฟ้าละเอียด'], 'thai-weather/verify': ['python', 'ฟ้าละเอียด'],
-  'apps/portfolio': ['nextdotjs', 'Portfolio'], 'apps/media': ['bun', 'Portfolio'],
+  'thai-weather/weather-web-api': ['rust', 'ฟ้าละเอียด'],
+  'apps/portfolio': ['nextdotjs', 'Portfolio'], 'apps/portfolio-api': ['rust', 'Portfolio'], 'apps/media': ['bun', 'Portfolio'],
   'apps/expenses': ['nextdotjs', 'Spent/Cost'], 'apps/reminders': ['bun', 'Spent/Cost'],
   'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
   'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
@@ -259,7 +260,7 @@ function serviceOf(c) {
   const known = SERVICES[`${l['com.docker.compose.project']}/${l['com.docker.compose.service']}`];
   const brand = known?.[0] ?? 'docker';
   const stack = l['com.chakkrit.stack'];
-  return { brand: brand === 'nextdotjs' && stack === 'next-bun-elysia' ? 'next-bun-elysia'
+  return { brand: brand === 'nextdotjs' && ['next-bun-elysia', 'next-bun-rust'].includes(stack) ? stack
     : (brand === 'fastapi' && stack === 'rust-python') || (brand === 'bun' && stack === 'rust') ? 'rust' : brand,
     group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
 }
@@ -284,13 +285,15 @@ function brandIcon(slug) {
 }
 /** the brand icon at the start of a row */
 function leadIcon(slug) {
-  if (slug === 'next-bun-elysia') {
-    const marks = ['nextdotjs', 'bun', 'elysia'].map((brand) => {
+  if (['next-bun-elysia', 'next-bun-rust'].includes(slug)) {
+    const backend = slug === 'next-bun-rust' ? 'rust' : 'elysia';
+    const title = `Next.js + Bun + ${backend === 'rust' ? 'Rust' : 'Elysia'}`;
+    const marks = ['nextdotjs', 'bun', backend].map((brand) => {
       const mark = brandIcon(brand);
       mark.setAttribute('aria-hidden', 'true');
       return h('span', { class: `stack-mark stack-${brand}` }, mark);
     });
-    return h('span', { class: 'brand-ic brand-lead brand-stack', role: 'img', 'aria-label': 'Next.js + Bun + Elysia', title: 'Next.js + Bun + Elysia' }, marks);
+    return h('span', { class: 'brand-ic brand-lead brand-stack', role: 'img', 'aria-label': title, title }, marks);
   }
   const svg = brandIcon(slug);
   svg.classList.add('brand-lead');

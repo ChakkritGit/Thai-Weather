@@ -17,7 +17,7 @@ RUN --mount=type=secret,id=env,target=/app/.env.production \
  && mkdir -p public
 
 FROM oven/bun:1.4.2-alpine AS bun
-LABEL com.chakkrit.stack="next-bun-elysia"
+LABEL com.chakkrit.stack="next-bun-rust"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./
