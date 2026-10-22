@@ -686,23 +686,45 @@ async function containerView(token, id) {
   }, LOG_REFRESH_MS);
 }
 
+/** Base images the repository's Dockerfiles build FROM (build-bases.json, from deploy/dock/build-bases.mjs). */
+let buildBases;
+const loadBuildBases = async () => {
+  buildBases ??= fetch('build-bases.json', { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => []);
+  return buildBases;
+};
+
+/** The build base an image is, matched by digest (or by tag for an unpinned base). */
+function buildBaseOf(image, bases) {
+  const digests = new Set([image.Id, ...(image.RepoDigests ?? []).map((d) => d.split('@')[1])]);
+  return bases.find((b) => (b.digest ? digests.has(b.digest) : image.RepoTags?.includes(b.ref)));
+}
+
 async function imagesView(token) {
   const body = h('div', {}, skelRows(8));
   const meta = h('p', { class: 'meta' }, bone('34%', 13, 'skel'));
   const load = async () => {
-    const df = await docker('/system/df');
+    const [df, bases] = await Promise.all([docker('/system/df'), loadBuildBases()]);
     if (token !== viewToken) return;
     const images = [...(df.Images ?? [])].sort((a, b) => b.Size - a.Size);
     const total = images.reduce((s, i) => s + i.Size, 0);
-    const unused = images.filter((i) => !i.Containers).length;
-    meta.replaceChildren(h('b', {}, `${images.length}`), ` อิมเมจ · ${fmtBytes(total)}`, unused ? ` · ไม่ได้ใช้ ${unused}` : '');
+    const base = new Map(images.map((i) => [i.Id, buildBaseOf(i, bases)]));
+    const unused = images.filter((i) => !i.Containers && !base.get(i.Id)).length;
+    const forBuild = images.filter((i) => !i.Containers && base.get(i.Id)).length;
+    meta.replaceChildren(h('b', {}, `${images.length}`), ` อิมเมจ · ${fmtBytes(total)}`,
+      unused ? ` · ไม่ได้ใช้ ${unused}` : '', forBuild ? ` · ฐาน build ${forBuild}` : '');
     body.replaceChildren(h('div', { class: 'list' }, images.length
       ? images.map((i) => {
-          const tag = i.RepoTags?.find((t) => t !== '<none>:<none>') ?? i.Id.replace('sha256:', '').slice(0, 12);
+          const b = base.get(i.Id);
+          // a base pulled by digest only has the digest as its tag; its Dockerfile names it better
+          const tag = (b && b.digest ? b.ref : null)
+            ?? i.RepoTags?.find((t) => t !== '<none>:<none>') ?? i.Id.replace('sha256:', '').slice(0, 12);
+          const label = i.Containers ? '' : b ? 'ใช้ build' : 'ไม่ได้ใช้';
           return h('div', { class: 'row' },
             h('span', { class: 'row-main' },
-              h('span', { class: 'row-title' }, tag),
-              h('span', { class: 'row-sub' }, `${ago(i.Created)}${i.Containers ? '' : ' · '}`, i.Containers ? '' : h('span', { class: 'tag' }, 'ไม่ได้ใช้'))),
+              h('span', { class: 'row-title', title: b ? b.files.join('\n') : null }, tag),
+              h('span', { class: 'row-sub' }, `${ago(i.Created)}${label ? ' · ' : ''}`, label ? h('span', { class: 'tag' }, label) : '')),
             h('span', { class: 'row-side' }, h('b', {}, fmtBytes(i.Size)), i.Containers ? `ใช้ ${i.Containers}` : ''));
         })
       : h('p', { class: 'empty' }, 'ไม่มีอิมเมจ')));

@@ -1,0 +1,55 @@
+[
+  {
+    "ref": "alpine:3.22.5",
+    "digest": "sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce",
+    "files": [
+      "deploy/apps/backup.Dockerfile"
+    ]
+  },
+  {
+    "ref": "jc21/nginx-proxy-manager",
+    "digest": "sha256:4393e642e233e5efd5adeb7f10918d4aaea71c9ed875b94190273fc8e87f9594",
+    "files": [
+      "deploy/npm/Dockerfile"
+    ]
+  },
+  {
+    "ref": "node:22.23.4-trixie-slim",
+    "digest": "sha256:8eb619e402eaede1748a3c8173bffab391592812e85136452f781741c7242ddf",
+    "files": [
+      "deploy/npm/Dockerfile"
+    ]
+  },
+  {
+    "ref": "node:24.22.1-alpine3.24",
+    "digest": "sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53",
+    "files": [
+      "deploy/apps/next.Dockerfile",
+      "frontend/Dockerfile"
+    ]
+  },
+  {
+    "ref": "oven/bun:1.4.2-alpine",
+    "digest": null,
+    "files": [
+      "deploy/apps/next.Dockerfile",
+      "frontend/Dockerfile"
+    ]
+  },
+  {
+    "ref": "python:3.12.15-slim-trixie",
+    "digest": "sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1",
+    "files": [
+      "backend/Dockerfile"
+    ]
+  },
+  {
+    "ref": "rust:1.90.0-bookworm",
+    "digest": "sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f",
+    "files": [
+      "backend/Dockerfile",
+      "deploy/apps/rust-services/Dockerfile",
+      "deploy/apps/rust-services/runtime/Dockerfile"
+    ]
+  }
+]
