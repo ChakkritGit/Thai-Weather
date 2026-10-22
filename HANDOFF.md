@@ -173,6 +173,24 @@ integration cases and is not a complete backend check. Test sockets need local s
 - ~mid-November: recheck the learned temperature bias (hold-out MAE in the report; baseline 1.31 °C).
 
 ### Needs the owner's decision
+- **Stack split (asked 2026-10-22, not switched yet):** the owner wants Thai Weather's services in the
+  `apps` stack and the rest of `thai-weather` (NPM, Portainer, Dock, dock-metrics) renamed to `server`.
+  The code is ready on branch **`stack-split`** (deploy/weather.yml included by deploy/apps; existing
+  networks/volumes kept by name as `external`; restore.sh and Dock's service map updated) and both
+  configs validate on the VPS. The switch recreates NPM, Portainer, Dock, the API and verify (a few
+  seconds without the proxy for every site), and the auto-mode classifier refused it, so it waits for
+  the owner to run or approve it. Steps: merge the branch; under the deploy lock start `web` and
+  `weather-web-api` from deploy/apps beside the old ones and remove the old; check the refresher is idle,
+  recreate `api` and `verify`; then stop/remove/`up` dock-metrics, dock, portainer, nginx-proxy-manager
+  from deploy/. Update §3's commands afterwards (`cd deploy/apps && docker compose build web api &&
+  ../rollout.sh web`).
+- **Memory limits** were removed on the owner's instruction (2026-10-19). Review note: the public, in-memory
+  Whiteboard rooms accept 16 MB messages with no cap on rooms or document size; without a limit one
+  abusive client can exhaust the host's 6 GB and the kernel then kills whatever is largest (often the
+  weather API or Postgres). A middle ground: limits only on `rooms` and `sync`, or `oom_score_adj` to
+  protect db/NPM.
+- **Admin UIs** nginx./portainer.chakkritton.com are public behind passwords only; Cloudflare Access in front
+  of them would add a second factor (a Cloudflare security setting: ask first).
 - **WRF 3 km**: not feasible on this VPS (full domain ~9–18 h per run even on the 14-core plan). Options: rent
   compute per run, a smaller nested domain, or ingest an existing high-resolution model.
 - **Drive Music** stays on `drive.readonly` (Google shows a warning at login unless the app passes
@@ -225,7 +243,42 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 20)
+## 9. Recent changes (2026-10-14 → 22)
+
+### Security review of the Rust migration (2026-10-22, Claude)
+Read: dbgw, reminders, backup, chat (auth paths), health, analytics, media, sync, rooms, portfolio-api,
+weather-web-api, push, the weather Rust API (admin, quota, files). Black-box tests against production
+(read-only; no runs, posts or pushes): every auth gate held (health secret, Dock → Portainer login for
+chat/backups/metrics/analytics/Docker API, dbgw rejects alg=none and forged HS256, RLS returns [] to
+anon, sync needs a token and /internal/token is not routed, weather admin endpoints 401, push
+subscribe rejects non-push hosts, media and API traversal 400/404); only port 22 answers on the IP.
+Fixed:
+- `apps-backup` and `apps-chat` trust their callers (Dock checks the login) but were on `proxy` with every
+  site's container. Backup → apps + dock-internal; chat → dock-internal + new egress network `ops`
+  (`apps-ops`, shared with analytics and health only).
+- reminders POSTed to any https endpoint in `push_subscriptions` (users write that table); now the same
+  allow list as chat (`push::allowed`).
+- Portfolio, Spent/Cost and Whiteboard sent no nosniff / referrer / anti-framing headers and announced
+  `x-powered-by`; they now send Drive Music's set (Portfolio uses SAMEORIGIN).
+- restore.sh built the removed Bun images (`services`, `reminders`); it builds `rust` and `backup`.
+Left as notes (low): PostgREST's OpenAPI root lists the table names (as on Supabase); analytics accepts
+fake page views without a rate limit; the weather API's admin compare is not constant-time and an
+unset THWX_ADMIN_TOKEN would open the admin routes (compose requires it); std `Mutex` + `unwrap` in
+rooms/sync means a panic inside a room poisons it until restart; commit metadata in this public repo
+carries the author's work e-mail.
+
+### 2026-10-22 (Claude)
+- Nowcast: the radar speaks for rain within **4 km** (RADIUS_KM, was 5); a 0–120 min trace gives
+  `rain_spell` (start/end/lasts) in /api/v1/nowcast; the card shows how long rain lasts, and when the radar
+  sees no rain within 4 km it shows the 2.2 km model's next-6-h outlook. Push bodies add the duration.
+- PM2.5 detail tile: away from "now" it shows the station-adjusted SILAM forecast for that hour.
+- Map: a tap selects only after 300 ms and is cancelled by a second tap or any camera move (double-tap zoom).
+- Footer gained the API link; the point panel ends with the same footer. Rolling digits no longer clip the blur.
+- Portfolio /topics counts each piece once per slug (Claude showed 4, its page 2) and topic pages match by slug.
+- Drive Music "shuffle does not update Up Next": not reproduced. PlayerProvider reshuffles Up Next on
+  every toggle (probe test), and the Rust sync server matches the TypeScript reducer/validators. Needs the
+  owner's exact setup (which device is the output, Party Play on/off).
+
 
 ### Expenses auth and metrics memory (2026-10-20, Codex)
 - Spent/Cost `7d6b289` is deployed: callbacks/protected-route redirects use the
