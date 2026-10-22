@@ -281,6 +281,10 @@ metadata in this public repo carries the author's work e-mail.
   rooms: ≤1000 rooms, ≤64 peers, names ≤256 bytes, 64 MB of document updates per room and 1 GB in total
   (cursors do not count); Party Play ≤32 devices per party; poisoned std mutexes are recovered
   (`util::Locked`) instead of killing a room until restart.
+- RustSec/OSV audit of the three Cargo.lock files (290 crates): axum/tokio/tower/hyper clean; apps-runtime
+  patched (jsonwebtoken 10.4.0 with `rust_crypto`, rustls 0.23.46, rustls-webpki 0.103.16, webpki-roots
+  1.0.10, tokio-postgres 0.7.18, rand 0.8.6). Accepted: rsa RUSTSEC-2023-0071 (Marvin; private-key ops only,
+  we only verify) and smallstr (unmaintained). Re-run: OSV querybatch over the lock files.
 
 
 ### Expenses auth and metrics memory (2026-10-20, Codex)
