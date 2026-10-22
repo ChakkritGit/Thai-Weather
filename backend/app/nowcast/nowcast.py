@@ -16,9 +16,10 @@ from scipy import ndimage
 
 from ..core.grid import KM_PER_DEG, Grid
 
-RADIUS_KM = 5.0
+RADIUS_KM = 4.0  # "rain here": an echo within this distance of the point (owner's rule, 2026-10)
 STEP_MIN = 5
 HORIZON_MIN = 60
+SPELL_HORIZON_MIN = 120  # how long the rain lasts is traced further than the arrival (lower skill)
 RAIN_DBZ = 20.0
 STORM_DBZ = 45.0
 NEAREST_DBZ = 40.0
@@ -69,11 +70,13 @@ def _local_max(dbz: np.ndarray, grid: Grid, lat: float, lon: float, radius_km: f
     return float(np.nanmax(window)) if np.isfinite(window).any() else float("nan")
 
 
-def _trace(u: np.ndarray, v: np.ndarray, grid: Grid, lat: float, lon: float, scale: float) -> list[tuple[float, float]]:
-    """Positions the air over (lat, lon) came from, for leads 0, 5, ... 60 min."""
+def _trace(
+    u: np.ndarray, v: np.ndarray, grid: Grid, lat: float, lon: float, scale: float, horizon: int = HORIZON_MIN
+) -> list[tuple[float, float]]:
+    """Positions the air over (lat, lon) came from, for leads 0, 5, ... ``horizon`` min."""
     pts = [(lat, lon)]
     dt_h = STEP_MIN / 60.0
-    for _ in range(HORIZON_MIN // STEP_MIN):
+    for _ in range(horizon // STEP_MIN):
         la, lo = pts[-1]
         uu, vv = _sample(u, grid, la, lo) * scale, _sample(v, grid, la, lo) * scale
         pts.append((la - vv * dt_h / KM_PER_DEG, lo - uu * dt_h / (KM_PER_DEG * math.cos(math.radians(la)))))
@@ -81,9 +84,36 @@ def _trace(u: np.ndarray, v: np.ndarray, grid: Grid, lat: float, lon: float, sca
 
 
 def _lead_series(
-    dbz: np.ndarray, u: np.ndarray, v: np.ndarray, grid: Grid, lat: float, lon: float, scale: float
+    dbz: np.ndarray,
+    u: np.ndarray,
+    v: np.ndarray,
+    grid: Grid,
+    lat: float,
+    lon: float,
+    scale: float,
+    horizon: int = HORIZON_MIN,
 ) -> list[float]:
-    return [_local_max(dbz, grid, la, lo) for la, lo in _trace(u, v, grid, lat, lon, scale)]
+    return [_local_max(dbz, grid, la, lo) for la, lo in _trace(u, v, grid, lat, lon, scale, horizon)]
+
+
+def _spell(series: list[float]) -> dict | None:
+    """The coming (or current) spell of rain over the point along a 0-120 min trace.
+
+    ``start_min`` 0 = raining now; ``end_min`` / ``lasts_min`` None = still raining at the end of the
+    trace (``open_ended``). None when no rain reaches the point within the trace.
+    """
+    start = _first_at_least(series, RAIN_DBZ)
+    if start is None:
+        return None
+    end = next((k for k in range(start, len(series)) if not (np.isfinite(series[k]) and series[k] >= RAIN_DBZ)), None)
+    horizon = (len(series) - 1) * STEP_MIN
+    return {
+        "start_min": start * STEP_MIN,
+        "end_min": None if end is None else end * STEP_MIN,
+        "lasts_min": None if end is None else (end - start) * STEP_MIN,
+        "open_ended": end is None,
+        "horizon_min": horizon,
+    }
 
 
 def _first_at_least(series: list[float], threshold: float) -> int | None:
@@ -161,12 +191,14 @@ def point_nowcast(
 ) -> dict:
     """Nowcast for one location from the latest dBZ frame and the motion field (u, v in km/h).
 
-    Cells outside radar ``coverage`` are ignored.  Returns ``now``, ``eta_rain`` (>= 20 dBZ),
-    ``eta_storm`` (>= 45 dBZ), ``nearest`` (closest cell >= 40 dBZ within 100 km) and ``motion``.
+    Cells outside radar ``coverage`` are ignored.  Returns ``now`` (an echo within ``RADIUS_KM``),
+    ``eta_rain`` (>= 20 dBZ), ``eta_storm`` (>= 45 dBZ), ``nearest`` (closest cell >= 40 dBZ within
+    100 km), ``rain_spell`` (when the rain over the point starts and stops, traced 120 min) and ``motion``.
     ETAs are ``{"minutes", "minutes_range", "class", "max_dbz"}`` (0 = already happening) or None.
     """
     dbz = latest if coverage is None else np.where(coverage, latest, np.nan)
     series = {s: _lead_series(dbz, u, v, grid, lat, lon, s) for s in (1.0, *SPEED_SCALES)}
+    long_trace = _lead_series(dbz, u, v, grid, lat, lon, 1.0, SPELL_HORIZON_MIN)
     now_max = series[1.0][0]
     uu, vv = _sample(u, grid, lat, lon), _sample(v, grid, lat, lon)
     speed = math.hypot(uu, vv)
@@ -175,6 +207,7 @@ def point_nowcast(
         "eta_rain": _eta(series, RAIN_DBZ),
         "eta_storm": _eta(series, STORM_DBZ),
         "nearest": _nearest_cell(dbz, u, v, grid, lat, lon),
+        "rain_spell": _spell(long_trace),
         "motion": {
             "speed_kmh": round(speed, 1),
             "heading_deg": round((math.degrees(math.atan2(uu, vv)) + 360.0) % 360.0) if speed >= 1.0 else None,

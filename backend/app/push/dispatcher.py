@@ -94,7 +94,7 @@ def candidates(
             if RANK[now_cls] >= 1
             else next((e["class"] for e in (storm, rain) if e and e["minutes"] == 0), "none")
         )
-        body = msg.with_label(sub.label, msg.detail(nowcast))
+        body = msg.with_label(sub.label, msg.joined(msg.duration(nowcast.get("rain_spell")), msg.detail(nowcast)))
 
         storm_cls, storm_title = None, ""
         if RANK[here] >= RANK["thunderstorm"]:

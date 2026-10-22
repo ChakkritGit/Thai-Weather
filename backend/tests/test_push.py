@@ -633,3 +633,12 @@ def test_heat_worker_stops_before_the_store_closes(tmp_path, monkeypatch):
     thread = service._heat_thread
     service.close()
     assert not thread.is_alive()
+
+
+def test_the_body_says_how_long_the_rain_lasts(env):
+    env.subscribe(prefs=Prefs(storm=False))
+    result = nc(now="heavy", near=NEAR)
+    result["rain_spell"] = {"start_min": 0, "end_min": 40, "lasts_min": 40, "open_ended": False, "horizon_min": 120}
+    env.result = result
+    assert env.run()["sent"] == 1
+    assert env.sender.calls[0][1]["body"].startswith("บ้าน · น่าจะหยุดในอีกราว 40 นาที · กลุ่มฝนหนัก")

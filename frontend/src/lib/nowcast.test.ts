@@ -92,10 +92,40 @@ describe('nowcast text', () => {
 
   it('reports a clear hour', () => {
     const th = nowcastSentence(nc(), 'th');
-    expect(th.headline).toBe('ไม่มีฝนเข้าพื้นที่ใน 1 ชม. ข้างหน้า');
+    expect(th.headline).toBe('ไม่มีฝนในรัศมี 4 กม. ใน 1 ชม. ข้างหน้า');
     expect(th.details).toEqual(['ไม่พบกลุ่มฝนหนักในรัศมี 100 กม.']);
     expect(th.severity).toBe(0);
-    expect(nowcastSentence(nc(), 'en').headline).toBe('No rain expected here in the next hour');
+    expect(nowcastSentence(nc(), 'en').headline).toBe('No rain within 4 km in the next hour');
+  });
+
+  const hours = (n: number) => Array.from({ length: n }, (_, k) => new Date(Date.UTC(2026, 9, 9, 6 + k)).toISOString());
+  const model = (pop: number[]) => ({ times: hours(pop.length), pop, km: '2.2 กม.', nowMs: Date.UTC(2026, 9, 9, 6, 10) });
+
+  it('uses the 2.2 km model when the radar sees no rain within 4 km', () => {
+    const later = nowcastSentence(nc(), 'th', model([10, 20, 55, 70, 60, 30, 10, 0]));
+    expect(later.headline).toBe('โมเดล 2.2 กม.: อาจมีฝนราว 15:00 น. (โอกาส 70%)');
+    expect(later.details[0]).toBe('ช่วงที่มีโอกาสฝน ราว 3 ชม.');
+    expect(later.severity).toBe(1);
+    const dry = nowcastSentence(nc(), 'en', model([5, 10, 20, 10, 0, 0, 0, 0]));
+    expect(dry.headline).toBe('No rain within 4 km, and none likely in the next 6 h');
+    expect(dry.details).toEqual(['2.2 กม. model: rain chance at most 20%']);
+  });
+
+  it('keeps the radar when rain is here or arriving, and says how long it lasts', () => {
+    const here = nowcastSentence(
+      nc({ now: { class: 'heavy', max_dbz: 42 }, rain_spell: { start_min: 0, end_min: 40, lasts_min: 40, open_ended: false, horizon_min: 120 } }),
+      'th',
+      model([90, 90]),
+    );
+    expect(here.headline).toBe('กำลังมีฝนหนักบริเวณนี้');
+    expect(here.details[0]).toBe('น่าจะหยุดในอีกราว 40 นาที');
+    const coming = nowcastSentence(
+      nc({ eta_rain: eta(15, [10, 20], 'moderate'), rain_spell: { start_min: 15, end_min: null, lasts_min: null, open_ended: true, horizon_min: 120 } }),
+      'en',
+      model([0, 0]),
+    );
+    expect(coming.headline).toBe('Moderate rain likely in 10–20 min');
+    expect(coming.details).toContain('Likely to keep raining for at least 2 h');
   });
 
   it('explains why the nowcast is unavailable', () => {

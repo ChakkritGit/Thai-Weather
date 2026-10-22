@@ -8,6 +8,7 @@ export const dict = {
   navAlerts: { th: 'แจ้งเตือน', en: 'Alerts' },
   navMethod: { th: 'วิธีการ', en: 'Method' },
   navDesign: { th: 'Design system', en: 'Design system' },
+  navApi: { th: 'API ฟรี', en: 'Free API' },
   demoBanner: {
     th: 'โหมดสาธิต: ข้อมูลโมเดลจำลองจากภูมิอากาศ ไม่ใช่การพยากรณ์จริง',
     en: 'Demo mode: synthetic climatology-driven model data – not a real forecast',

@@ -2,7 +2,8 @@
 
 import type { ForecastDay, ForecastHour, ForecastResponse } from '../lib/api';
 import { scaleColor, scales } from '../lib/color';
-import { fmtDay, fmtHour, fmtNum } from '../lib/format';
+import { fmtDay, fmtHour, fmtNum, fmtStep } from '../lib/format';
+import { pmColor, pmLabel } from '../lib/pmField';
 import type { Lang } from '../i18n/dict';
 import { ConditionIcon } from './ConditionIcon';
 
@@ -31,7 +32,16 @@ export function hourAt(fc: ForecastResponse | null, iso: string | undefined): Fo
   return fc.hourly.find((h) => h.time === iso) ?? fc.current;
 }
 
-export function DetailsGrid({ fc, hour, lang }: { fc: ForecastResponse; hour: ForecastHour | null; lang: Lang }) {
+/**
+ * `pmForecast`: the PM2.5 forecast for the selected hour, given when the timeline is away from now;
+ * the tile then shows it in place of the latest station reading.
+ */
+export function DetailsGrid({ fc, hour, lang, pmForecast }: {
+  fc: ForecastResponse;
+  hour: ForecastHour | null;
+  lang: Lang;
+  pmForecast?: { ug: number; time: string } | null;
+}) {
   const th = lang === 'th';
   const today = fc.daily[0];
   const air = fc.air;
@@ -62,7 +72,20 @@ export function DetailsGrid({ fc, hour, lang }: { fc: ForecastResponse; hour: Fo
           <Tile label={th ? 'UV สูงสุดวันนี้' : 'UV peak today'} value={fmtNum(today.uv_clear_sky_max, 0)}
             sub={`${uvLevel(today.uv_clear_sky_max, th)} · ${th ? 'ถ้าฟ้าเปิด' : 'if clear'}`} />
         )}
-        {air && (
+        {pmForecast ? (
+          <div className="detail-tile">
+            <span className="detail-label">{th ? 'PM2.5 (พยากรณ์)' : 'PM2.5 (forecast)'}</span>
+            <span className="detail-value">
+              {fmtNum(pmForecast.ug, 0)} <small>µg/m³</small>
+            </span>
+            <span className="detail-sub">
+              <i className="aq-dot" style={{ background: `rgb(${pmColor(pmForecast.ug).join(',')})` }} /> {pmLabel(pmForecast.ug, th)}
+            </span>
+            <span className="detail-sub subtle">
+              FMI SILAM · {th ? 'ปรับด้วยสถานี' : 'station-adjusted'} · {fmtStep(pmForecast.time, lang)}
+            </span>
+          </div>
+        ) : air && (
           <div className="detail-tile">
             <span className="detail-label">PM2.5</span>
             <span className="detail-value">

@@ -1,4 +1,4 @@
-import type { AirForecast, GridDesc } from './api';
+import { api, type AirForecast, type GridDesc } from './api';
 
 /** The PCD's PM2.5 bands (µg/m³, 24 h): the same colours as the station dots and the legend. */
 export const PM_BANDS: [max: number, rgb: [number, number, number]][] = [
@@ -8,6 +8,20 @@ export const PM_BANDS: [max: number, rgb: [number, number, number]][] = [
   [75, [0xff, 0xa2, 0x00]],
   [Infinity, [0xf0, 0x46, 0x46]],
 ];
+
+/** Thailand's PM2.5 categories (Pollution Control Department, 24 h µg/m³), in PM_BANDS order. */
+const PM_LABELS: [th: string, en: string][] = [
+  ['คุณภาพอากาศดีมาก', 'Very good'],
+  ['คุณภาพอากาศดี', 'Good'],
+  ['ปานกลาง', 'Moderate'],
+  ['เริ่มมีผลกระทบต่อสุขภาพ', 'Starting to affect health'],
+  ['มีผลกระทบต่อสุขภาพ', 'Affects health'],
+];
+
+export function pmLabel(ug: number, th: boolean): string {
+  const l = PM_LABELS[PM_BANDS.findIndex(([max]) => ug <= max)];
+  return th ? l[0] : l[1];
+}
 
 export function pmColor(ug: number): [number, number, number] {
   return PM_BANDS.find(([max]) => ug <= max)![1];
@@ -83,4 +97,21 @@ export function samplePm(f: AirForecast, frame: Uint8Array, lat: number, lon: nu
   const tx = fx - x0;
   const at = (y: number, x: number) => frame[y * f.nx + x];
   return (at(y0, x0) * (1 - tx) + at(y0, x0 + 1) * tx) * (1 - ty) + (at(y0 + 1, x0) * (1 - tx) + at(y0 + 1, x0 + 1) * tx) * ty;
+}
+
+let cached: { at: number; p: Promise<AirForecast> } | null = null;
+/** The forecast field, shared by the map's PM2.5 view and the point panel (refetched after 30 min). */
+export function loadAirForecast(): Promise<AirForecast> {
+  if (!cached || Date.now() - cached.at > 30 * 60_000) {
+    const p = api.airForecast();
+    cached = { at: Date.now(), p };
+    p.catch(() => { if (cached?.p === p) cached = null; });
+  }
+  return cached.p;
+}
+
+/** The forecast PM2.5 at a point and hour, null outside the field or its 72 hours. */
+export function pmAt(f: AirForecast, iso: string, lat: number, lon: number): number | null {
+  const i = frameIndex(f, iso);
+  return i < 0 ? null : samplePm(f, decodeFrame(f.frames[i]), lat, lon);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { fmtStep } from '../lib/format';
-import { isFreshRadar, nowcastSentence, radarAgeMinutes, type NowcastSnapshot } from '../lib/nowcastText';
+import { isFreshRadar, nowcastSentence, radarAgeMinutes, type ModelOutlook, type NowcastSnapshot } from '../lib/nowcastText';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { PushSettingsLink } from './PushSettings';
@@ -11,13 +11,15 @@ interface Props {
   lon: number;
   snapshot: NowcastSnapshot;
   nowMs: number;
+  /** the 2.2 km model's hours: shown when the radar sees no rain within 4 km */
+  model?: ModelOutlook;
 }
 
 /**
  * Radar nowcast for the selected point: will rain / a thunderstorm reach it within the hour,
  * plus any tropical cyclone near Thailand. The parent supplies the shared response.
  */
-export function NowcastCard({ lat, lon, snapshot, nowMs }: Props) {
+export function NowcastCard({ lat, lon, snapshot, nowMs, model }: Props) {
   const { t, lang } = useT();
   const { data, status: state } = snapshot;
 
@@ -39,7 +41,7 @@ export function NowcastCard({ lat, lon, snapshot, nowMs }: Props) {
   const currentData = data.available && !isFreshRadar(snapshot, nowMs)
     ? { ...data, available: false, reason: age === null ? 'no_data' as const : 'stale' as const, age_min: age === null ? null : Math.round(age) }
     : data;
-  const text = nowcastSentence(currentData, lang);
+  const text = nowcastSentence(currentData, lang, currentData.available ? model : undefined);
   const retained = state === 'error';
   const frame = data.frame_time && Number.isFinite(Date.parse(data.frame_time))
     ? `${t('radarAt')} ${fmtStep(data.frame_time, lang)}`

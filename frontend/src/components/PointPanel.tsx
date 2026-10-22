@@ -8,6 +8,7 @@ import { radarRainChance, rainClassPhrase } from '../lib/nowcastText';
 import { useNowcast } from '../lib/useNowcast';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
+import { FooterBody } from './Shell';
 import { NowcastCard } from './NowcastCard';
 import { LevelBadge } from './SeverityBadge';
 import { ChartLegend, TimeSeriesChart } from './TimeSeriesChart';
@@ -15,6 +16,8 @@ import type { MapPoint } from './WeatherMap';
 import { Num } from './Num';
 import { ConditionIcon } from './ConditionIcon';
 import { DetailsGrid, TenDay, hourAt } from './ExtendedForecast';
+import { loadAirForecast, pmAt } from '../lib/pmField';
+import type { AirForecast } from '../lib/api';
 
 interface Props {
   point: MapPoint;
@@ -48,6 +51,18 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
     };
   }, [point.lat, point.lon]);
   const fc = extended?.lat === point.lat && extended.lon === point.lon ? extended.data : null;
+
+  // the PM2.5 forecast field, loaded the first time the timeline leaves the current hour
+  const [airField, setAirField] = useState<AirForecast | null>(null);
+  const awayFromNow = step !== nowIndex;
+  useEffect(() => {
+    if (!awayFromNow || airField) return;
+    let cancelled = false;
+    loadAirForecast().then((f) => !cancelled && setAirField(f)).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [awayFromNow, airField]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +124,9 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         : t('radarPopClear', { model: radarPop.model });
 
   const hour = hourAt(fc, data.times[i]);
+  // away from now the PM2.5 tile shows the forecast for that hour; at now, the latest station reading
+  const pmUg = i !== nowIndex && airField ? pmAt(airField, data.times[i], point.lat, point.lon) : null;
+  const pmForecast = pmUg === null ? null : { ug: pmUg, time: data.times[i] };
 
   const parts = [
     { key: 'lapse', label: t('lapse'), v: comps.lapse[i] },
@@ -127,7 +145,13 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         closeLabel={t('close')}
       />
 
-      <NowcastCard lat={point.lat} lon={point.lon} snapshot={snapshot} nowMs={nowMs} />
+      <NowcastCard
+        lat={point.lat}
+        lon={point.lon}
+        snapshot={snapshot}
+        nowMs={nowMs}
+        model={{ times: data.times, pop: f.pop, km: fineKmText, nowMs }}
+      />
 
       <section className="panel-section" aria-labelledby="model-forecast-h">
         <h3 id="model-forecast-h">{t('modelForecastTitle')}</h3>
@@ -168,7 +192,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
       </section>
 
       {fc && <TenDay fc={fc} lang={lang} />}
-      {fc && <DetailsGrid fc={fc} hour={hour} lang={lang} />}
+      {fc && <DetailsGrid fc={fc} hour={hour} lang={lang} pmForecast={pmForecast} />}
 
       <section className="panel-section" aria-labelledby="why-h">
         <h3 id="why-h">{t('why', { km: coarseKmText })}</h3>
@@ -314,6 +338,11 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
           })}
         </div>
       </section>
+
+      {/* the map page has no site footer: its notes and links close the point panel instead */}
+      <footer className="site-footer panel-footer">
+        <FooterBody updated={null} />
+      </footer>
     </div>
   );
 }

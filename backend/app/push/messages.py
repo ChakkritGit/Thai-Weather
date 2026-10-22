@@ -71,6 +71,25 @@ def detail(n: dict) -> str:
     return "เปิดแอปเพื่อดูเรดาร์"
 
 
+def duration(spell: dict | None) -> str:
+    """How long the rain over the point lasts, from the radar trace ("" when it is not raining)."""
+    if not spell or spell.get("start_min") != 0:
+        return ""
+    if spell.get("open_ended"):
+        return f"น่าจะตกต่อเนื่องอย่างน้อย {spell['horizon_min'] // 60} ชม."
+    lasts = spell["lasts_min"]
+    return f"น่าจะหยุดในอีกราว {lasts} นาที" if lasts < 60 else f"น่าจะตกอีกราว {_hours(lasts)}"
+
+
+def _hours(minutes: int) -> str:
+    h, m = divmod(minutes, 60)
+    return f"{h} ชม." if m < 15 else f"{h} ชม. {m} นาที"
+
+
+def joined(*parts: str) -> str:
+    return " · ".join(p for p in parts if p)
+
+
 def with_label(label: str, text: str) -> str:
     return f"{label} · {text}" if label else text
 

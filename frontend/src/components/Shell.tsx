@@ -152,33 +152,41 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
  * Carries the data sources, the "not an official announcement" notice and the
  * run time of the forecast currently shown.
  */
-export function Footer({ updated }: { updated: string | null }) {
+/** The disclaimer, the sources and the links: under every page, and at the end of the map's point panel. */
+export function FooterBody({ updated }: { updated: string | null }) {
   const { t, lang } = useT();
+  return (
+    <div className="site-footer-inner">
+      <p className="site-footer-note">{t('footerNote')}</p>
+      <p className="site-footer-meta">
+        {t('footerSources')}
+        {updated && (
+          <>
+            <span className="sep" aria-hidden="true">
+              ·
+            </span>
+            {t('footerUpdated')}{' '}
+            <time className="num" dateTime={updated}>
+              {fmtDateTime(updated, lang)}
+            </time>
+          </>
+        )}
+      </p>
+      <nav aria-label={t('footerMore')}>
+        <Link href={paths.method}>{t('navMethod')}</Link>
+        <Link href={paths.developers}>{t('navApi')}</Link>
+        <Link href={paths.design}>{t('navDesign')}</Link>
+      </nav>
+    </div>
+  );
+}
+
+export function Footer({ updated }: { updated: string | null }) {
   const pathname = usePathname() ?? '/';
   if (pathname === '/') return null;
   return (
     <footer className="site-footer">
-      <div className="site-footer-inner">
-        <p className="site-footer-note">{t('footerNote')}</p>
-        <p className="site-footer-meta">
-          {t('footerSources')}
-          {updated && (
-            <>
-              <span className="sep" aria-hidden="true">
-                ·
-              </span>
-              {t('footerUpdated')}{' '}
-              <time className="num" dateTime={updated}>
-                {fmtDateTime(updated, lang)}
-              </time>
-            </>
-          )}
-        </p>
-        <nav aria-label={t('footerMore')}>
-          <Link href={paths.method}>{t('navMethod')}</Link>
-          <Link href={paths.design}>{t('navDesign')}</Link>
-        </nav>
-      </div>
+      <FooterBody updated={updated} />
     </footer>
   );
 }

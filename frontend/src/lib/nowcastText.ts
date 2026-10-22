@@ -1,5 +1,5 @@
-import type { Nowcast, NowcastCyclone, NowcastEta, RainClass } from './api';
-import { compass, nearestStep } from './format';
+import type { Nowcast, NowcastCyclone, NowcastEta, NowcastSpell, RainClass } from './api';
+import { compass, fmtHour, nearestStep } from './format';
 import type { Lang } from '../i18n/dict';
 
 /**
@@ -190,6 +190,17 @@ function presentRainClass(n: Nowcast): RainClass {
   return [n.eta_storm, n.eta_rain].find((e) => e?.minutes === 0 && isRain(e.class))?.class ?? 'none';
 }
 
+function nearestText(near: NonNullable<Nowcast['nearest']>, lang: Lang): string {
+  const th = lang === 'th';
+  const cell = (th ? TH_CELL : EN_CELL)[near.class] ?? (th ? TH_CLASS : EN_CLASS)[near.class];
+  const dir = compass(near.bearing_deg, lang);
+  const km = Math.round(near.distance_km);
+  const closing = Math.round(near.closing_kmh);
+  return th
+    ? `${cell}ห่าง ${km} กม. ทาง${dir} ${near.approaching ? `เคลื่อนเข้ามา ${closing} กม./ชม.` : 'ไม่ได้เคลื่อนเข้าหาคุณ'}`
+    : `${cell} ${km} km ${dir}, ${near.approaching ? `moving toward you at ${closing} km/h` : 'not moving toward you'}`;
+}
+
 /** Cyclones farther than this (now and at closest approach) are not worth mentioning for a point. */
 export const MAX_CYCLONE_KM = 2000;
 
@@ -249,8 +260,88 @@ export function cycloneSentence(c: NowcastCyclone, lang: Lang): CycloneLine {
   return { id: c.id, text, severity, category: c.category, url: c.report_url };
 }
 
-/** Headline, detail lines and cyclone lines for a nowcast response. */
-export function nowcastSentence(n: Nowcast, lang: Lang): NowcastText {
+/** Keep in sync with backend/app/nowcast/nowcast.py: RADIUS_KM — the radar speaks only for rain this close. */
+export const RADAR_RADIUS_KM = 4;
+/** The 2.2 km model's hourly series, used when the radar sees no rain within RADAR_RADIUS_KM. */
+export interface ModelOutlook {
+  times: string[];
+  pop: number[];
+  /** "2.2 km" in the reader's language */
+  km: string;
+  nowMs: number;
+}
+/** Model hours with at least this rain chance count as "rain expected". */
+export const MODEL_RAIN_POP = 40;
+const MODEL_LOOKAHEAD_H = 6;
+const MODEL_SPELL_CAP_H = 12;
+
+function hoursText(minutes: number, lang: Lang): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (lang === 'th') return m < 15 ? `${h} ชม.` : `${h} ชม. ${m} นาที`;
+  return m < 15 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/** How long the radar expects the rain over the point to last ("" when unknown). */
+export function spellText(spell: NowcastSpell | null | undefined, lang: Lang): string {
+  if (!spell) return '';
+  const th = lang === 'th';
+  if (spell.open_ended) {
+    const h = Math.floor(spell.horizon_min / 60);
+    return th ? `น่าจะตกต่อเนื่องอย่างน้อย ${h} ชม.` : `Likely to keep raining for at least ${h} h`;
+  }
+  const lasts = spell.lasts_min ?? 0;
+  if (spell.start_min === 0) {
+    if (lasts < 60) return th ? `น่าจะหยุดในอีกราว ${lasts} นาที` : `Likely to stop in about ${lasts} min`;
+    return th ? `น่าจะตกอีกราว ${hoursText(lasts, lang)}` : `Likely to last about ${hoursText(lasts, lang)} more`;
+  }
+  const len = lasts < 60 ? (th ? `${lasts} นาที` : `${lasts} min`) : hoursText(lasts, lang);
+  return th ? `น่าจะตกราว ${len}` : `Likely to last about ${len}`;
+}
+
+/** The model's outlook for the next hours: when rain may start, its chance and how long it lasts. */
+export function modelOutlook(m: ModelOutlook, lang: Lang): { headline: string; details: string[]; severity: 0 | 1 } {
+  const th = lang === 'th';
+  const now = nearestStep(m.times, m.nowMs);
+  const ahead = m.pop.slice(now, now + MODEL_LOOKAHEAD_H + 1);
+  const start = ahead.findIndex((p) => Number.isFinite(p) && p >= MODEL_RAIN_POP);
+  const src = th ? `โมเดล ${m.km}` : `${m.km} model`;
+  if (start < 0) {
+    const peak = Math.round(Math.max(0, ...ahead.filter(Number.isFinite)));
+    return {
+      headline: th ? `ไม่มีฝนในรัศมี ${RADAR_RADIUS_KM} กม. และไม่น่ามีฝนใน ${MODEL_LOOKAHEAD_H} ชม. ข้างหน้า` : `No rain within ${RADAR_RADIUS_KM} km, and none likely in the next ${MODEL_LOOKAHEAD_H} h`,
+      details: [th ? `${src}: โอกาสฝนสูงสุด ${peak}%` : `${src}: rain chance at most ${peak}%`],
+      severity: 0,
+    };
+  }
+  const k = now + start;
+  let end = k;
+  while (end + 1 < m.pop.length && end - k + 1 < MODEL_SPELL_CAP_H && m.pop[end + 1] >= MODEL_RAIN_POP) end++;
+  const hours = end - k + 1;
+  const peak = Math.round(Math.max(...m.pop.slice(k, end + 1)));
+  const when = start === 0
+    ? (th ? 'ชั่วโมงนี้' : 'this hour')
+    : th ? `ราว ${fmtHour(m.times[k], lang)} น.` : `around ${fmtHour(m.times[k], lang)}`;
+  const capped = hours >= MODEL_SPELL_CAP_H;
+  const length = th
+    ? `${capped ? 'อย่างน้อย ' : 'ราว '}${hours} ชม.`
+    : `${capped ? 'at least ' : 'about '}${hours} h`;
+  return {
+    headline: th ? `${src}: อาจมีฝน${when} (โอกาส ${peak}%)` : `${src}: rain possible ${when} (${peak}% chance)`,
+    details: [
+      th ? `ช่วงที่มีโอกาสฝน ${length}` : `Rain chance stays up for ${length}`,
+      th ? `เรดาร์ยังไม่พบฝนในรัศมี ${RADAR_RADIUS_KM} กม.` : `Radar shows no rain within ${RADAR_RADIUS_KM} km yet`,
+    ],
+    severity: peak >= 70 ? 1 : 0,
+  };
+}
+
+/**
+ * Headline, detail lines and cyclone lines for a nowcast response. The radar speaks when it sees
+ * rain within RADAR_RADIUS_KM of the point (now or arriving within the hour); otherwise the 2.2 km
+ * model's outlook (when given) takes the headline.
+ */
+export function nowcastSentence(n: Nowcast, lang: Lang, model?: ModelOutlook): NowcastText {
   const th = lang === 'th';
   const cyclones = [...n.cyclones]
     .filter((c) => Math.min(c.distance_now_km, c.closest.distance_km) <= MAX_CYCLONE_KM)
@@ -279,6 +370,8 @@ export function nowcastSentence(n: Nowcast, lang: Lang): NowcastText {
   if (presentClass !== 'none') {
     cls = presentClass;
     headline = th ? `กำลังมี${names[cls]}บริเวณนี้` : `${names[cls]} here now`;
+    const lasts = spellText(n.rain_spell, lang);
+    if (lasts) details.push(lasts);
     if (stormLater && SEVERITY[stormLater.class] > SEVERITY[presentClass]) details.push(arrival(stormLater));
   } else if (stormLater || rainLater) {
     const lead = stormLater ?? (rainLater as NowcastEta);
@@ -287,26 +380,24 @@ export function nowcastSentence(n: Nowcast, lang: Lang): NowcastText {
     if (stormLater && rainLater && stormLater.minutes - rainLater.minutes >= 10) {
       details.push(th ? `ฝนเริ่มตกก่อนในอีก ${minutesText(rainLater)} นาที` : `Rain starts in ${minutesText(rainLater)} min`);
     }
+    const lasts = n.rain_spell && n.rain_spell.start_min > 0 ? spellText(n.rain_spell, lang) : '';
+    if (lasts) details.push(lasts);
+  } else if (model) {
+    const m = modelOutlook(model, lang);
+    cls = 'none';
+    headline = m.headline;
+    details.push(...m.details);
+    const near = n.nearest;
+    if (near) details.push(nearestText(near, lang));
+    return { headline, severity: m.severity, icon: m.severity ? 'drop' : 'cloud', details, cyclones };
   } else {
     cls = 'none';
-    headline = th ? 'ไม่มีฝนเข้าพื้นที่ใน 1 ชม. ข้างหน้า' : 'No rain expected here in the next hour';
+    headline = th ? `ไม่มีฝนในรัศมี ${RADAR_RADIUS_KM} กม. ใน 1 ชม. ข้างหน้า` : `No rain within ${RADAR_RADIUS_KM} km in the next hour`;
   }
 
   const near = n.nearest;
   if (near) {
-    const cell = (th ? TH_CELL : EN_CELL)[near.class] ?? names[near.class];
-    const dir = compass(near.bearing_deg, lang);
-    const km = Math.round(near.distance_km);
-    const closing = Math.round(near.closing_kmh);
-    if (th) {
-      details.push(
-        `${cell}ห่าง ${km} กม. ทาง${dir} ${near.approaching ? `เคลื่อนเข้ามา ${closing} กม./ชม.` : 'ไม่ได้เคลื่อนเข้าหาคุณ'}`,
-      );
-    } else {
-      details.push(
-        `${cell} ${km} km ${dir}, ${near.approaching ? `moving toward you at ${closing} km/h` : 'not moving toward you'}`,
-      );
-    }
+    details.push(nearestText(near, lang));
   } else if (cls === 'none') {
     details.push(th ? 'ไม่พบกลุ่มฝนหนักในรัศมี 100 กม.' : 'No heavy rain cells within 100 km');
   }

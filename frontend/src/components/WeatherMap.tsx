@@ -12,6 +12,9 @@ import { useT } from '../i18n';
 import { MAP_READY_EVENT } from '@/components/Splash';
 import { pmLut, resample, samplePm } from '../lib/pmField';
 
+/** A second tap within this time is a double tap (zoom), not two selections. */
+const DOUBLE_TAP_MS = 300;
+
 export interface MapPoint {
   lat: number;
   lon: number;
@@ -290,13 +293,29 @@ export function WeatherMap(props: Props) {
       });
     });
     map.on('mouseout', () => setHover(null));
-    map.on('click', (e) => onSelectRef.current?.({ lat: e.lngLat.lat, lon: e.lngLat.lng }));
+    // A tap selects the point only once it is clear it was not the first half of a double tap: selecting
+    // straight away opened the sheet and moved the map, which cancelled MapLibre's double-tap zoom.
+    let tapTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastTap = 0;
+    map.on('click', (e) => {
+      const now = performance.now();
+      clearTimeout(tapTimer);
+      if (now - lastTap < DOUBLE_TAP_MS) {
+        lastTap = 0;
+        return;
+      }
+      lastTap = now;
+      const p = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+      tapTimer = setTimeout(() => onSelectRef.current?.(p), DOUBLE_TAP_MS);
+    });
+    map.on('dblclick', () => clearTimeout(tapTimer));
     onMap?.(map);
 
     return () => {
       for (const type of ['gesturestart', 'gesturechange', 'gestureend']) el.removeEventListener(type, stopPageZoom);
       onMap?.(null);
       cityMarkers.current = [];
+      clearTimeout(tapTimer);
       map.remove();
       mapRef.current = null;
     };

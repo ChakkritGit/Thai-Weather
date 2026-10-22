@@ -177,6 +177,14 @@ export interface NowcastNearest {
   closing_kmh: number;
 }
 
+export interface NowcastSpell {
+  start_min: number;
+  end_min: number | null;
+  lasts_min: number | null;
+  open_ended: boolean;
+  horizon_min: number;
+}
+
 export interface NowcastCyclone {
   id: string;
   name: string;
@@ -202,6 +210,8 @@ export interface Nowcast {
   eta_rain: NowcastEta | null;
   eta_storm: NowcastEta | null;
   nearest: NowcastNearest | null;
+  /** when the rain over the point starts and stops along a 0–120 min radar trace (null: no rain reaches it) */
+  rain_spell?: NowcastSpell | null;
   motion: { speed_kmh: number; heading_deg: number | null } | null;
   cyclones: NowcastCyclone[];
   attribution: { name: string; url: string }[];

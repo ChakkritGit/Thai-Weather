@@ -379,6 +379,7 @@ def nowcast(ctx: Context, lat: float, lon: float) -> dict:
         "eta_rain": None,
         "eta_storm": None,
         "nearest": None,
+        "rain_spell": None,
         "motion": None,
         "cyclones": _cyclones_for(ctx, lat, lon, now),
         "attribution": ATTRIBUTION,

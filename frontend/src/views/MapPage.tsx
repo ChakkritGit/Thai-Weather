@@ -8,7 +8,7 @@ import { api, type AirForecast, type AirStation, type LayerId, type Meta, type R
 import { buildLut } from '../lib/color';
 import { fmtHour, fmtKm, nearestStep, thaiDate } from '../lib/format';
 import { nextFrameId } from '../lib/radarHistory';
-import { decodeFrame, frameIndex } from '../lib/pmField';
+import { decodeFrame, frameIndex, loadAirForecast } from '../lib/pmField';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
@@ -155,7 +155,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   useEffect(() => {
     if (!airOn) return;
     let cancelled = false;
-    const load = () => api.airForecast().then((d) => !cancelled && setAirForecast(d)).catch(() => {});
+    const load = () => loadAirForecast().then((d) => !cancelled && setAirForecast(d)).catch(() => {});
     load();
     const timer = window.setInterval(load, 30 * 60 * 1000);
     return () => {
