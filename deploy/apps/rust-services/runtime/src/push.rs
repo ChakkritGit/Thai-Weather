@@ -124,6 +124,16 @@ pub fn allowed(endpoint: &str) -> bool {
             })
     })
 }
+/// Where a stored subscription may be delivered: a browser push service, and in debug builds also
+/// `https://localhost` so the contract tests can deliver to their TLS fixture. Release builds (the
+/// images) never accept localhost, and there is no runtime switch for it.
+pub fn deliverable(endpoint: &str) -> bool {
+    allowed(endpoint)
+        || (cfg!(debug_assertions)
+            && url::Url::parse(endpoint)
+                .ok()
+                .is_some_and(|u| u.scheme() == "https" && u.host_str() == Some("localhost")))
+}
 pub fn client(seconds: u64) -> Result<reqwest::Client, Error> {
     let mut b = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())

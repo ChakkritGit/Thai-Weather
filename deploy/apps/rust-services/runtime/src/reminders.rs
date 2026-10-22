@@ -283,7 +283,7 @@ impl App {
         let endpoint = sub["endpoint"].as_str().ok_or("missing push endpoint")?;
         // Users write their own push_subscriptions rows: only POST to a browser push service,
         // never to an arbitrary host they chose (chat checks the same list when subscribing).
-        if !push::allowed(endpoint) {
+        if !push::deliverable(endpoint) {
             return Ok(Delivery {
                 failed: 1,
                 ..Delivery::default()

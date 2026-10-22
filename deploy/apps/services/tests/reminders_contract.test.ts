@@ -65,6 +65,9 @@ test('failed/lost acknowledgements remain unresolved and do not duplicate a push
  reset();claimFail=true;expect((await cron()).status).toBe(503);expect(pushes.length).toBe(0);expect(lastRun).toBeNull()
  reset();pushStatus=503;expect((await cron()).status).toBe(503);expect(pushes.length).toBe(1);expect(requests.find(r=>r.path==='rpc/finish_reminder_delivery').body.p_outcome).toBe('failed');expect(lastRun).toBeNull()
 })
+test('a subscription outside the push services is never claimed or posted',async()=>{
+ reset();subs[0].endpoint='https://evil.example/collect';expect((await cron()).status).toBe(503);expect(pushes.length).toBe(0);expect(requests.some(r=>r.path==='rpc/claim_reminder_delivery')).toBe(false);expect(lastRun).toBeNull()
+})
 test('unknown push result becomes uncertain, never retried automatically',async()=>{
  reset();subs[0].endpoint='https://localhost:9/unreachable';expect((await cron()).status).toBe(503);expect(requests.find(r=>r.path==='rpc/finish_reminder_delivery').body.p_outcome).toBe('uncertain');expect((await cron()).status).toBe(503);expect(requests.filter(r=>r.path==='rpc/finish_reminder_delivery').length).toBe(1);expect(pushes.length).toBe(0);expect(lastRun).toBeNull()
 })
