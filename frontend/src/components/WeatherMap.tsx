@@ -308,7 +308,10 @@ export function WeatherMap(props: Props) {
       const p = { lat: e.lngLat.lat, lon: e.lngLat.lng };
       tapTimer = setTimeout(() => onSelectRef.current?.(p), DOUBLE_TAP_MS);
     });
+    // MapLibre's touch double-tap zoom swallows the second tap (no second click): a zoom or move
+    // starting inside the window means it was a gesture, not a selection.
     map.on('dblclick', () => clearTimeout(tapTimer));
+    map.on('movestart', () => clearTimeout(tapTimer));
     onMap?.(map);
 
     return () => {
