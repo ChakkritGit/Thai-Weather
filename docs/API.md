@@ -61,7 +61,7 @@ Observations within ±90 min of a run's first step are used, and **only one repo
   "now": {"class": "none", "max_dbz": null},
   "eta_rain":  {"minutes": 25, "minutes_range": [20, 30], "class": "heavy", "max_dbz": 43.0},
   "eta_storm": {"minutes": 30, "minutes_range": [25, 40], "class": "thunderstorm", "max_dbz": 51.0},
-  "nearest": {"distance_km": 18.2, "bearing_deg": 225, "class": "heavy", "max_dbz": 43.0, "approaching": true, "closing_kmh": 24.7},
+  "nearest": {"distance_km": 18.2, "bearing_deg": 225, "class": "heavy", "max_dbz": 43.0, "approaching": true, "closing_kmh": 24.7, "track": "toward"},
   "motion": {"speed_kmh": 32.0, "heading_deg": 45},
   "cyclones": [{"id": "1001335-7", "name": "Simon", "source": "NOAA", "category": "TY", "max_wind_kmh": 222.2, "peak_category": "TY",
                 "report_url": "https://www.gdacs.org/report.aspx?...", "position": {"lat": 15.6, "lon": 110.0},

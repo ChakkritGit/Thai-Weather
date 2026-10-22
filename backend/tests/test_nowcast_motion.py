@@ -121,3 +121,27 @@ def test_nearest_ignores_echo_beyond_100_km():
     u, v = uniform(0.0)
     res = point_nowcast(cell(0, -60), u, v, G, LAT, LON)  # ~130 km west
     assert res["nearest"] is None
+
+
+def test_slow_cell_drifting_across_the_point_is_toward():
+    # the owner's case (2026-10-22): heavy cell ~2 km east, rain moving south-west at 5 km/h. Only
+    # ~3.5 km/h of that points at the point, but the track passes ~1.5 km from it.
+    s = 5.0 / math.sqrt(2)
+    u, v = uniform(-s, -s)
+    near = point_nowcast(cell(0, 1, 43.0), u, v, G, LAT, LON)["nearest"]
+    assert near["track"] == "toward" and near["approaching"] is True
+    assert 0 < near["closing_kmh"] < 5
+
+
+def test_cell_crossing_far_from_the_point_is_passing():
+    u, v = uniform(-20.0)  # ~20 km east and ~20 km north/south of the point, moving west: misses by ~20 km
+    near = point_nowcast(cell(9, 9), u, v, G, LAT, LON)["nearest"]
+    assert near["closing_kmh"] > 5
+    assert near["track"] == "passing" and near["approaching"] is False
+
+
+def test_track_away_and_stationary():
+    u, v = uniform(40.0)
+    assert point_nowcast(cell(0, 9), u, v, G, LAT, LON)["nearest"]["track"] == "away"
+    u, v = uniform(1.0)
+    assert point_nowcast(cell(0, -9), u, v, G, LAT, LON)["nearest"]["track"] == "stationary"

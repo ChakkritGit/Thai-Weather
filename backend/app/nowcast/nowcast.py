@@ -24,7 +24,9 @@ RAIN_DBZ = 20.0
 STORM_DBZ = 45.0
 NEAREST_DBZ = 40.0
 NEAREST_RANGE_KM = 100.0
-APPROACH_KMH = 5.0
+MOVING_KMH = 2.0  # slower than this, a cell counts as stationary
+CLOSING_KMH = 1.0  # the motion component toward / away from the point that counts as "toward" / "away"
+PASS_KM = 8.0  # a cell whose track misses the point by more than this only passes by
 SPEED_SCALES = (0.8, 1.25)  # slower / faster than the estimated motion → ETA range
 PEAK_WINDOW_MIN = 20  # the reported class is the peak intensity within this time after arrival
 
@@ -167,17 +169,40 @@ def _nearest_cell(dbz: np.ndarray, u: np.ndarray, v: np.ndarray, grid: Grid, lat
     clat, clon = float(grid.lats[cy]), float(grid.lons[cx])
     d = float(dist[j])
     peak = _local_max(dbz, grid, clat, clon)
-    closing = 0.0
-    if d > 0.5:  # velocity component pointing from the cell toward the point
-        closing = (float(u[cy, cx]) * -float(kx[0, j[1]]) + float(v[cy, cx]) * -float(ky[j[0], 0])) / d
+    cu, cv = float(u[cy, cx]), float(v[cy, cx])
+    track = _track(-float(kx[0, j[1]]), -float(ky[j[0], 0]), cu, cv)
+    closing = (cu * -float(kx[0, j[1]]) + cv * -float(ky[j[0], 0])) / d if d > 0.5 else 0.0
     return {
         "distance_km": round(d, 1),
         "bearing_deg": round(_bearing(lat, lon, clat, clon)),
         "class": classify(peak),
         "max_dbz": round(peak, 1),
-        "approaching": bool(closing > APPROACH_KMH),
+        "approaching": track == "toward",
         "closing_kmh": round(closing, 1),
+        "track": track,
     }
+
+
+def _track(dx: float, dy: float, u: float, v: float) -> str:
+    """Where a cell at offset (-dx, -dy) km from the point is going, given its motion (u, v) km/h.
+
+    (dx, dy) points from the cell to the point. "toward" = closing and its track passes within
+    ``PASS_KM`` of the point (a slow cell drifting across counts, not only one aimed straight at it);
+    "passing" = its track misses by more, or it moves across; "away"; "stationary".
+    """
+    speed = math.hypot(u, v)
+    if speed < MOVING_KMH:
+        return "stationary"
+    d = math.hypot(dx, dy)
+    if d <= 0.5:
+        return "toward"  # already over the point
+    closing = (u * dx + v * dy) / d
+    if closing < -CLOSING_KMH:
+        return "away"
+    if closing <= CLOSING_KMH:
+        return "passing"
+    miss = abs(u * dy - v * dx) / speed  # distance from the point to the cell's straight track
+    return "toward" if miss <= PASS_KM else "passing"
 
 
 def point_nowcast(
@@ -193,7 +218,7 @@ def point_nowcast(
 
     Cells outside radar ``coverage`` are ignored.  Returns ``now`` (an echo within ``RADIUS_KM``),
     ``eta_rain`` (>= 20 dBZ), ``eta_storm`` (>= 45 dBZ), ``nearest`` (closest cell >= 40 dBZ within
-    100 km), ``rain_spell`` (when the rain over the point starts and stops, traced 120 min) and ``motion``.
+    100 km, with its ``track``: toward / passing / away / stationary), ``rain_spell`` (when the rain over the point starts and stops, traced 120 min) and ``motion``.
     ETAs are ``{"minutes", "minutes_range", "class", "max_dbz"}`` (0 = already happening) or None.
     """
     dbz = latest if coverage is None else np.where(coverage, latest, np.nan)

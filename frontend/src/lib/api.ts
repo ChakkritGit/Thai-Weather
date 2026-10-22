@@ -175,6 +175,8 @@ export interface NowcastNearest {
   max_dbz: number;
   approaching: boolean;
   closing_kmh: number;
+  /** "toward" = its track passes within ~8 km of the point (older payloads: only `approaching`) */
+  track?: 'toward' | 'passing' | 'away' | 'stationary';
 }
 
 export interface NowcastSpell {

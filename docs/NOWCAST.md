@@ -48,8 +48,10 @@ point. ETA = first lead with >= 20 dBZ (rain) and >= 45 dBZ (thunderstorm). Repe
 `minutes_range`. The reported class/dBZ is the peak within 20 minutes after arrival. Because of the 5 km radius the
 ETA means "the echo reaches within 5 km", i.e. up to a few minutes earlier than the cell centre.
 
-**Nearest cell.** The nearest echo >= 40 dBZ within 100 km: distance, bearing, class, and `approaching` when its motion
-has a component toward the point greater than 5 km/h (`closing_kmh`).
+**Nearest cell.** The nearest echo >= 40 dBZ within 100 km: distance, bearing, class, `closing_kmh` (its motion
+component toward the point) and `track`: `toward` when it closes by more than 1 km/h and its straight track
+passes within 8 km of the point (a slow cell drifting across counts), `passing` when the track misses by more or
+it moves across, `away`, or `stationary` (< 2 km/h). `approaching` = `track == "toward"`.
 
 **Map layer.** `/nowcast/layer?lead=0` is the latest frame (`uint8`, linear -10..75 dBZ, 0 = no echo); leads 10..60 min
 are the same frame advected along the motion field (served, not yet shown in the UI).

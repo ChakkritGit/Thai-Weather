@@ -88,6 +88,11 @@ describe('nowcast text', () => {
       nearest: { distance_km: 40, bearing_deg: 90, class: 'thunderstorm', max_dbz: 48, approaching: false, closing_kmh: -20 },
     });
     expect(nowcastSentence(away, 'th').details[0]).toBe('กลุ่มพายุฝนฟ้าคะนองห่าง 40 กม. ทางตะวันออก ไม่ได้เคลื่อนเข้าหาคุณ');
+    const passing = { ...away, nearest: { ...away.nearest!, track: 'passing' as const } };
+    expect(nowcastSentence(passing, 'th').details[0]).toBe('กลุ่มพายุฝนฟ้าคะนองห่าง 40 กม. ทางตะวันออก กำลังเคลื่อนผ่านไป ไม่ตรงมาที่นี่');
+    expect(nowcastSentence(passing, 'en').details[0]).toBe('Thunderstorm cell 40 km E, passing by, not heading here');
+    const over = { ...away, nearest: { ...away.nearest!, distance_km: 0.4, track: 'toward' as const } };
+    expect(nowcastSentence(over, 'th').details[0]).toBe('กลุ่มพายุฝนฟ้าคะนองอยู่ตรงบริเวณนี้');
   });
 
   it('reports a clear hour', () => {

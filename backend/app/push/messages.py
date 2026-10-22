@@ -61,10 +61,18 @@ def detail(n: dict) -> str:
     near = n.get("nearest")
     if near:
         cell = TH_CELL.get(near["class"]) or TH_CLASS.get(near["class"], "กลุ่มฝน")
-        where = f"{cell}ห่าง {_round(near['distance_km'])} กม. ทาง{compass(near['bearing_deg'])}"
-        if near["approaching"]:
-            return f"{where} เคลื่อนเข้ามา {_round(near['closing_kmh'])} กม./ชม."
-        return f"{where} ไม่ได้เคลื่อนเข้าหาคุณ"
+        km = _round(near["distance_km"])
+        if km == 0:
+            return f"{cell}อยู่ตรงบริเวณนี้"
+        where = f"{cell}ห่าง {km} กม. ทาง{compass(near['bearing_deg'])}"
+        track = near.get("track") or ("toward" if near["approaching"] else None)
+        tail = {
+            "toward": f"เคลื่อนเข้ามา {_round(near['closing_kmh'])} กม./ชม.",
+            "passing": "กำลังเคลื่อนผ่านไป ไม่ตรงมาที่นี่",
+            "away": "กำลังเคลื่อนออกห่าง",
+            "stationary": "แทบไม่เคลื่อนที่",
+        }.get(track, "ไม่ได้เคลื่อนเข้าหาคุณ")
+        return f"{where} {tail}"
     m = n.get("motion") or {}
     if m.get("heading_deg") is not None and m.get("speed_kmh", 0) >= 5:
         return f"ฝนเคลื่อนไปทาง{compass(m['heading_deg'])} ความเร็ว {_round(m['speed_kmh'])} กม./ชม."

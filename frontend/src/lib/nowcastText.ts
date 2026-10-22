@@ -196,9 +196,17 @@ function nearestText(near: NonNullable<Nowcast['nearest']>, lang: Lang): string 
   const dir = compass(near.bearing_deg, lang);
   const km = Math.round(near.distance_km);
   const closing = Math.round(near.closing_kmh);
-  return th
-    ? `${cell}ห่าง ${km} กม. ทาง${dir} ${near.approaching ? `เคลื่อนเข้ามา ${closing} กม./ชม.` : 'ไม่ได้เคลื่อนเข้าหาคุณ'}`
-    : `${cell} ${km} km ${dir}, ${near.approaching ? `moving toward you at ${closing} km/h` : 'not moving toward you'}`;
+  if (km === 0) return th ? `${cell}อยู่ตรงบริเวณนี้` : `${cell} right over this spot`;
+  const track = near.track ?? (near.approaching ? 'toward' : undefined);
+  const where = th ? `${cell}ห่าง ${km} กม. ทาง${dir}` : `${cell} ${km} km ${dir}`;
+  const motion = {
+    toward: th ? `เคลื่อนเข้ามา ${closing} กม./ชม.` : `moving toward you at ${closing} km/h`,
+    passing: th ? 'กำลังเคลื่อนผ่านไป ไม่ตรงมาที่นี่' : 'passing by, not heading here',
+    away: th ? 'กำลังเคลื่อนออกห่าง' : 'moving away',
+    stationary: th ? 'แทบไม่เคลื่อนที่' : 'barely moving',
+  };
+  const tail = track ? motion[track] : th ? 'ไม่ได้เคลื่อนเข้าหาคุณ' : 'not moving toward you';
+  return th ? `${where} ${tail}` : `${where}, ${tail}`;
 }
 
 /** Cyclones farther than this (now and at closest approach) are not worth mentioning for a point. */
