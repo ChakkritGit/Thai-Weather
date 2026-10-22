@@ -1,6 +1,9 @@
 # Build the server stack's own image on the VPS (the weather images build from deploy/weather.yml):
-#   docker compose -f docker-compose.yml -f docker-compose.build.yml build dock-metrics
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml build dock-metrics nginx-proxy-manager
 services:
+  nginx-proxy-manager:
+    build:
+      context: ./npm
   dock-metrics:
     image: dock-metrics:local
     build:

@@ -19,7 +19,9 @@ name: server
 
 services:
   nginx-proxy-manager:
-    image: jc21/nginx-proxy-manager:latest
+    # jc21/nginx-proxy-manager (pinned by digest) with a patched Node: built from npm/Dockerfile
+    image: nginx-proxy-manager:local
+    pull_policy: never
     container_name: nginx-proxy-manager
     restart: unless-stopped
     # L5: keep only the capabilities its init (s6), openresty and certbot use; no privilege escalation
@@ -39,7 +41,7 @@ services:
       - proxy
 
   portainer:
-    image: portainer/portainer-ce:lts
+    image: portainer/portainer-ce:lts@sha256:03f94a406496dc84d37b552795fc424ccad8d0d7200353b6a82915f6e8f73ab0
     container_name: portainer
     restart: unless-stopped
     # L5: Portainer talks to the Docker socket as root (that socket is the real power); the process itself
@@ -56,7 +58,7 @@ services:
   # Minimal, mobile-first Docker dashboard: static page + /api forwarded to Portainer (deploy/dock).
   # No Docker socket here – login and every Docker call go through Portainer.
   dock:
-    image: nginx:1.28-alpine
+    image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
     container_name: dock
     restart: unless-stopped
     read_only: true

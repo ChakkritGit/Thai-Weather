@@ -124,7 +124,7 @@ docker network inspect thai-weather-internal >/dev/null 2>&1 || docker network c
 if [ $BUILD = 1 ]; then
   say "Building the images (takes a while on a small server)"
   (cd "$WX" && docker compose -f docker-compose.yml -f docker-compose.build.yml build)
-  (cd "$WX" && docker compose pull --ignore-buildable -q 2>/dev/null || docker compose pull -q nginx-proxy-manager portainer dock)
+  (cd "$WX" && docker compose pull --ignore-buildable -q 2>/dev/null || docker compose pull -q portainer dock)
   (cd "$APPS" && docker compose build web api)
   for img in rust backup portfolio expenses whiteboard drive-music; do (cd "$APPS" && ./build.sh "$img"); done
 fi
