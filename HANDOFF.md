@@ -265,11 +265,19 @@ metadata in this public repo carries the author's work e-mail.
 - VPS cleanup: removed unused images (node:22.23.4-bookworm-slim, alpine 3.22.2/3.20), the four cargo-check
   volumes (rust-check-*, apps-rust-check-*: 3.2 GB) and dangling build cache (3.2 GB): disk 25 → 19 GB.
   Kept on purpose: build bases (rust 1.90.0, node 22.23.4-trixie for NPM, node 24.22.1-alpine, jc21 NPM),
-  verify's in-use image and `thai-weather-api-before-rust:20261017` (613 MB rollback tag).
+  verify's in-use image. The rollback tag `thai-weather-api-before-rust:20261017` was then deleted too
+  (owner's request); a pre-Rust API would have to be rebuilt from git.
 - Black-box re-check after the day's changes: all auth gates, traversal and dotfile probes, the NPM
   content-encoding guard, TLS ≤1.1 refused and only port 22 on the IP all held. Fixed: Drive Music sent
   `x-powered-by: Next.js` (`8c95a1f`, poweredByHeader off); the status Worker sent no nosniff / frame /
   referrer / HSTS headers (now set in `status/page.ts` `handle`, deployed with wrangler 4.144.0).
+- Dock's image page labels Dockerfile base images "ใช้ build" instead of "ไม่ได้ใช้" (`b8c7e36`):
+  `node deploy/dock/build-bases.mjs` writes `deploy/dock/www/build-bases.json` from every `FROM` in the repo
+  (CI runs it with `--check`; re-run after changing a Dockerfile). Only the rollback tag shows as unused.
+- CI had failed since `56a2203`: reminders' new push allow list also rejected the contract test's
+  `https://localhost` TLS fixture. `push::deliverable` allows localhost only in debug builds (`4614c5e`);
+  release images are unchanged (no redeploy needed). gh is not installed on the Mac: read CI through
+  `https://api.github.com/repos/ChakkritGit/Thai-Weather/actions/runs` (public repo).
 - Drive Music `7903524`: in the owner's Firefox every normal load stayed on the session skeleton (NPM log:
   `/` via sw.js, then no chunk/session/providers request at all) while a hard reload worked. Chunk names
   are content hashes (prod = local bytes), so a damaged entry in the worker's cache-first chunk cache is
@@ -653,9 +661,9 @@ metadata in this public repo carries the author's work e-mail.
   and all five loaded Next/Bun/Elysia marks retain their **20×20 px** triangular footprint in both
   list and overview. Served Dock asset hashes match the checkout. Chat/analytics writes were blocked.
 - Disposable candidates were removed; the only remaining Rust-labelled image is the running one.
-  The pre-Rust image `sha256:bbd3c368ee628b990271b21ced99f73575c48c4f381b4a20a0b44d281bb9a4af` is still
-  used by **verify**, also named `thai-weather-api-before-rust:20261017` for recovery. Keep it until
-  verify is deliberately updated; do not restart verify merely to remove an image. Encrypted backup
+  The pre-Rust rollback image `thai-weather-api-before-rust:20261017` was deleted on the owner's request
+  (2026-10-22); verify had already moved to its own image. Do not restart verify merely to remove an
+  image. Encrypted backup
   `chakkritton-server-backup-20261017-1900.zip` (128,727,949 bytes) existed before cutover. See
   `backend/rust-api/README.md` for operational constraints. gRPC remains deferred.
 
