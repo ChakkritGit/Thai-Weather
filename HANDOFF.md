@@ -79,7 +79,10 @@ Python numerical worker and separate Python verification container retained. See
 ## 3. Deploying
 
 - **App repos** (WebProfile, Spent-Cost, Whiteboard, Drive-Music-Web): push to `main` → `apps-autodeploy.timer`
-  (every 2 min) pulls, builds and rolls out without downtime (`deploy/rollout.sh`). Native standalone
+  (every 2 min) pulls, builds and rolls out without downtime (`deploy/rollout.sh`). These four repos are
+  **private** (since 2026-10-22): each VPS checkout `/opt/apps/repos/<app>` fetches over SSH with its own
+  read-only GitHub deploy key (`/root/.ssh/github-deploy/<app>`, title `vps-autodeploy`; set in the checkout's
+  `core.sshCommand` with `github-deploy/known_hosts`). A new private app repo needs the same. Native standalone
   services are owned by this repository and are deployed separately. Check: `ssh vps 'journalctl -u apps-autodeploy --since "-15 min" | grep -E "deployed|!!"'`.
 - **This repo is NOT auto-deployed.** Branch in use: `claude/vigilant-ride-i3yr1m` (the VPS checkout tracks it).
   - Stacks (since 2026-10-22): **server** = `deploy/docker-compose.yml` (NPM, Portainer, Dock, dock-metrics);
@@ -276,8 +279,8 @@ metadata in this public repo carries the author's work e-mail.
   (CI runs it with `--check`; re-run after changing a Dockerfile). Only the rollback tag shows as unused.
 - CI had failed since `56a2203`: reminders' new push allow list also rejected the contract test's
   `https://localhost` TLS fixture. `push::deliverable` allows localhost only in debug builds (`4614c5e`);
-  release images are unchanged (no redeploy needed). gh is not installed on the Mac: read CI through
-  `https://api.github.com/repos/ChakkritGit/Thai-Weather/actions/runs` (public repo).
+  release images are unchanged (no redeploy needed). `gh` is now installed on the Mac and logged in
+  (`gh run list`, `gh repo edit`, `gh repo deploy-key`).
 - Drive Music `7903524`: in the owner's Firefox every normal load stayed on the session skeleton (NPM log:
   `/` via sw.js, then no chunk/session/providers request at all) while a hard reload worked. Chunk names
   are content hashes (prod = local bytes), so a damaged entry in the worker's cache-first chunk cache is
