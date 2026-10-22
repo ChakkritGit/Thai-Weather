@@ -98,7 +98,9 @@ say "Stopping the stacks (volumes are kept until replaced)"
 APPS=/opt/thai-weather/deploy/apps
 WX=/opt/thai-weather/deploy
 (cd "$APPS" && docker compose down --remove-orphans 2>/dev/null) || true
-(cd "$WX" && docker compose -f docker-compose.yml -f docker-compose.build.yml down --remove-orphans 2>/dev/null) || true
+(cd "$WX" && docker compose down --remove-orphans 2>/dev/null) || true
+# bundles from before 2026-10-22 ran the proxy, Portainer, Dock and the weather services as "thai-weather"
+docker compose -p thai-weather down --remove-orphans 2>/dev/null || true
 
 say "Volumes"
 docker pull -q alpine:3.22.2 >/dev/null
@@ -111,16 +113,24 @@ for v in "$P"/volumes/*.tar.gz; do
 done
 # the databases come back from their dumps into a fresh cluster (roles and passwords from db.env)
 docker volume rm -f apps_db-data >/dev/null 2>&1 || true
+# shared by both stacks and declared `external` there: create what the bundle did not bring
+for v in thai-weather_npm-data thai-weather_npm-letsencrypt thai-weather_portainer-data thai-weather_dock-metrics thai-weather_thwx-data; do
+  docker volume inspect "$v" >/dev/null 2>&1 || docker volume create "$v" >/dev/null
+done
+docker network inspect proxy >/dev/null 2>&1 || docker network create proxy >/dev/null
+docker network inspect dock-internal >/dev/null 2>&1 || docker network create --internal dock-internal >/dev/null
+docker network inspect thai-weather-internal >/dev/null 2>&1 || docker network create thai-weather-internal >/dev/null
 
 if [ $BUILD = 1 ]; then
   say "Building the images (takes a while on a small server)"
   (cd "$WX" && docker compose -f docker-compose.yml -f docker-compose.build.yml build)
-  (cd "$WX" && docker compose pull --ignore-buildable -q 2>/dev/null || docker compose pull -q nginx-proxy-manager portainer dock)
-  for img in services reminders portfolio expenses whiteboard drive-music; do (cd "$APPS" && ./build.sh "$img"); done
+  (cd "$WX" && docker compose pull -q nginx-proxy-manager portainer dock)
+  (cd "$APPS" && docker compose build web api)
+  for img in rust backup portfolio expenses whiteboard drive-music; do (cd "$APPS" && ./build.sh "$img"); done
 fi
 
-say "Starting the weather stack and the proxy"
-(cd "$WX" && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d)
+say "Starting the server stack (proxy, Portainer, Dock)"
+(cd "$WX" && docker compose up -d)
 
 say "Databases"
 (cd "$APPS" && docker compose up -d db)

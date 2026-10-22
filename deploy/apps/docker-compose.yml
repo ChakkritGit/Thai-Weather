@@ -9,12 +9,18 @@
 #     sync       Rust       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
+#   web, api, verify, weather-web-api        thai-weather.chakkritton.com (this repo; ../weather.yml)
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
 # chmod 600) – neither is in git. Images are built by build.sh (autodeploy.sh calls it after a pull):
 #   ./build.sh portfolio && docker compose up -d portfolio      # or ./build.sh rust
 # ─────────────────────────────────────────────────────────────────────────────
 name: apps
+
+# Thai Weather's services (web, api, verify, weather-web-api) are part of this stack too.
+include:
+  - path: ../weather.yml
+    env_file: ../.env
 
 x-next: &next
   restart: unless-stopped
