@@ -206,9 +206,9 @@ integration cases and is not a complete backend check. Test sockets need local s
   14-day version rule on 2026-10-24; do not upgrade early or claim a runtime bug is proven.
 - **Spent/Cost speed**: signed-in pages had TTFB p75 ≈ 2.1 s (Dock → สถิติเว็บ → expenses). The proxy and
   server actions now verify the session with `supabase.auth.getClaims()` (local ES256 check) instead of
-  `getUser()` (a Supabase round trip per request). Confirm the owner can still sign in and use the app, and
-  that TTFB drops over the next days. If a deeper look is needed: `/` also runs `ensureMonth` and four
-  queries; `/settings` still calls `getUser()` on purpose (linked identities).
+  `getUser()`. The owner confirmed sign-in works (2026-10-22); still watch that TTFB drops. If a deeper
+  look is needed: `/` also runs `ensureMonth` and four queries; `/settings` still calls `getUser()` on
+  purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
@@ -261,9 +261,14 @@ metadata in this public repo carries the author's work e-mail.
 - Map: a tap selects only after 300 ms and is cancelled by a second tap or any camera move (double-tap zoom).
 - Footer gained the API link; the point panel ends with the same footer. Rolling digits no longer clip the blur.
 - Portfolio /topics counts each piece once per slug (Claude showed 4, its page 2) and topic pages match by slug.
-- Drive Music "shuffle does not update Up Next": not reproduced. PlayerProvider reshuffles Up Next on
-  every toggle (probe test), and the Rust sync server matches the TypeScript reducer/validators. Needs the
-  owner's exact setup (which device is the output, Party Play on/off).
+- Drive Music "shuffle does not update Up Next": the owner confirmed it works now.
+- Drive Music `7903524`: in the owner's Firefox every normal load stayed on the session skeleton (NPM log:
+  `/` via sw.js, then no chunk/session/providers request at all) while a hard reload worked. Chunk names
+  are content hashes (prod = local bytes), so a damaged entry in the worker's cache-first chunk cache is
+  the likely cause (the profile could not be read). An inline watchdog (`src/lib/bootWatchdog.ts`) waits
+  for load + 6 s; if the app has not booted while online and worker-controlled, it unregisters the worker,
+  drops `drive-music-shell-*` and reloads once per tab (IndexedDB downloads untouched). Verified in
+  headless Firefox 158 locally and on production with deliberately corrupted cached chunks.
 - Stacks split on the VPS (owner approved): `server` (NPM, Portainer, Dock, dock-metrics) and Thai Weather's
   web/api/verify/weather-web-api inside `apps`. Web was rolled beside the old one; api/verify were
   recreated while the refresher was idle (same run ID afterwards, no extra forecast); the server
