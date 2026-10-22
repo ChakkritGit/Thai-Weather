@@ -1,7 +1,22 @@
-# Build the server stack's own image on the VPS (the weather images build from deploy/weather.yml):
-#   docker compose -f docker-compose.yml -f docker-compose.build.yml build dock-metrics
+# Optional override: build the app images on the VPS from this checkout
+# instead of pulling them from GHCR (needs ~2 GB free RAM for the Next.js build).
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   dock-metrics:
     image: dock-metrics:local
     build:
       context: ./apps/rust-services
+  api:
+    image: thai-weather-api:local
+    build:
+      context: ../backend
+  verify:
+    # same image as api (built above); no build section so it is built only once
+    image: thai-weather-api:local
+    pull_policy: never
+  web:
+    image: thai-weather-web:local
+    build:
+      context: ../frontend
+      args:
+        THWX_API_URL: http://api:8000

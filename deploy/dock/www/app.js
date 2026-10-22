@@ -243,16 +243,16 @@ function nameOf(c) {
 
 /** compose project/service → [brand mark, group] */
 const SERVICES = {
-  'apps/web': ['nextdotjs', 'ฟ้าละเอียด'], 'apps/api': ['fastapi', 'ฟ้าละเอียด'], 'apps/verify': ['python', 'ฟ้าละเอียด'],
-  'apps/weather-web-api': ['rust', 'ฟ้าละเอียด'],
+  'thai-weather/web': ['nextdotjs', 'ฟ้าละเอียด'], 'thai-weather/api': ['fastapi', 'ฟ้าละเอียด'], 'thai-weather/verify': ['python', 'ฟ้าละเอียด'],
+  'thai-weather/weather-web-api': ['rust', 'ฟ้าละเอียด'],
   'apps/portfolio': ['nextdotjs', 'Portfolio'], 'apps/portfolio-api': ['rust', 'Portfolio'], 'apps/media': ['bun', 'Portfolio'],
   'apps/expenses': ['nextdotjs', 'Spent/Cost'], 'apps/reminders': ['bun', 'Spent/Cost'],
   'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
   'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
   'apps/db': ['postgresql', 'ฐานข้อมูล'], 'apps/rest': ['postgresql', 'ฐานข้อมูล'], 'apps/dbgw': ['bun', 'ฐานข้อมูล'],
   'apps/health': ['bun', 'ระบบส่วนกลาง'], 'apps/status': ['bun', 'ระบบส่วนกลาง'], 'apps/analytics': ['bun', 'ระบบส่วนกลาง'], 'apps/backup': ['bun', 'ระบบส่วนกลาง'], 'apps/chat': ['bun', 'ระบบส่วนกลาง'],
-  'server/nginx-proxy-manager': ['nginxproxymanager', 'จัดการเซิร์ฟเวอร์'], 'server/portainer': ['portainer', 'จัดการเซิร์ฟเวอร์'],
-  'server/dock': ['nginx', 'จัดการเซิร์ฟเวอร์'], 'server/dock-metrics': ['bun', 'จัดการเซิร์ฟเวอร์'],
+  'thai-weather/nginx-proxy-manager': ['nginxproxymanager', 'จัดการเซิร์ฟเวอร์'], 'thai-weather/portainer': ['portainer', 'จัดการเซิร์ฟเวอร์'],
+  'thai-weather/dock': ['nginx', 'จัดการเซิร์ฟเวอร์'], 'thai-weather/dock-metrics': ['bun', 'จัดการเซิร์ฟเวอร์'],
 };
 const GROUP_ORDER = ['ฟ้าละเอียด', 'Portfolio', 'Spent/Cost', 'Whiteboard', 'Drive Music', 'ฐานข้อมูล', 'ระบบส่วนกลาง', 'จัดการเซิร์ฟเวอร์'];
 function serviceOf(c) {
