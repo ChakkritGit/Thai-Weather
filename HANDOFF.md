@@ -31,7 +31,7 @@ Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
 
 | URL | What | Code | Runs on |
 |---|---|---|---|
-| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16 + Bun, native Rust web APIs), `backend/` (Rust HTTP + Python science/`verify/`) | VPS, stack `deploy/` |
+| thai-weather.chakkritton.com | ฟ้าละเอียด — 2.2 km forecast for Thailand (map, provinces, alerts, verification, free API) | this repo: `frontend/` (Next 16 + Bun, native Rust web APIs), `backend/` (Rust HTTP + Python science/`verify/`) | VPS, stack `apps` (services in `deploy/weather.yml`) |
 | chakkritton.com, www | Portfolio + blog, studio, Scrolly assistant | github.com/ChakkritGit/WebProfile | VPS, stack `deploy/apps` |
 | expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
 | whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
@@ -82,14 +82,16 @@ Python numerical worker and separate Python verification container retained. See
   (every 2 min) pulls, builds and rolls out without downtime (`deploy/rollout.sh`). Native standalone
   services are owned by this repository and are deployed separately. Check: `ssh vps 'journalctl -u apps-autodeploy --since "-15 min" | grep -E "deployed|!!"'`.
 - **This repo is NOT auto-deployed.** Branch in use: `claude/vigilant-ride-i3yr1m` (the VPS checkout tracks it).
-  - weather web: `ssh vps 'cd /opt/thai-weather && flock /run/apps-autodeploy.lock git pull -q && cd deploy && exec 9>/run/apps-autodeploy.lock && flock 9 && docker compose -p thai-weather -f docker-compose.yml -f docker-compose.build.yml build web && COMPOSE_FILE=docker-compose.yml:docker-compose.build.yml ./rollout.sh web'`
-  - weather api: same pull, then `build api`; assert the old refresher is idle and the latest real
+  - Stacks (since 2026-10-22): **server** = `deploy/docker-compose.yml` (NPM, Portainer, Dock, dock-metrics);
+    **apps** = `deploy/apps` (+ Thai Weather's web/api/verify/weather-web-api from `deploy/weather.yml`).
+  - weather web: `ssh vps 'cd /opt/thai-weather && umask 022 && flock /run/apps-autodeploy.lock git pull -q && cd deploy/apps && exec 9>/run/apps-autodeploy.lock && flock 9 && docker compose build web && ../rollout.sh web'`
+  - weather api: same pull, then `cd deploy/apps && docker compose build api`; assert the old refresher is idle and the latest real
     run is < 6 h old before `up -d --no-deps api`. See `backend/rust-api/README.md`. Only restart
     `verify` when its numerical/verification code changed; a runtime-only API change does not need it.
   - Native app services: pull, then `cd deploy/apps && ./build.sh rust && docker compose up -d --no-deps <svc>`;
     native `backup` is separate: `./build.sh rust && ./build.sh backup`; restart only backup.
-  - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` with the build
-    override, compare a read-only candidate first, then stop only metrics for its final history save
+  - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` in `deploy/` with the build
+    override (server stack), compare a read-only candidate first, then stop only metrics for its final history save
     before recreating it. Retain `thai-weather_dock-metrics`; no API/verify/web restart is needed.
   - Dock: `deploy/dock/www` is a directory mount (live after `git pull`); its `nginx.conf` is a bind-mounted
     **file** → `docker restart dock` after changing it (validate with a throwaway nginx first).
@@ -173,17 +175,6 @@ integration cases and is not a complete backend check. Test sockets need local s
 - ~mid-November: recheck the learned temperature bias (hold-out MAE in the report; baseline 1.31 °C).
 
 ### Needs the owner's decision
-- **Stack split (asked 2026-10-22, not switched yet):** the owner wants Thai Weather's services in the
-  `apps` stack and the rest of `thai-weather` (NPM, Portainer, Dock, dock-metrics) renamed to `server`.
-  The code is ready on branch **`stack-split`** (deploy/weather.yml included by deploy/apps; existing
-  networks/volumes kept by name as `external`; restore.sh and Dock's service map updated) and both
-  configs validate on the VPS. The switch recreates NPM, Portainer, Dock, the API and verify (a few
-  seconds without the proxy for every site), and the auto-mode classifier refused it, so it waits for
-  the owner to run or approve it. Steps: merge the branch; under the deploy lock start `web` and
-  `weather-web-api` from deploy/apps beside the old ones and remove the old; check the refresher is idle,
-  recreate `api` and `verify`; then stop/remove/`up` dock-metrics, dock, portainer, nginx-proxy-manager
-  from deploy/. Update §3's commands afterwards (`cd deploy/apps && docker compose build web api &&
-  ../rollout.sh web`).
 - **Memory limits** were removed on the owner's instruction (2026-10-19). Review note: the public, in-memory
   Whiteboard rooms accept 16 MB messages with no cap on rooms or document size; without a limit one
   abusive client can exhaust the host's 6 GB and the kernel then kills whatever is largest (often the
@@ -278,6 +269,10 @@ carries the author's work e-mail.
 - Drive Music "shuffle does not update Up Next": not reproduced. PlayerProvider reshuffles Up Next on
   every toggle (probe test), and the Rust sync server matches the TypeScript reducer/validators. Needs the
   owner's exact setup (which device is the output, Party Play on/off).
+- Stacks split on the VPS (owner approved): `server` (NPM, Portainer, Dock, dock-metrics) and Thai Weather's
+  web/api/verify/weather-web-api inside `apps`. Web was rolled beside the old one; api/verify were
+  recreated while the refresher was idle (same run ID afterwards, no extra forecast); the server
+  containers were recreated on their existing volumes (a few seconds without the proxy).
 
 
 ### Expenses auth and metrics memory (2026-10-20, Codex)

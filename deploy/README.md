@@ -1,6 +1,9 @@
 # Deploy บน VPS (Docker + Portainer + Nginx Proxy Manager)
 
-ทุกอย่างอยู่ใน **compose ไฟล์เดียว** (`deploy/docker-compose.yml`)
+> **Since 2026-10-22 there are two stacks:** `deploy/docker-compose.yml` is the **server** stack (NPM, Portainer,
+> Dock, dock-metrics); Thai Weather's services live in `deploy/weather.yml`, included by the **apps** stack
+> (`deploy/apps`). Run compose for web/api/verify from `deploy/apps`. HANDOFF.md §3 has the current commands;
+> the walkthrough below predates the split.
 
 ```
 อินเทอร์เน็ต ──443/80──► nginx-proxy-manager (SSL Let's Encrypt)
@@ -119,8 +122,8 @@ ssh -L 8181:127.0.0.1:81 root@<VPS_IP>
 ไม่อยากใช้ GHCR? build บน VPS ได้ (ต้องมี RAM ว่าง ~2 GB):
 
 ```bash
-cd /opt/thai-weather && git pull && cd deploy
-docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+cd /opt/thai-weather && git pull && cd deploy/apps
+docker compose build web api && docker compose up -d --no-deps web api
 ```
 
 ## 6. อัปเดตเวอร์ชัน
@@ -130,8 +133,8 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 **ทาง SSH:**
 
 ```bash
-cd /opt/thai-weather && git pull && cd deploy
-docker compose pull api web && docker compose up -d api web
+cd /opt/thai-weather && git pull && cd deploy/apps
+docker compose build web api && ../rollout.sh web   # api: see HANDOFF.md §3 first
 ```
 
 > stack นี้สร้างจาก command line จึงขึ้นใน Portainer เป็น *Limited* — จัดการ container (logs, restart,
