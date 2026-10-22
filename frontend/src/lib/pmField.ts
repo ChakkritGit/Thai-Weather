@@ -11,8 +11,8 @@ export const PM_BANDS: [max: number, rgb: [number, number, number]][] = [
 
 /** Thailand's PM2.5 categories (Pollution Control Department, 24 h µg/m³), in PM_BANDS order. */
 const PM_LABELS: [th: string, en: string][] = [
-  ['คุณภาพอากาศดีมาก', 'Very good'],
-  ['คุณภาพอากาศดี', 'Good'],
+  ['ดีมาก', 'Very good'],
+  ['ดี', 'Good'],
   ['ปานกลาง', 'Moderate'],
   ['เริ่มมีผลกระทบต่อสุขภาพ', 'Starting to affect health'],
   ['มีผลกระทบต่อสุขภาพ', 'Affects health'],

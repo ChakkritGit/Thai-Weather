@@ -150,7 +150,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
         lon={point.lon}
         snapshot={snapshot}
         nowMs={nowMs}
-        model={{ times: data.times, pop: f.pop, km: fineKmText, nowMs }}
+        model={{ times: data.times, pop: f.pop, km: `${fineKmText} ${lang === 'th' ? 'กม.' : 'km'}`, nowMs }}
       />
 
       <section className="panel-section" aria-labelledby="model-forecast-h">
