@@ -164,6 +164,7 @@ services:
         aliases: [apps-health]
       apps:
         aliases: [apps-health]
+      ops: {}   # relays status alerts to chat
     healthcheck:
       test: ["CMD", "/apps-runtime", "health", "--healthcheck"]
       interval: 30s
@@ -218,7 +219,9 @@ services:
       - /opt/apps/repos:/src/repos:ro
       - /opt/thai-weather:/src/thai-weather:ro
       - /opt/apps/backups/bundles:/bundles
-    networks: [proxy, apps]
+    # Not on `proxy`: that network holds every site's container, and this service trusts its callers
+    # (Dock checks the Portainer login). Dock and chat reach it over dock-internal; apps-db over apps.
+    networks: [apps, dock]
     healthcheck:
       test: ["CMD", "/apps-runtime", "backup", "--healthcheck"]
       interval: 30s
@@ -313,7 +316,7 @@ services:
       ANALYTICS_DB: /data/analytics.db
     volumes:
       - analytics-data:/data
-    networks: [proxy]
+    networks: [proxy, ops]   # proxy: NPM forwards /_a from every site; ops: read by chat
     healthcheck:
       test: ["CMD", "/apps-runtime", "analytics", "--healthcheck"]
       interval: 30s
@@ -337,7 +340,9 @@ services:
       TZ: Asia/Bangkok
     volumes:
       - chat-data:/data
-    networks: [proxy, dock]
+    # Not on `proxy` either (see backup): Dock over dock-internal; `ops` for analytics, the alert relay
+    # from health and the internet (web push, the status page, the LLM).
+    networks: [dock, ops]
     healthcheck:
       test: ["CMD", "/apps-runtime", "chat", "--healthcheck"]
       interval: 30s
@@ -349,6 +354,9 @@ networks:
     external: true
   apps:
     name: apps-internal
+  # chat, analytics and health only: a small egress network that the sites' containers are not on
+  ops:
+    name: apps-ops
   dock:
     external: true
     name: dock-internal
