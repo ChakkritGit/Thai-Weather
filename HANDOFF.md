@@ -273,6 +273,11 @@ carries the author's work e-mail.
   web/api/verify/weather-web-api inside `apps`. Web was rolled beside the old one; api/verify were
   recreated while the refresher was idle (same run ID afterwards, no extra forecast); the server
   containers were recreated on their existing volumes (a few seconds without the proxy).
+- Node.js CVE-2026-111497 (Brotli decoder RCE, Oct 21 release): the only Node process on the VPS is NPM's
+  admin API (Node 22.23.2, Express 5 decompresses request bodies; /api/tokens is unauthenticated). NPM proxy
+  host 3 (nginx.chakkritton.com) now starts its advanced config with `if ($http_content_encoding) { return
+  415; }` (kept permanently; stored in NPM's DB, survives recreation). Next apps run on Bun, the rest is
+  Rust/Python/Go. Build stages still pin Node 24.21.0: move to 24.22.1 once it is 14 days old (~Nov 4).
 
 
 ### Expenses auth and metrics memory (2026-10-20, Codex)
