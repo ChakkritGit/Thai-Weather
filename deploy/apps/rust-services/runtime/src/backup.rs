@@ -1,4 +1,5 @@
 //! Native backup orchestration; pg_dump/tar/OpenSSL/zip retain the restore bundle format.
+use crate::util::Locked;
 use crate::{checks::millis, util};
 use axum::{
     Router,
@@ -130,7 +131,7 @@ fn p(path: &Path) -> String {
 }
 impl Backups {
     fn step(&self, s: &str) {
-        if let Some(j) = self.job.lock().unwrap().as_mut() {
+        if let Some(j) = self.job.locked().as_mut() {
             j["step"] = json!(s);
         }
     }
@@ -295,7 +296,7 @@ impl Backups {
             )?;
             fs::rename(partial, self.out.join(name))?;
             self.step("เสร็จ");
-            self.job.lock().unwrap().as_mut().unwrap()["done"] = json!(true);
+            self.job.locked().as_mut().unwrap()["done"] = json!(true);
             let all = entries(&self.out)?
                 .into_iter()
                 .filter(|n| valid_name(n))
@@ -306,7 +307,7 @@ impl Backups {
             Ok(())
         })();
         if let Err(e) = result {
-            self.job.lock().unwrap().as_mut().unwrap()["error"] = json!(e.to_string());
+            self.job.locked().as_mut().unwrap()["error"] = json!(e.to_string());
             let _ = fs::remove_file(self.out.join(format!("{name}.part")));
             eprintln!("bundle failed");
         }
@@ -344,7 +345,7 @@ async fn handle(State(b): State<Arc<Backups>>, req: Request) -> HttpResponse {
     }
     if path == "/backups" && method == Method::GET {
         return match b.list() {
-            Ok(v) => util::json(200, json!({"bundles":v,"job":*b.job.lock().unwrap()})),
+            Ok(v) => util::json(200, json!({"bundles":v,"job":*b.job.locked()})),
             Err(_) => util::json(500, json!({"error":"storage unavailable"})),
         };
     }
@@ -370,7 +371,7 @@ async fn handle(State(b): State<Arc<Backups>>, req: Request) -> HttpResponse {
                 .format("%Y%m%d-%H%M")
         );
         {
-            let mut job = b.job.lock().unwrap();
+            let mut job = b.job.locked();
             if job
                 .as_ref()
                 .is_some_and(|j| j.get("done").is_none() && j.get("error").is_none())
@@ -388,7 +389,7 @@ async fn handle(State(b): State<Arc<Backups>>, req: Request) -> HttpResponse {
         .strip_prefix("/backups/dl/")
         .filter(|_| matches!(method, Method::GET | Method::HEAD))
     {
-        let link = b.links.lock().unwrap().get(token).cloned();
+        let link = b.links.locked().get(token).cloned();
         let Some((name, until)) = link.filter(|(_, until)| *until >= millis()) else {
             return util::text(410, "link expired");
         };
@@ -471,7 +472,7 @@ async fn handle(State(b): State<Arc<Backups>>, req: Request) -> HttpResponse {
                 uuid::Uuid::new_v4().simple()
             );
             let now = millis();
-            let mut links = b.links.lock().unwrap();
+            let mut links = b.links.locked();
             links.retain(|_, (_, until)| *until >= now);
             links.insert(token.clone(), (name.into(), now + 600_000));
             return util::json(200, json!({"url":format!("/api/backups/dl/{token}")}));

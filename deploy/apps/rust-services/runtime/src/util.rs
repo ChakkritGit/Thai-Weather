@@ -4,6 +4,16 @@ use std::{
     time::Duration,
 };
 use subtle::ConstantTimeEq;
+/// `Mutex::lock` that keeps serving after a panic in another task poisoned the lock: one bad message
+/// must not take a whole room (or the service) down until a restart.
+pub trait Locked<T> {
+    fn locked(&self) -> std::sync::MutexGuard<'_, T>;
+}
+impl<T> Locked<T> for std::sync::Mutex<T> {
+    fn locked(&self) -> std::sync::MutexGuard<'_, T> {
+        self.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
 pub fn env(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.into())
 }

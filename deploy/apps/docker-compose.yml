@@ -265,6 +265,7 @@ services:
       PGRST_DB_ANON_ROLE: anon
       PGRST_DB_POOL: "5"
       PGRST_SERVER_PORT: "3000"
+      PGRST_OPENAPI_MODE: disabled  # the root would list every table to anyone
     depends_on:
       db:
         condition: service_healthy

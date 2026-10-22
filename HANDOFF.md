@@ -72,7 +72,7 @@ and Thai Weather keep **Next 16.3.8 on Bun 1.4.2** for SSR, sessions and server 
 Their formerly Elysia-owned APIs are native Rust: published Portfolio search/DB health,
 Spent/Cost dependency health, Drive token signing, Weather text/RSS; Whiteboard already
 uses native Rooms. No Elysia package remains in the new web images. Portfolio Studio
-mutations and SSR Prisma reads stay in Next. Builds retain pinned Node 24.21.0.
+mutations and SSR Prisma reads stay in Next. Builds pin Node 24.22.1 (security release, owner-approved exception to the 14-day rule).
 Thai Weather's numerical HTTP API has run Rust/Axum since Oct 18, with the private
 Python numerical worker and separate Python verification container retained. See §9.
 
@@ -175,11 +175,8 @@ integration cases and is not a complete backend check. Test sockets need local s
 - ~mid-November: recheck the learned temperature bias (hold-out MAE in the report; baseline 1.31 °C).
 
 ### Needs the owner's decision
-- **Memory limits** were removed on the owner's instruction (2026-10-19). Review note: the public, in-memory
-  Whiteboard rooms accept 16 MB messages with no cap on rooms or document size; without a limit one
-  abusive client can exhaust the host's 6 GB and the kernel then kills whatever is largest (often the
-  weather API or Postgres). A middle ground: limits only on `rooms` and `sync`, or `oom_score_adj` to
-  protect db/NPM.
+- **Memory limits** were removed on the owner's instruction (2026-10-19). The rooms/sync services now cap
+  themselves in code (2026-10-22: ~1 GB of Whiteboard documents in total), so container limits stay off.
 - **Admin UIs** nginx./portainer.chakkritton.com are public behind passwords only; Cloudflare Access in front
   of them would add a second factor (a Cloudflare security setting: ask first).
 - **WRF 3 km**: not feasible on this VPS (full domain ~9–18 h per run even on the 14-core plan). Options: rent
@@ -252,11 +249,9 @@ Fixed:
 - Portfolio, Spent/Cost and Whiteboard sent no nosniff / referrer / anti-framing headers and announced
   `x-powered-by`; they now send Drive Music's set (Portfolio uses SAMEORIGIN).
 - restore.sh built the removed Bun images (`services`, `reminders`); it builds `rust` and `backup`.
-Left as notes (low): PostgREST's OpenAPI root lists the table names (as on Supabase); analytics accepts
-fake page views without a rate limit; the weather API's admin compare is not constant-time and an
-unset THWX_ADMIN_TOKEN would open the admin routes (compose requires it); std `Mutex` + `unwrap` in
-rooms/sync means a panic inside a room poisons it until restart; commit metadata in this public repo
-carries the author's work e-mail.
+Left as notes (low), all but the last fixed later the same day (see the 2026-10-22 log): PostgREST's
+OpenAPI root; analytics rate limit; the weather API's admin compare; poisoned room mutexes. Commit
+metadata in this public repo carries the author's work e-mail.
 
 ### 2026-10-22 (Claude)
 - Nowcast: the radar speaks for rain within **4 km** (RADIUS_KM, was 5); a 0–120 min trace gives
@@ -277,7 +272,15 @@ carries the author's work e-mail.
   admin API (Node 22.23.2, Express 5 decompresses request bodies; /api/tokens is unauthenticated). NPM proxy
   host 3 (nginx.chakkritton.com) now starts its advanced config with `if ($http_content_encoding) { return
   415; }` (kept permanently; stored in NPM's DB, survives recreation). Next apps run on Bun, the rest is
-  Rust/Python/Go. Build stages still pin Node 24.21.0: move to 24.22.1 once it is 14 days old (~Nov 4).
+  Rust/Python/Go. Then (owner: "make everything safe", approved the 14-day exception for these patches):
+  NPM is built from `deploy/npm/Dockerfile` (jc21's image by digest + official Node 22.23.4; drop it once
+  jc21 ships the fix); Portainer/Dock nginx pinned by digest; build stages on Node 24.22.1; the Mac's nvm
+  Node is 24.22.1 (globals bun/cf/vercel/nest reinstalled at the same versions).
+- Review notes closed: weather admin routes compare the token without early exit and are closed when
+  THWX_ADMIN_TOKEN is unset; PostgREST OpenAPI disabled; analytics allows 120 events/IP/minute; Whiteboard
+  rooms: ≤1000 rooms, ≤64 peers, names ≤256 bytes, 64 MB of document updates per room and 1 GB in total
+  (cursors do not count); Party Play ≤32 devices per party; poisoned std mutexes are recovered
+  (`util::Locked`) instead of killing a room until restart.
 
 
 ### Expenses auth and metrics memory (2026-10-20, Codex)

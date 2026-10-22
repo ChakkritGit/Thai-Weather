@@ -283,20 +283,30 @@ fn etag(headers: &HeaderMap) -> Option<&str> {
         .filter(|v| v.len() <= 512)
 }
 
+/// Admin routes need `Authorization: Bearer $THWX_ADMIN_TOKEN`; without a configured token they are
+/// closed (fail closed rather than open). The comparison does not stop at the first differing byte.
 fn admin(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
-    if let Some(token) = &state.config.admin_token {
-        let expected = format!("Bearer {token}");
-        if headers
-            .get("authorization")
-            .is_none_or(|v| v.as_bytes() != expected.as_bytes())
-        {
-            return Err(ApiError::detail(
-                StatusCode::UNAUTHORIZED,
-                "admin token required",
-            ));
-        }
+    let Some(token) = &state.config.admin_token else {
+        return Err(ApiError::detail(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "admin routes are disabled (THWX_ADMIN_TOKEN is not set)",
+        ));
+    };
+    let expected = format!("Bearer {token}");
+    if headers
+        .get("authorization")
+        .is_none_or(|v| !same_bytes(v.as_bytes(), expected.as_bytes()))
+    {
+        return Err(ApiError::detail(
+            StatusCode::UNAUTHORIZED,
+            "admin token required",
+        ));
     }
     Ok(())
+}
+
+fn same_bytes(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 async fn simple(State(state): State<Arc<AppState>>, uri: Uri, headers: HeaderMap) -> ApiResult {
@@ -580,5 +590,13 @@ mod tests {
             assert!(coordinate(&p, "lat", 90.0).is_err());
         }
         assert!(coordinate(&HashMap::new(), "lon", 180.0).is_err());
+    }
+
+    #[test]
+    fn admin_token_comparison() {
+        assert!(same_bytes(b"Bearer abc", b"Bearer abc"));
+        assert!(!same_bytes(b"Bearer abd", b"Bearer abc"));
+        assert!(!same_bytes(b"Bearer ab", b"Bearer abc"));
+        assert!(!same_bytes(b"", b"Bearer abc"));
     }
 }

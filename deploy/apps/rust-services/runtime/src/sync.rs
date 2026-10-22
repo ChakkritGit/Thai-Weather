@@ -1,4 +1,5 @@
 //! Party Play protocol 2: JWT-isolated rooms, leases, handoff fencing and SQLite playback.
+use crate::util::Locked;
 use crate::{checks::millis, playback as p, util};
 use axum::{
     Router,
@@ -73,8 +74,7 @@ struct Party {
 impl Party {
     fn new(name: &str, db: Db, wake: Arc<Notify>) -> Result<Self, Box<dyn std::error::Error>> {
         let raw = db
-            .lock()
-            .unwrap()
+            .locked()
             .query_row(
                 "SELECT value FROM kv WHERE room=? AND key='playback'",
                 [name],
@@ -147,7 +147,7 @@ impl Party {
             c.raw(wire.clone());
         }
         if !self.room["playback"].is_null() {
-            self.db.lock().unwrap().execute("INSERT INTO kv (room,key,value) VALUES (?,'playback',?) ON CONFLICT(room,key) DO UPDATE SET value=excluded.value",params![self.name,serde_json::to_string(&self.room["playback"]).unwrap()])?;
+            self.db.locked().execute("INSERT INTO kv (room,key,value) VALUES (?,'playback',?) ON CONFLICT(room,key) DO UPDATE SET value=excluded.value",params![self.name,serde_json::to_string(&self.room["playback"]).unwrap()])?;
         }
         if !self.devices.is_empty() || self.releasing.is_some() {
             let next = self
@@ -480,6 +480,7 @@ impl Party {
         Ok(())
     }
 }
+const MAX_PEERS: usize = 32; // devices in one party; a token is needed to join, this caps a leaked one
 struct Hub {
     db: Db,
     secret: String,
@@ -490,17 +491,17 @@ struct Hub {
 }
 impl Hub {
     fn release(&self, name: &str) {
-        let mut rooms = self.rooms.lock().unwrap();
+        let mut rooms = self.rooms.locked();
         let Some(r) = rooms.get(name).cloned() else {
             return;
         };
-        let r = r.lock().unwrap();
+        let r = r.locked();
         if r.connections.is_empty() && r.alarm.is_none() {
             rooms.remove(name);
         }
     }
     fn join(&self, name: &str, c: &Conn) -> Result<Arc<Mutex<Party>>, Box<dyn std::error::Error>> {
-        let mut rooms = self.rooms.lock().unwrap();
+        let mut rooms = self.rooms.locked();
         let r = if let Some(r) = rooms.get(name) {
             r.clone()
         } else {
@@ -513,7 +514,10 @@ impl Hub {
             r
         };
         {
-            let mut p = r.lock().unwrap();
+            let mut p = r.locked();
+            if p.connections.len() >= MAX_PEERS && !p.connections.contains_key(&c.id) {
+                return Err("party is full".into());
+            }
             p.connections.insert(c.id.clone(), c.clone());
             c.raw(p.snapshot());
         }
@@ -575,10 +579,10 @@ async fn socket(ws: WebSocket, hub: Arc<Hub>, name: String, id: String) {
         tokio::select! {biased;
         _=abort.notified()=>{let _=sink.send(Ws::Close(Some(CloseFrame{code:1009,reason:"Slow client".into()}))).await;break;},
         message=rx.recv()=>{let Some(m)=message else{break;};let closing=matches!(m,Ws::Close(_));if sink.send(m).await.is_err()||closing{break;}},
-        message=stream.next()=>{match message{Some(Ok(Ws::Text(text)))=>{if text.encode_utf16().count()<=2_000_000&&let Ok(m)=serde_json::from_str::<Value>(text.as_str())&&room.lock().unwrap().message(&c,&m).is_err(){eprintln!("sync persistence failed");}},Some(Ok(Ws::Ping(b)))=>{if sink.send(Ws::Pong(b)).await.is_err(){break;}},Some(Ok(Ws::Binary(_)|Ws::Pong(_)))=>{},_=>break}}
+        message=stream.next()=>{match message{Some(Ok(Ws::Text(text)))=>{if text.encode_utf16().count()<=2_000_000&&let Ok(m)=serde_json::from_str::<Value>(text.as_str())&&room.locked().message(&c,&m).is_err(){eprintln!("sync persistence failed");}},Some(Ok(Ws::Ping(b)))=>{if sink.send(Ws::Pong(b)).await.is_err(){break;}},Some(Ok(Ws::Binary(_)|Ws::Pong(_)))=>{},_=>break}}
         }
     }
-    if room.lock().unwrap().close(&c).is_err() {
+    if room.locked().close(&c).is_err() {
         eprintln!("sync close persistence failed");
     }
     hub.release(&name);
@@ -710,8 +714,7 @@ pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
             let notified = h.wake.notified();
             let rooms = h
                 .rooms
-                .lock()
-                .unwrap()
+                .locked()
                 .iter()
                 .map(|(n, r)| (n.clone(), r.clone()))
                 .collect::<Vec<_>>();
@@ -719,7 +722,7 @@ pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
             let mut next: Option<i64> = None;
             for (name, r) in rooms {
                 {
-                    let mut p = r.lock().unwrap();
+                    let mut p = r.locked();
                     if p.alarm.is_some_and(|at| at <= now) {
                         p.alarm = None;
                         if p.on_alarm().is_err() {

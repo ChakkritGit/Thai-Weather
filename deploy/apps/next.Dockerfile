@@ -3,7 +3,7 @@
 #   docker build -f next.Dockerfile --build-context app=<repo checkout> --secret id=env,src=<app>.env .
 # The env file is mounted only while `next build` runs (NEXT_PUBLIC_* values are inlined into the bundle);
 # it is never copied into an image layer. At runtime the same file comes in through env_file.
-FROM node:24.21.0-alpine3.24 AS build
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS build
 WORKDIR /app
 COPY --from=app . .
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
@@ -31,7 +31,7 @@ EXPOSE 3000
 CMD ["bun", "server.js"]
 
 # Retain an explicit Node target for runtime comparisons and recovery.
-FROM node:24.21.0-alpine3.24 AS node
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS node
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/.next/standalone ./

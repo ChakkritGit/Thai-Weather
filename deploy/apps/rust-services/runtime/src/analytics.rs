@@ -1,4 +1,5 @@
 //! Schema-compatible, daily salted, first-party analytics. No IP or user agent is persisted.
+use crate::util::Locked;
 use crate::{checks::millis, util};
 use axum::{
     Router,
@@ -21,6 +22,9 @@ use std::{
 };
 const DAY: i64 = 86_400_000;
 const VITALS: [&str; 5] = ["LCP", "INP", "CLS", "FCP", "TTFB"];
+// Events per client IP per minute (a page view plus its vitals is ~6), and how many IPs one minute tracks.
+const PER_MINUTE: u32 = 120;
+const MAX_CLIENTS: usize = 50_000;
 const HOSTS: &str = "chakkritton.com,expenses.chakkritton.com,whiteboard.chakkritton.com,drive-music.chakkritton.com,thai-weather.chakkritton.com";
 struct Analytics {
     db: Mutex<Connection>,
@@ -28,10 +32,25 @@ struct Analytics {
     read_only: bool,
     fixed_now: Option<i64>,
     keep: i64,
+    hits: Mutex<(i64, HashMap<String, u32>)>,
 }
 impl Analytics {
     fn now(&self) -> i64 {
         self.fixed_now.unwrap_or_else(millis)
+    }
+    /// A fixed one-minute window per client IP, so nobody can flood the counts with fake views.
+    fn allow(&self, ip: &str, now: i64) -> bool {
+        let minute = now / 60_000;
+        let mut w = self.hits.locked();
+        if w.0 != minute {
+            *w = (minute, HashMap::new());
+        }
+        if w.1.len() >= MAX_CLIENTS && !w.1.contains_key(ip) {
+            return false;
+        }
+        let n = w.1.entry(ip.into()).or_insert(0);
+        *n += 1;
+        *n <= PER_MINUTE
     }
 }
 fn day(ms: i64) -> String {
@@ -117,7 +136,7 @@ fn header<'a>(h: &'a HeaderMap, key: &str) -> &'a str {
     h.get(key).and_then(|v| v.to_str().ok()).unwrap_or("")
 }
 fn sweep(a: &Analytics) -> rusqlite::Result<()> {
-    let db = a.db.lock().unwrap();
+    let db = a.db.locked();
     let cut = day(a.now() - a.keep * DAY);
     db.execute("DELETE FROM views WHERE day < ?", [&cut])?;
     db.execute("DELETE FROM vitals WHERE day < ?", [&cut])?;
@@ -146,7 +165,7 @@ fn ingest(a: &Analytics, h: &HeaderMap, b: &[u8]) -> rusqlite::Result<()> {
     let now = a.now();
     let today = day(now);
     let dev = device(ua);
-    let mut db = a.db.lock().unwrap();
+    let mut db = a.db.locked();
     if body["t"] == "pv" {
         let tx = db.transaction()?;
         let salt = tx
@@ -223,6 +242,14 @@ async fn record(State(a): State<Arc<Analytics>>, h: HeaderMap, b: Bytes) -> Resp
     if a.read_only {
         return util::json(503, json!({"error":"read only"}));
     }
+    let ip = h
+        .get("cf-connecting-ip")
+        .or_else(|| h.get("x-real-ip"))
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !a.allow(ip, millis()) {
+        return util::json(429, json!({"error":"too many events"}));
+    }
     match tokio::task::spawn_blocking(move || ingest(&a, &h, &b)).await {
         Ok(Ok(())) => util::text(204, axum::body::Body::empty()),
         _ => util::json(500, json!({"error":"storage unavailable"})),
@@ -267,7 +294,7 @@ fn stats(a: &Analytics, host: &str, days: f64) -> rusqlite::Result<Value> {
     if !host.is_empty() {
         args.push(Sql::Text(host.into()));
     }
-    let db = a.db.lock().unwrap();
+    let db = a.db.locked();
     let q = |sql: &str| rows(&db, sql, &args);
     let totals=q(&format!("SELECT COUNT(*) AS views, COUNT(DISTINCT visitor || day) AS visitors FROM views WHERE {where_sql}"))?.remove(0);
     let series = q(&format!(
@@ -353,6 +380,7 @@ pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
             None
         },
         keep: util::env("KEEP_DAYS", "400").parse()?,
+        hits: Mutex::new((0, HashMap::new())),
     });
     if !read_only {
         sweep(&a)?;
@@ -377,6 +405,22 @@ pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn events_are_rate_limited_per_ip_and_minute() {
+        let a = Analytics {
+            db: Mutex::new(Connection::open_in_memory().unwrap()),
+            hosts: vec![],
+            read_only: false,
+            fixed_now: None,
+            keep: 1,
+            hits: Mutex::new((0, HashMap::new())),
+        };
+        let t = 1_791_999_000_000;
+        assert!((0..PER_MINUTE).all(|_| a.allow("1.2.3.4", t)));
+        assert!(!a.allow("1.2.3.4", t));
+        assert!(a.allow("5.6.7.8", t));
+        assert!(a.allow("1.2.3.4", t + 60_000));
+    }
     #[test]
     fn helpers() {
         assert_eq!(day(1791999000000), "2026-10-15");

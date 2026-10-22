@@ -1,4 +1,5 @@
 //! Dock conversation, monthly reports and Web Push, preserving the existing SQLite database.
+use crate::util::Locked;
 use crate::{
     chat_report as r,
     checks::millis,
@@ -36,7 +37,7 @@ impl App {
     ) -> Result<Value, Error> {
         let ts = millis();
         let read = i64::from(role != "system");
-        let db = self.db.lock().unwrap();
+        let db = self.db.locked();
         db.execute(
             "INSERT INTO messages(ts,role,text,read,kind,data) VALUES(?,?,?,?,?,?)",
             params![
@@ -57,7 +58,7 @@ impl App {
         )
     }
     fn keys(&self) -> Result<Value, Error> {
-        let db = self.db.lock().unwrap();
+        let db = self.db.locked();
         let row = db
             .query_row("SELECT value FROM settings WHERE key='vapid'", [], |r| {
                 r.get::<_, String>(0)
@@ -77,7 +78,7 @@ impl App {
         Ok(keys)
     }
     fn subs(&self) -> Result<Vec<Value>, Error> {
-        let db = self.db.lock().unwrap();
+        let db = self.db.locked();
         let mut q = db.prepare("SELECT endpoint,p256dh,auth FROM push_subs")?;
         Ok(q.query_map([],|r|Ok(json!({"endpoint":r.get::<_,String>(0)?,"p256dh":r.get::<_,String>(1)?,"auth":r.get::<_,String>(2)?})))?.collect::<Result<Vec<_>,_>>()?)
     }
@@ -100,8 +101,7 @@ impl App {
         .await?;
         if status == 404 || status == 410 {
             self.db
-                .lock()
-                .unwrap()
+                .locked()
                 .execute("DELETE FROM push_subs WHERE endpoint=?", [endpoint])?;
         }
         Ok(status)
@@ -149,7 +149,7 @@ impl App {
             .await;
         let today = r::day(now);
         let minutes = (now + 25_200_000).rem_euclid(r::DAY) / 60_000;
-        let db = self.db.lock().unwrap();
+        let db = self.db.locked();
         for k in (0..=6).rev() {
             let day = r::day(now - k * r::DAY);
             if day == today && minutes < 1430 {
@@ -172,7 +172,7 @@ impl App {
     }
     async fn report(&self, month: &str, now: i64) -> Result<(String, Value), Error> {
         let ds = {
-            let db = self.db.lock().unwrap();
+            let db = self.db.locked();
             let mut q = db.prepare("SELECT data FROM digests WHERE day LIKE ? ORDER BY day")?;
             q.query_map([format!("{month}-%")], |r| r.get::<_, String>(0))?
                 .collect::<Result<Vec<_>, _>>()?
@@ -223,7 +223,7 @@ impl App {
             return Ok(());
         };
         {
-            let db = self.db.lock().unwrap();
+            let db = self.db.locked();
             if db
                 .query_row("SELECT 1 FROM reports WHERE month=?", [&due], |r| {
                     r.get::<_, i64>(0)
@@ -244,7 +244,7 @@ impl App {
         }
         let (text, data) = self.report(&due, now).await?;
         {
-            let mut db = self.db.lock().unwrap();
+            let mut db = self.db.locked();
             let tx = db.transaction()?;
             if tx
                 .query_row("SELECT 1 FROM reports WHERE month=?", [&due], |r| {
@@ -305,7 +305,7 @@ impl App {
             json!({"role":"system","content":format!("คุณคือผู้ช่วยดูแลเซิร์ฟเวอร์ VPS ของเจ้าของระบบ ตอบเป็นภาษาไทย สั้น ตรงประเด็น ไม่เดา ถ้าข้อมูลไม่พอให้บอกตรง ๆ\nข้อมูลล่าสุดของระบบ:\n{context}")}),
         ];
         let mut history = {
-            let db = self.db.lock().unwrap();
+            let db = self.db.locked();
             let mut q = db.prepare(
                 "SELECT role,text FROM messages WHERE role!='system' ORDER BY id DESC LIMIT 12",
             )?;
@@ -427,7 +427,7 @@ async fn handle(
             let before = number("before");
             let after = number("after");
             let limit = number("limit").unwrap_or(30.).clamp(1., 100.) as i64;
-            let db = a.db.lock().unwrap();
+            let db = a.db.locked();
             let sql = "SELECT id,ts,role,text,read,kind,data FROM messages";
             let mut rows = if let Some(after) = after {
                 db.prepare(&format!("{sql} WHERE id>? ORDER BY id LIMIT 500"))?
@@ -466,20 +466,19 @@ async fn handle(
             ))
         }
         (Method::DELETE, "/chat") => {
-            a.db.lock().unwrap().execute("DELETE FROM messages", [])?;
+            a.db.locked().execute("DELETE FROM messages", [])?;
             Ok(ok())
         }
         (Method::GET, "/chat/unread") => {
-            let count = a.db.lock().unwrap().query_row(
-                "SELECT COUNT(*) FROM messages WHERE read=0",
-                [],
-                |r| r.get::<_, i64>(0),
-            )?;
+            let count =
+                a.db.locked()
+                    .query_row("SELECT COUNT(*) FROM messages WHERE read=0", [], |r| {
+                        r.get::<_, i64>(0)
+                    })?;
             Ok(util::json(200, json!({"count":count})))
         }
         (Method::POST, "/chat/read") => {
-            a.db.lock()
-                .unwrap()
+            a.db.locked()
                 .execute("UPDATE messages SET read=1 WHERE read=0", [])?;
             Ok(ok())
         }
@@ -493,7 +492,7 @@ async fn handle(
             {
                 return Ok(util::json(400, json!({"error":"subscription ไม่ถูกต้อง"})));
             }
-            a.db.lock().unwrap().execute(
+            a.db.locked().execute(
                 "INSERT OR REPLACE INTO push_subs(endpoint,p256dh,auth,created) VALUES(?,?,?,?)",
                 params![
                     v["endpoint"].as_str(),
@@ -506,8 +505,7 @@ async fn handle(
         }
         (Method::POST, "/chat/push/unsubscribe") => {
             if let Some(e) = v["endpoint"].as_str() {
-                a.db.lock()
-                    .unwrap()
+                a.db.locked()
                     .execute("DELETE FROM push_subs WHERE endpoint=?", [e])?;
             }
             Ok(ok())
