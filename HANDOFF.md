@@ -262,6 +262,14 @@ metadata in this public repo carries the author's work e-mail.
 - Footer gained the API link; the point panel ends with the same footer. Rolling digits no longer clip the blur.
 - Portfolio /topics counts each piece once per slug (Claude showed 4, its page 2) and topic pages match by slug.
 - Drive Music "shuffle does not update Up Next": the owner confirmed it works now.
+- VPS cleanup: removed unused images (node:22.23.4-bookworm-slim, alpine 3.22.2/3.20), the four cargo-check
+  volumes (rust-check-*, apps-rust-check-*: 3.2 GB) and dangling build cache (3.2 GB): disk 25 → 19 GB.
+  Kept on purpose: build bases (rust 1.90.0, node 22.23.4-trixie for NPM, node 24.22.1-alpine, jc21 NPM),
+  verify's in-use image and `thai-weather-api-before-rust:20261017` (613 MB rollback tag).
+- Black-box re-check after the day's changes: all auth gates, traversal and dotfile probes, the NPM
+  content-encoding guard, TLS ≤1.1 refused and only port 22 on the IP all held. Fixed: Drive Music sent
+  `x-powered-by: Next.js` (`8c95a1f`, poweredByHeader off); the status Worker sent no nosniff / frame /
+  referrer / HSTS headers (now set in `status/page.ts` `handle`, deployed with wrangler 4.144.0).
 - Drive Music `7903524`: in the owner's Firefox every normal load stayed on the session skeleton (NPM log:
   `/` via sw.js, then no chunk/session/providers request at all) while a hard reload worked. Chunk names
   are content hashes (prod = local bytes), so a damaged entry in the worker's cache-first chunk cache is

@@ -262,8 +262,22 @@ ${groups}
 </html>`
 }
 
+/** The same browser hardening the sites behind NPM send; the Worker answers directly, without NPM. */
+const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=63072000; preload',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+}
+
 /** `og` is the share image's bytes (the Worker bundles og.png). */
 export function handle(req: Request, state: State, now: number, og?: ArrayBuffer): Response {
+  const res = route(req, state, now, og)
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.headers.set(name, value)
+  return res
+}
+
+function route(req: Request, state: State, now: number, og?: ArrayBuffer): Response {
   const path = new URL(req.url).pathname
   if (path === '/api/status') {
     return new Response(JSON.stringify(summary(state, now)), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } })

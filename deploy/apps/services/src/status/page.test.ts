@@ -72,6 +72,12 @@ test('routes: json, page, and 404', async () => {
   assert.equal(get('/nope').status, 404)
   assert.equal(get('/status').status, 404)
   assert.equal(get('/favicon.svg').headers.get('Content-Type'), 'image/svg+xml')
+  for (const res of [get('/'), get('/api/status'), get('/nope')]) {
+    assert.equal(res.headers.get('X-Content-Type-Options'), 'nosniff')
+    assert.equal(res.headers.get('X-Frame-Options'), 'DENY')
+    assert.equal(res.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
+    assert.match(res.headers.get('Strict-Transport-Security') ?? '', /max-age=63072000/)
+  }
 })
 
 test('Thai Weather has its own group with separate web and API status and history', async () => {
