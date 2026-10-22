@@ -116,7 +116,7 @@ if [ $BUILD = 1 ]; then
   say "Building the images (takes a while on a small server)"
   (cd "$WX" && docker compose -f docker-compose.yml -f docker-compose.build.yml build)
   (cd "$WX" && docker compose pull --ignore-buildable -q 2>/dev/null || docker compose pull -q nginx-proxy-manager portainer dock)
-  for img in services reminders portfolio expenses whiteboard drive-music; do (cd "$APPS" && ./build.sh "$img"); done
+  for img in rust backup portfolio expenses whiteboard drive-music; do (cd "$APPS" && ./build.sh "$img"); done
 fi
 
 say "Starting the weather stack and the proxy"
