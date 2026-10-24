@@ -323,6 +323,14 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 
 /* chat */
 .shell.chat { padding-bottom: calc(env(safe-area-inset-bottom) + 220px); }
+/* the top bar stays while the log scrolls; it takes over the shell's top padding so it also covers the notch */
+.shell.chat > .top {
+  position: sticky; top: 0; z-index: 4;
+  margin: calc(-1 * (env(safe-area-inset-top) + 8px)) calc(-1 * var(--gutter)) 8px;
+  padding: calc(env(safe-area-inset-top) + 8px) var(--gutter) 4px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line);
+}
 .chat-log { display: flex; flex-direction: column; gap: 10px; }
 .msg { max-width: 86%; align-self: flex-start; padding: 10px 13px; border-radius: 18px; border-bottom-left-radius: 6px; background: var(--surface); border: 1px solid var(--line); }
 .msg.user { align-self: flex-end; border-radius: 18px; border-bottom-right-radius: 6px; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
