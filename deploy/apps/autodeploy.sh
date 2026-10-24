@@ -37,6 +37,11 @@ for app in portfolio expenses whiteboard drive-music; do
     continue
   fi
 done
-# keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache
-docker image prune -f >/dev/null
+# keep the disk tidy: dangling images from the previous builds, and at most 3 GB of build cache.
+# Not `docker image prune`: with Docker's containerd image store it also removed images that containers
+# still run, taking the rollback image (and the nightly image scan's target) with it.
+used=$(docker ps -aq | xargs -r docker inspect -f '{{.Image}}' | sort -u)
+for id in $(docker images -q --no-trunc --filter dangling=true | sort -u); do
+  echo "$used" | grep -qx "$id" || docker rmi "$id" >/dev/null 2>&1 || true
+done
 docker builder prune -f --keep-storage 3gb >/dev/null 2>&1 || true
