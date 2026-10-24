@@ -65,6 +65,7 @@ const ICONS = {
   file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5zM14 3v5h5M9 13h6M9 17h6',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
+  bug: 'M9 7a3 3 0 0 1 6 0v1H9zM7 10h10v4a5 5 0 0 1-10 0zM12 10v9M3 13h4M17 13h4M5 7l2 2.5M19 7l-2 2.5M5 20l2.5-2.5M19 20l-2.5-2.5',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -1044,6 +1045,7 @@ const SEC_CATS = [
   ['files', 'file', 'ไฟล์สำคัญ'],
   ['web', 'globe', 'บอทสแกนเว็บ'],
   ['host', 'server', 'พอร์ตและคอนเทนเนอร์'],
+  ['images', 'bug', 'ช่องโหว่ใน image'],
 ];
 const SEC_LEVEL = { info: ['ok', 'ปกติ'], warn: ['warn', 'ควรดู'], bad: ['bad', 'ต้องตรวจ'] };
 const SEC_HEADLINE = { info: 'ไม่พบความผิดปกติ', warn: 'มีเรื่องที่ควรดู', bad: 'มีเรื่องที่ต้องตรวจทันที' };
@@ -1065,6 +1067,10 @@ const RISKY = {
   'host-root': 'เมานต์ / ของเครื่อง',
   unconfined: 'ปิด seccomp / AppArmor',
 };
+const SEV_LEVEL = { CRITICAL: 'bad', HIGH: 'warn' };
+const SEV_TEXT = { CRITICAL: 'วิกฤต', HIGH: 'สูง', MEDIUM: 'กลาง', LOW: 'ต่ำ', UNKNOWN: 'ไม่ระบุ' };
+/** fixable CRITICAL / HIGH findings over the scanned images */
+const fixTotals = (images) => images.reduce((t, i) => ({ c: t.c + (i.fixable?.CRITICAL ?? 0), h: t.h + (i.fixable?.HIGH ?? 0) }), { c: 0, h: 0 });
 const riskyText = (f) => RISKY[f] ?? (f.startsWith('cap-add:') ? `เพิ่มสิทธิ์ ${f.slice(8)}` : f);
 const secDot = (level) => h('span', { class: `dot ${SEC_LEVEL[level]?.[0] ?? ''}`, title: SEC_LEVEL[level]?.[1] ?? '' });
 const secWhen = (ts) => fmtTime.format(new Date(ts * 1000));
@@ -1082,6 +1088,11 @@ function secSummary(s, cat) {
   if (cat === 'panel') return `ล็อกอิน ${in24h(s, d.logins)} · รหัสผิด ${fmtNum(d.failed24)} ใน 24 ชม.`;
   if (cat === 'files') return d.changed ? `ถูกแก้ ${d.changed} จาก ${d.watched} ไฟล์` : `เฝ้า ${d.watched} ไฟล์ ไม่มีการแก้`;
   if (cat === 'web') return `วันนี้ ${fmtNum(d.today)} ครั้ง · ส่วนใหญ่ได้ 404`;
+  if (cat === 'images') {
+    if (!d.scanned) return 'ยังไม่มีผลสแกน (สแกนทุกคืน)';
+    const t = fixTotals(d.images);
+    return `แก้ได้: วิกฤต ${t.c} · สูง ${t.h} · สแกน ${ago(d.scanned)}`;
+  }
   const u = d.updates;
   return [`พอร์ตเปิด ${d.ports.length}`, `อัปเดตรอ ${u.pending ?? '–'}`, u.reboot ? 'ควรรีบูต' : null].filter(Boolean).join(' · ');
 }
@@ -1143,7 +1154,7 @@ function secMain(s, reload) {
     h('div', { class: 'sec-cats' }, secCards(s)),
     h('h2', { class: 'section-title' }, 'เหตุการณ์ล่าสุด'),
     eventList(s.events.slice(0, 40)),
-    h('p', { class: 'meta sec-note' }, 'อ่าน log ทุก 5 วินาที ตรวจไฟล์ พอร์ต และคอนเทนเนอร์ทุกนาที เรื่องสำคัญจะส่งเข้าแชทและแจ้งเตือนของ Dock ด้วย กด "รับทราบแล้ว" เพื่อล้างสี (ประวัติยังอยู่)'),
+    h('p', { class: 'meta sec-note' }, 'อ่าน log ทุก 5 วินาที ตรวจไฟล์ พอร์ต และคอนเทนเนอร์ทุกนาที สแกนช่องโหว่ใน image ทุกคืน เรื่องสำคัญจะส่งเข้าแชทและแจ้งเตือนของ Dock ด้วย กด "รับทราบแล้ว" เพื่อล้างสี (ประวัติยังอยู่)'),
   ];
 }
 
@@ -1191,7 +1202,7 @@ function secCategory(s, cat, chartIn) {
     const files = [...d.list].sort((a, b) => (b.changed ?? 0) - (a.changed ?? 0) || (a.level === b.level ? a.path.localeCompare(b.path) : a.level === 'bad' ? -1 : 1));
     return [
       h('div', { class: 'tiles' },
-        tile('ไฟล์ที่เฝ้า', fmtNum(d.watched), 'บัญชีผู้ใช้ SSH cron systemd ไฟร์วอลล์'),
+        tile('ไฟล์ที่เฝ้า', fmtNum(d.watched), 'บัญชีผู้ใช้ SSH cron systemd ไฟร์วอลล์ shell ของ root'),
         tile('ถูกแก้', fmtNum(d.changed), '3 วันล่าสุด หรือหลังกดรับทราบ'),
         tile('ตรวจล่าสุด', d.checked ? ago(d.checked) : '–', 'ทุก 1 นาที')),
       h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events, 'ยังไม่มีไฟล์ไหนถูกแก้'),
@@ -1219,6 +1230,7 @@ function secCategory(s, cat, chartIn) {
       h('p', { class: 'meta sec-note' }, 'บอทพวกนี้สแกนทุกเว็บบนอินเทอร์เน็ต และได้ 404 กลับไป ไม่ต้องทำอะไร เว้นแต่ตัวเลขพุ่งผิดปกติหรือเห็นคำขอที่ได้ 200'),
     ];
   }
+  if (cat === 'images') return secImages(s, d, events);
   const u = d.updates;
   const ports = d.ports.map((p) => Number(p.replace('tcp/', ''))).sort((a, b) => a - b);
   return [
@@ -1240,6 +1252,46 @@ function secCategory(s, cat, chartIn) {
       listCard('ไม่ได้มาจาก compose', 'เช่นคอนเทนเนอร์ทดสอบที่รันมือ', d.unmanaged.map((c) => h('div', { class: 'row' }, secDot(c.running ? 'warn' : 'info'),
         h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name), h('span', { class: 'row-sub' }, `${c.image} · ${c.running ? 'ทำงานอยู่' : 'หยุดแล้ว'}`)))), 'ไม่มี')),
     h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events),
+  ];
+}
+
+/** the nightly Trivy scan (deploy/hardening/dock-image-scan.py): images worst first, then what to update */
+function secImages(s, d, events) {
+  if (!d.scanned) {
+    return [h('p', { class: 'empty' }, 'ยังไม่มีผลสแกน ตัวสแกนทำงานทุกคืนราว 04:10 น.'), h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events)];
+  }
+  const t = fixTotals(d.images);
+  const scanned = d.images.filter((i) => !i.error);
+  const worst = (i) => [-(i.fixable?.CRITICAL ?? 0), -(i.fixable?.HIGH ?? 0), i.image];
+  const images = [...d.images].sort((a, b) => {
+    const x = worst(a), y = worst(b);
+    return x[0] - y[0] || x[1] - y[1] || x[2].localeCompare(y[2]);
+  });
+  const level = (i) => (i.error ? 'warn' : i.fixable?.CRITICAL ? 'bad' : i.fixable?.HIGH ? 'warn' : 'info');
+  const fixList = images.filter((i) => !i.error && (i.fixable?.CRITICAL || i.fixable?.HIGH)).map((i) =>
+    listCard(i.image, `แก้ได้ วิกฤต ${i.fixable.CRITICAL} · สูง ${i.fixable.HIGH}`,
+      i.vulns.filter((v) => v.fixed && SEV_LEVEL[v.severity]).slice(0, 12).map((v) => h('div', { class: 'row wrap' }, secDot(SEV_LEVEL[v.severity]),
+        h('div', { class: 'row-main' },
+          h('span', { class: 'row-title' }, `${v.pkg} `, h('span', { class: 'muted' }, v.id)),
+          h('span', { class: 'row-sub' }, `${v.installed} → ${v.fixed}${v.title ? ` · ${v.title}` : ''}`)))), 'ไม่มี'));
+  return [
+    h('div', { class: 'tiles' },
+      tile('แก้ได้ ระดับวิกฤต', fmtNum(t.c), 'มีเวอร์ชันที่แก้แล้ว'),
+      tile('แก้ได้ ระดับสูง', fmtNum(t.h), 'มีเวอร์ชันที่แก้แล้ว'),
+      tile('image ที่สแกน', `${fmtNum(scanned.length)} / ${fmtNum(d.images.length)}`, 'ทุก image ที่คอนเทนเนอร์ใช้อยู่'),
+      tile('สแกนล่าสุด', ago(d.scanned), `Trivy ${d.trivy ?? ''} · ทุกคืนราว 04:10 น.`)),
+    d.dbError ? h('p', { class: 'meta sec-note' }, `โหลดฐานข้อมูลช่องโหว่รอบนี้ไม่สำเร็จ ใช้ฐานข้อมูลเดิมแทน: ${d.dbError}`) : null,
+    h('h2', { class: 'section-title' }, 'image ที่ใช้อยู่'),
+    h('div', { class: 'list' }, images.map((i) => h('div', { class: 'row wrap' }, secDot(level(i)),
+      h('div', { class: 'row-main' },
+        h('span', { class: 'row-title' }, i.image),
+        h('span', { class: 'row-sub' }, i.error ?? [i.os || 'ไม่มีระบบปฏิบัติการ (static)', i.eosl ? 'OS หมดระยะซัพพอร์ตแล้ว' : null, i.containers.join(', ')].filter(Boolean).join(' · '))),
+      i.error ? null : h('div', { class: 'row-side' }, h('b', {}, `${i.fixable.CRITICAL} · ${i.fixable.HIGH}`),
+        `ทั้งหมด ${fmtNum(Object.values(i.counts).reduce((a, n) => a + n, 0))}`)))),
+    h('p', { class: 'meta sec-note' }, 'ตัวเลขขวาคือรายการระดับวิกฤต · สูง ที่มีเวอร์ชันแก้แล้ว แก้โดยอัปเดต base image หรือแพ็กเกจแล้ว build ใหม่ รายการที่ยังไม่มีแพตช์ต้องรอผู้ผลิต ส่วนใหญ่อยู่ในโปรแกรมที่ไม่ได้เปิดรับจากภายนอก'),
+    fixList.length ? h('h2', { class: 'section-title' }, 'ควรอัปเดต') : null,
+    fixList.length ? h('div', { class: 'grid' }, fixList) : null,
+    h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events, 'ยังไม่มีการแจ้งเตือน'),
   ];
 }
 
@@ -1423,7 +1475,7 @@ function moreView() {
     extra, icon('chev', 'chev'));
   shell(topBar('เพิ่มเติม'),
     h('div', { class: 'list' },
-      item('#/security', 'shield', 'ความปลอดภัย', 'การเข้าเครื่อง ไฟล์สำคัญ พอร์ต และบอทที่สแกนเว็บ'),
+      item('#/security', 'shield', 'ความปลอดภัย', 'การเข้าเครื่อง ไฟล์สำคัญ พอร์ต บอทที่สแกนเว็บ และช่องโหว่ใน image'),
       item('#/chat', 'chat', 'แชท', 'สรุปรายเดือนจากระบบ และถาม–ตอบ', badge()),
       item('#/backup', 'archive', 'สำรองข้อมูล', 'ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
     tabs('#/more'));

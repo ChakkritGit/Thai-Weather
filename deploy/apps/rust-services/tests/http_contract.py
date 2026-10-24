@@ -178,6 +178,12 @@ class Contract(unittest.TestCase):
             " from 192.0.2.1 port 1 ssh2: ED25519 SHA256:fixture\n"
         )
         (host / "etc/passwd").write_text("root:x:0:0::/root:/bin/sh\n")
+        (host / "scan").mkdir()
+        (host / "scan/images.json").write_text(json.dumps({
+            "scanned": 1, "trivy": "0.75.0", "dbError": None,
+            "images": [{"image": "nginx:1", "counts": {"HIGH": 1}, "vulns": [],
+                        "fixableKeys": ["HIGH|CVE-1|openssl"]}],
+        }))
         self.env["SECURITY_HOST"] = str(host)
         p, port, _ = self.start(False)
         for _ in range(100):
@@ -190,6 +196,8 @@ class Contract(unittest.TestCase):
         self.assertTrue(data["enabled"])
         self.assertEqual(data["cats"]["files"]["watched"], 1)
         self.assertEqual(data["cats"]["ssh"]["keys"][0]["key"], "SHA256:fixture")
+        self.assertEqual(data["cats"]["images"]["images"][0]["image"], "nginx:1")
+        self.assertNotIn("fixableKeys", data["cats"]["images"]["images"][0])
         outbox = json.loads(self.request(port, "/security/outbox?after=0")[2])
         self.assertEqual(outbox["events"], [], "the first run is the baseline")
         self.assertEqual(self.request(port, "/security/ack", "POST")[0], 200)

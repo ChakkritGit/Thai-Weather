@@ -95,16 +95,18 @@ services:
       - /sys/fs/cgroup:/host/cgroup:ro
       - /etc/hostname:/host/hostname:ro
       - /etc/os-release:/host/os-release:ro
-      # security watch (apps/rust-services/src/security.rs): logins, files an intruder would change,
-      # container configs, pending updates. Directories, not files, so log rotation and editors that
-      # replace a file are followed. Only hashes, user names and key fingerprints are kept.
+      # security watch (apps/rust-services/src/security.rs): logins, files an intruder would change
+      # (root's SSH keys and shell startup files among them), container configs, pending updates and
+      # the nightly image scan (hardening/dock-image-scan.py). Directories, not files, so log rotation
+      # and editors that replace a file are followed. Only hashes, user names and key fingerprints are kept.
       - /var/log:/host/log:ro
       - /etc:/host/etc:ro
-      - /root/.ssh:/host/ssh:ro
+      - /root:/host/root:ro
       - /var/spool/cron:/host/cron:ro
       - /boot:/host/boot:ro
       - /var/lib/update-notifier:/host/apt:ro
       - /var/lib/docker/containers:/host/containers:ro
+      - /var/lib/dock-scan:/host/scan:ro
       - type: volume
         source: npm-data
         target: /npm-logs

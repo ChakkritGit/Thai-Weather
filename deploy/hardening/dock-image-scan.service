@@ -1,0 +1,11 @@
+[Unit]
+Description=Scan the images in use for known vulnerabilities (deploy/hardening/dock-image-scan.py)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/thai-weather/deploy/hardening/dock-image-scan.py
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=3h

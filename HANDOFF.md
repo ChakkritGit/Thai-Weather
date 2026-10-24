@@ -255,8 +255,19 @@ directory, container env in `config.v2.json`): it stores only hashes, user names
 - apps-chat polls `dock-metrics:9100/security/outbox` every 30 s (settings key `security_seen`) and posts one
   `kind: "security"` system message per batch plus a push to `/#/security`. The first pass only anchors, and
   the watch's own first run learns silently, so deploying did not post anything.
-- Not done: scanning images for CVEs (offer it to the owner; would need a pinned scanner such as Trivy and its
-  DB download); root's dotfiles (`/root/.bashrc` …) are not watched.
+- 2026-10-25 (owner asked for both follow-ups): **image CVE scan** and **root's dotfiles**.
+  - `deploy/hardening/dock-image-scan.py` + `dock-image-scan.{service,timer}` (installed as copies in
+    `/etc/systemd/system`, nightly ~04:10 after the 03:30 DB dump). Trivy **0.75.0** pinned by digest (Docker Hub and
+    GHCR serve the same digest; well after the March 2026 compromise of 0.69.4–0.69.6; 0.76.x was < 14 days old).
+    Each image in use is `docker save`d to `/var/tmp/dock-scan` and scanned with `--network none`, no socket, no
+    capabilities, read-only root; only the DB download has network (volume `dock-scan-cache`, ~1.6 GB; do not
+    delete as cleanup, it is re-downloaded otherwise). Java archives and Python packages' bundled SBOMs are skipped:
+    they make Trivy demand its ~1 GB Java DB and nothing here runs Java. A full run takes ~2 min.
+  - Dock: sixth category ช่องโหว่ใน image (`#/security/images`); dock-metrics mounts `/var/lib/dock-scan` read-only.
+    Containers still running an image whose record was deleted show "image เดิมถูกลบไปแล้ว" until recreated.
+  - The watch now mounts `/root` (was `/root/.ssh`) and also watches `/root/.bashrc`, `.profile`, `.bash_profile`,
+    `.bash_login`, `.bash_aliases`, `/root/.ssh/rc`, `/etc/ssh/sshrc`, `/etc/update-motd.d` (34 entries). Entries
+    added in a later version are learned silently (state key `watched`).
 
 
 ### Security review of the Rust migration (2026-10-22, Claude)

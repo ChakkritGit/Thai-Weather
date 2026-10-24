@@ -107,14 +107,18 @@ behind Portainer login in Dock's nginx) and apps-chat's alert relay (`GET /secur
 dock-internal only). It reads, through read-only mounts under `SECURITY_HOST` (default `/host`):
 `log/auth.log` (SSH logins, failed attempts, account changes; the container joins group `adm`),
 NPM's access logs (Dock/Portainer/NPM logins and NPM config changes, bot probes, the 415 guard),
-26 watched files and directories under `etc/`, `ssh/` and `cron/` (SHA-256, plus user names and key
-fingerprints for passwd/group/authorized_keys), `/proc/1/net/tcp*` (public listeners),
+34 watched files and directories under `etc/`, `root/` and `cron/` (SHA-256, plus user names and key
+fingerprints for passwd/group/authorized_keys; root's SSH keys, `~/.ssh/rc` and shell startup files,
+`/etc/ssh/sshrc`, `/etc/update-motd.d`), `/proc/1/net/tcp*` (public listeners),
 `containers/*/config.v2.json` + `hostconfig.json` (new containers, privileged/socket/host-namespace
-flags) and `apt/updates-available` + `boot/` (pending updates, reboot needed).
+flags), `apt/updates-available` + `boot/` (pending updates, reboot needed) and `scan/images.json`
+(the nightly Trivy summary from `deploy/hardening/dock-image-scan.py`: one event per scan for new
+fixable CRITICAL/HIGH findings, keyed by image name; a scan older than two days colours the category).
 
 State is `DATA_DIR/security.json` (atomic rename; offsets, known /24 or /64 networks and SSH keys,
-file hashes, last 200 events). The first run, without that file, learns everything already present
-silently; only later changes become events. Delete the file to re-learn (apps-chat re-anchors when
+file hashes, the watch entries already learned, the last scan's fixable findings, last 200 events).
+The first run, without that file, learns everything already present silently; only later changes
+become events. A watch entry added in a later version is learned silently the same way. Delete the file to re-learn (apps-chat re-anchors when
 the event ids restart). Serve-only mode disables the watch and answers `{"enabled":false}`.
 
 Clean up exact unused images/volumes after checking **all** container references
