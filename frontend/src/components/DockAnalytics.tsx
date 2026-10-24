@@ -20,6 +20,17 @@ function send(body: Record<string, unknown>) {
   fetch('/_a', { method: 'POST', body: data, keepalive: true }).catch(() => {});
 }
 
+/** The page this document loaded as: a load's TTFB, FCP and LCP belong to it, not to wherever the app is when they arrive. */
+function loadedPath(): string {
+  const nav = performance.getEntriesByType('navigation')[0];
+  return nav ? new URL(nav.name).pathname : location.pathname;
+}
+
+// Module level, so the same function every render: Next re-subscribes when the callback changes,
+// and each new subscription re-sent the load's metrics, tagged with the page navigated to.
+const report: Parameters<typeof useReportWebVitals>[0] = (metric) =>
+  send({ t: 'v', p: metric.name === 'INP' || metric.name === 'CLS' ? location.pathname : loadedPath(), n: metric.name, v: metric.value });
+
 export function DockAnalytics() {
   const path = usePathname();
   useEffect(() => {
@@ -27,6 +38,6 @@ export function DockAnalytics() {
     send({ t: 'pv', p: path, r: first ? document.referrer : '' });
     first = false;
   }, [path]);
-  useReportWebVitals((metric) => send({ t: 'v', p: location.pathname, n: metric.name, v: metric.value }));
+  useReportWebVitals(report);
   return null;
 }
