@@ -1069,7 +1069,11 @@ const riskyText = (f) => RISKY[f] ?? (f.startsWith('cap-add:') ? `เพิ่�
 const secDot = (level) => h('span', { class: `dot ${SEC_LEVEL[level]?.[0] ?? ''}`, title: SEC_LEVEL[level]?.[1] ?? '' });
 const secWhen = (ts) => fmtTime.format(new Date(ts * 1000));
 const shortKey = (k) => (k.length > 22 ? `${k.slice(0, 20)}…` : k);
-const in24h = (s, rows) => rows.filter((r) => r.ts > s.now - 86400).length;
+/** logins in the last 24 h; the payload keeps the newest 20, so a full list reads "20+" */
+const in24h = (s, rows) => {
+  const n = rows.filter((r) => r.ts > s.now - 86400).length;
+  return n >= 20 ? `${n}+` : fmtNum(n);
+};
 
 /** one line under each category: what is there right now */
 function secSummary(s, cat) {
@@ -1151,7 +1155,7 @@ function secCategory(s, cat, chartIn) {
     const c = card('ความพยายามเข้าที่ไม่สำเร็จ', 'รายวัน 14 วัน · ส่วนใหญ่เป็นบอทเดารหัส');
     return [
       h('div', { class: 'tiles' },
-        tile('เข้าสำเร็จ 24 ชม.', fmtNum(in24h(s, d.logins)), `จาก ${d.networks} เครือข่ายที่เคยเห็น`),
+        tile('เข้าสำเร็จ 24 ชม.', in24h(s, d.logins), `จาก ${d.networks} เครือข่ายที่เคยเห็น`),
         tile('ไม่สำเร็จ 24 ชม.', fmtNum(d.failed24), 'ปิดการเข้าด้วยรหัสผ่านไว้แล้ว'),
         tile('คีย์ที่เคยใช้', fmtNum(d.keys.length), d.keys.length === 1 ? 'มีคีย์เดียว' : 'ตรวจว่ารู้จักทุกอัน'),
         tile('IP ที่ลองบ่อยสุด', d.topIps[0]?.ip ?? '–', d.topIps[0] ? `${fmtNum(d.topIps[0].count)} ครั้งใน 24 ชม.` : '')),
@@ -1172,7 +1176,7 @@ function secCategory(s, cat, chartIn) {
     const nets = Object.entries(d.networks).map(([p, n]) => `${PANELS[p] ?? p} ${n}`).join(' · ');
     return [
       h('div', { class: 'tiles' },
-        tile('ล็อกอิน 24 ชม.', fmtNum(in24h(s, d.logins)), 'Dock, Portainer, Nginx Proxy Manager'),
+        tile('ล็อกอิน 24 ชม.', in24h(s, d.logins), 'Dock, Portainer, Nginx Proxy Manager'),
         tile('รหัสผิด 24 ชม.', fmtNum(d.failed24), 'ผิด 10 ครั้งในชั่วโมงเดียวจะแจ้งเตือน'),
         tile('เครือข่ายที่รู้จัก', nets || '–', 'ล็อกอินจากเครือข่ายใหม่จะแจ้งเตือน')),
       h('div', { class: 'grid' },
@@ -1216,15 +1220,15 @@ function secCategory(s, cat, chartIn) {
     ];
   }
   const u = d.updates;
+  const ports = d.ports.map((p) => Number(p.replace('tcp/', ''))).sort((a, b) => a - b);
   return [
     h('div', { class: 'tiles' },
-      tile('พอร์ตที่เปิดรับจากภายนอก', fmtNum(d.ports.length), d.ports.map((p) => p.replace('tcp/', '')).join(', ') || '–'),
+      tile('พอร์ตที่เปิดรับจากภายนอก', fmtNum(ports.length), ports.join(', ') || '–'),
       tile('คอนเทนเนอร์', `${fmtNum(d.running)} / ${fmtNum(d.containers)}`, 'ทำงานอยู่ / ทั้งหมด'),
       tile('อัปเดตระบบที่รอ', u.pending ?? '–', u.security ? `ความปลอดภัย ${u.security} รายการ` : 'unattended-upgrades ลงของความปลอดภัยให้เอง'),
       tile('เคอร์เนล', u.kernel || '–', u.reboot ? `ควรรีบูตเพื่อใช้ ${u.newest}` : 'เป็นตัวล่าสุดที่ติดตั้ง')),
     h('div', { class: 'grid' },
-      listCard('พอร์ตที่เปิด', 'พอร์ตใหม่จะแจ้งเตือนทันที', d.ports.map((p) => {
-        const n = Number(p.replace('tcp/', ''));
+      listCard('พอร์ตที่เปิด', 'พอร์ตใหม่จะแจ้งเตือนทันที', ports.map((n) => {
         return h('div', { class: 'row' }, secDot(PORT_NAMES[n] ? 'info' : 'warn'),
           h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `TCP ${n}`), h('span', { class: 'row-sub' }, PORT_NAMES[n] ?? 'ไม่ได้ตั้งค่าไว้ในเอกสาร')));
       }), 'อ่านพอร์ตไม่ได้'),
