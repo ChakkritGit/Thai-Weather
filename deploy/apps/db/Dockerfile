@@ -6,7 +6,7 @@
 FROM postgres:17.11-alpine3.24@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
 RUN apk upgrade --no-cache \
  && apk add --no-cache su-exec \
- && rm /usr/local/bin/gosu \
+ && rm /usr/local/bin/gosu && mkdir -p /usr/local/sbin \
  && printf '#!/bin/sh\nexec /sbin/su-exec "$@"\n' > /usr/local/sbin/gosu \
  && chmod 755 /usr/local/sbin/gosu \
  && [ "$(command -v gosu)" = /usr/local/sbin/gosu ] \
