@@ -22,6 +22,7 @@ Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
   This newer explicit direction takes precedence over the Bun/Elysia default.
   **Defer gRPC**, using HTTP/2 when that separate work is resumed.
 - Dependency and image versions: **exact pins, at least 14 days old** at the time you add them.
+  Security fixes the owner approved earlier are listed in §9 (2026-10-25: Next 16.4.1 and the image-scan fixes).
 - The owner tests on an **iPhone** (Safari + home-screen PWA). Check phone layouts, safe areas and iOS
   behaviour before calling UI work done; say plainly what you could not test (pages behind a login).
 - This repo is **public**. Never commit secrets, the owner's e-mail, `.wrangler/` (its cache holds the
@@ -93,6 +94,10 @@ Python numerical worker and separate Python verification container retained. See
     `verify` when its numerical/verification code changed; a runtime-only API change does not need it.
   - Native app services: pull, then `cd deploy/apps && ./build.sh rust && docker compose up -d --no-deps <svc>`;
     native `backup` is separate: `./build.sh rust && ./build.sh backup`; restart only backup.
+  - Postgres: `./build.sh db` (`apps-db:local`, su-exec instead of gosu); run `systemctl start apps-db-backup`
+    first, then `docker compose up -d --no-deps db` and `docker restart apps-rest` (PostgREST reconnects slowly).
+  - NPM (edge proxy): `cd deploy && docker compose -f docker-compose.yml -f docker-compose.build.yml build
+    nginx-proxy-manager`; test a candidate on copies of both volumes with 127.0.0.1 ports before `up -d`.
   - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` in `deploy/` with the build
     override (server stack), compare a read-only candidate first, then stop only metrics for its final history save
     before recreating it. Retain `thai-weather_dock-metrics`; no API/verify/web restart is needed.
@@ -234,7 +239,30 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 24)
+## 9. Recent changes (2026-10-14 → 25)
+
+### Security fixes from the first image scan (2026-10-25, Claude)
+Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-approved exceptions to the
+14-day rule (versions released 2026-10-14 … 10-21); everything is still pinned exactly.
+- **Next 16.4.1** (GHSA-2464-fhr4-w9xw image-optimizer RCE, GHSA-673q-mjm6-r5xr `use cache` RCE) in the weather
+  web and all four app repos (+ `eslint-config-next` 16.4.1, sharp 0.35.5 where it is a direct dependency).
+- Next runtimes (`deploy/apps/next.Dockerfile`, `frontend/Dockerfile`): `oven/bun:1.4.2-alpine` pinned by digest and
+  `apk upgrade` at build (Alpine stable takes only security/bug fixes: OpenSSL 3.5.8, zlib, musl).
+- Dock `nginx:1.30.6-alpine3.24-slim`; Portainer current `lts` digest (2.45.3).
+- Postgres: `deploy/apps/db/Dockerfile` replaces the entrypoint's gosu (Go 1.24.6, ~60 stdlib CVEs) with Alpine's
+  su-exec; same postgres 17.11 data, no migration.
+- NPM (`deploy/npm/Dockerfile`, still jc21 2.16.0 = latest upstream): Debian security updates (nodejs held), npm
+  CLI and node-gyp removed, eight API packages replaced by their published tarballs (`patch-node-modules.mjs`
+  checks every dependency range both ways; only get-uri → basic-ftp 6 is outside its range, ftp:// PAC only),
+  certbot's venv: certifi, cryptography 50.0.2 + pyOpenSSL 26.4.0, filelock, setuptools. Drop these once jc21
+  ships them. A candidate on copied volumes served every site and its API/login before the swap.
+- Weather API: Pillow 13.0.0, certifi 2026.10.19, pip 26.2.1, Debian updates; 292 backend tests passed in the
+  image. Restarted with the refresher idle and the run 2.8 h old: same run `20261024T1500Z`, no forecast fetched.
+  `verify` was recreated only because its image record had been deleted.
+- Backup: musl/musl-utils 1.2.5-r13, zlib 1.3.2-r1. All Rust services recreated on the current `apps-rust`.
+- `autodeploy.sh` no longer runs `docker image prune`: under the containerd image store it deleted images that
+  containers still ran (that is why nine services showed "image เดิมถูกลบไปแล้ว"). It removes only dangling
+  images no container uses.
 
 ### Dock security watch (2026-10-24, Claude)
 Owner asked for security monitoring in Dock, grouped into categories on the overview. `dock-metrics`
