@@ -250,7 +250,8 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   `apk upgrade` at build (Alpine stable takes only security/bug fixes: OpenSSL 3.5.8, zlib, musl).
 - Dock `nginx:1.30.6-alpine3.24-slim`; Portainer current `lts` digest (2.45.3).
 - Postgres: `deploy/apps/db/Dockerfile` replaces the entrypoint's gosu (Go 1.24.6, ~60 stdlib CVEs) with Alpine's
-  su-exec; same postgres 17.11 data, no migration.
+  su-exec; same postgres 17.11 data, no migration. The old binary is deleted and the wrapper lives in
+  `/usr/local/sbin`: Trivy kept reporting it when a later layer only overwrote or symlinked the same path.
 - NPM (`deploy/npm/Dockerfile`, still jc21 2.16.0 = latest upstream): Debian security updates (nodejs held), npm
   CLI and node-gyp removed, eight API packages replaced by their published tarballs (`patch-node-modules.mjs`
   checks every dependency range both ways; only get-uri → basic-ftp 6 is outside its range, ftp:// PAC only),
@@ -263,6 +264,9 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
 - `autodeploy.sh` no longer runs `docker image prune`: under the containerd image store it deleted images that
   containers still ran (that is why nine services showed "image เดิมถูกลบไปแล้ว"). It removes only dangling
   images no container uses.
+- Rescan afterwards: 13 of 14 images have **no fixable findings** (was 312 fixable, 23 critical, in 10 images).
+  Left: Portainer 2.45.3 (newest LTS) bundles containerd 2.2.5, docker/cli 28.5.1, buildkit 0.25.1, go-archive
+  0.1.0 with 5 fixable HIGH; wait for a Portainer LTS that updates them (nightly scan will show it).
 
 ### Dock security watch (2026-10-24, Claude)
 Owner asked for security monitoring in Dock, grouped into categories on the overview. `dock-metrics`
