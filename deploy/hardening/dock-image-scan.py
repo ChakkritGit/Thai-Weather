@@ -27,7 +27,8 @@ CACHE = "dock-scan-cache"  # named volume: Trivy's vulnerability database
 SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
 KEEP_VULNS = 40  # per image, most severe first; fixable ones before the rest
 # Trivy writes only to its cache volume and the work directory (tars, report, TMPDIR)
-SANDBOX = ["--rm", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+# the label lets dock-metrics skip these runs (only unprivileged Trivy ones) instead of reporting new containers
+SANDBOX = ["--rm", "--label", "dock.image-scan=true", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
            "--pids-limit", "256", "--cpu-shares", "64", "-v", f"{CACHE}:/cache", "-v", f"{WORK}:/work",
            "-e", "TMPDIR=/work/tmp"]
 COMMON = ["--cache-dir", "/cache", "--skip-version-check", "--disable-telemetry", "--quiet"]

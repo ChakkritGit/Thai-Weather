@@ -1092,16 +1092,26 @@ fn containers(dir: &Path) -> Vec<Ctr> {
                     .trim_end_matches('-')
                     .to_string(),
             };
+            let image = config["Config"]["Image"].as_str().unwrap_or("").to_string();
+            let risky = risky_flags(&config, &hostconfig);
+            // the nightly scanner's throwaway Trivy runs (deploy/hardening/dock-image-scan.py); only
+            // unprivileged ones with its label and image are skipped, so the label alone hides nothing
+            if labels["dock.image-scan"] == "true"
+                && image.starts_with("aquasec/trivy:")
+                && risky.is_empty()
+            {
+                return None;
+            }
             Some(Ctr {
                 ident: if ident.is_empty() {
                     name.clone()
                 } else {
                     ident
                 },
-                image: config["Config"]["Image"].as_str().unwrap_or("").to_string(),
+                image,
                 compose: project.is_some(),
                 running: config["State"]["Running"] == true,
-                risky: risky_flags(&config, &hostconfig),
+                risky,
                 name,
             })
         })
@@ -2490,6 +2500,19 @@ mod tests {
             json!({"Name":"/apps-portfolio-27","Config":{"Image":"apps-portfolio:local","Labels":{}},"State":{"Running":true}}),
             json!({"Privileged":true,"PidMode":"host","CapAdd":["SYS_ADMIN"]}),
         );
+        let scan = json!({"Name":"/eloquent_carver","Config":{"Image":"aquasec/trivy:0.75.0@sha256:af6a","Labels":{"dock.image-scan":"true"}},"State":{"Running":true}});
+        add("c", scan.clone(), json!({"Privileged":false}));
+        let list = containers(&r.host.join("containers"));
+        assert_eq!(
+            list.len(),
+            2,
+            "the scanner's own runs are not containers to watch"
+        );
+        // with extra privileges (or another image) the label does not hide it
+        add("d", scan, json!({"Privileged":true}));
+        let list = containers(&r.host.join("containers"));
+        assert_eq!(list.len(), 3);
+        fs::remove_dir_all(r.host.join("containers/d")).unwrap();
         let list = containers(&r.host.join("containers"));
         assert_eq!(list[0].ident, "apps-portfolio");
         assert_eq!(
