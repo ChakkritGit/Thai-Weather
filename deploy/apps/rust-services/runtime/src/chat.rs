@@ -217,6 +217,74 @@ impl App {
         let e = json!({"analytics":an,"visitorsDaily":inmonth,"status":status,"backups":backups,"untilDay":if current{today[8..].parse::<u32>().ok()}else{None}});
         Ok(r::report(month, &ds, &e, now))
     }
+    /// Relays new alert events of Dock's security watch (dock-metrics /security/outbox) into the chat
+    /// and to every subscribed device. The first pass only records where the outbox is, so nothing
+    /// that happened before is replayed; a reset watch (its ids start again) is re-anchored the same way.
+    async fn security_alerts(&self, metrics: &str) -> Result<(), Error> {
+        let seen = self
+            .db
+            .locked()
+            .query_row(
+                "SELECT value FROM settings WHERE key='security_seen'",
+                [],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()?
+            .and_then(|v| v.parse::<u64>().ok());
+        let out = self
+            .get(format!(
+                "{metrics}/security/outbox?after={}",
+                seen.unwrap_or(0)
+            ))
+            .await;
+        let Some(last) = out["last"].as_u64() else {
+            return Ok(());
+        };
+        let store = |id: u64| {
+            self.db.locked().execute(
+                "INSERT INTO settings(key,value) VALUES('security_seen',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                [id.to_string()],
+            )
+        };
+        let Some(seen) = seen.filter(|s| *s <= last) else {
+            store(last)?;
+            return Ok(());
+        };
+        let events: Vec<&Value> = out["events"]
+            .as_array()
+            .map(|e| e.iter().filter(|e| e["id"].as_u64() > Some(seen)).collect())
+            .unwrap_or_default();
+        let Some(newest) = events.iter().filter_map(|e| e["id"].as_u64()).max() else {
+            return Ok(());
+        };
+        let text = |e: &Value, key: &str| e[key].as_str().unwrap_or("").to_string();
+        let (title, body) = match events.as_slice() {
+            [one] => (text(one, "title"), text(one, "detail")),
+            many => (
+                format!("ความปลอดภัย: {} เรื่องใหม่", many.len()),
+                many.iter()
+                    .take(6)
+                    .map(|e| format!("• {}", text(e, "title")))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        };
+        let link = format!(
+            "ดูรายละเอียด: {}/#/security",
+            util::env("DOCK_URL", "https://docker.chakkritton.com")
+        );
+        let message = [title.as_str(), body.as_str(), link.as_str()]
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        self.post("system", &message, Some("security"), &Value::Null)?;
+        store(newest)?;
+        let short: String = body.chars().take(400).collect();
+        self.push_all(json!({"title":title,"body":short,"url":"/#/security","tag":format!("security-{newest}")}))
+            .await;
+        Ok(())
+    }
     async fn scheduled(&self, now: i64) -> Result<(), Error> {
         self.collect(now).await?;
         let Some(due) = due(now) else {
@@ -626,6 +694,7 @@ pub fn router() -> Result<Router, Error> {
         readonly,
     });
     if !readonly && util::env("CHAT_JOBS_DISABLED", "") != "true" {
+        let relay = a.clone();
         let a = a.clone();
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(10)).await;
@@ -634,6 +703,16 @@ pub fn router() -> Result<Router, Error> {
                     eprintln!("chat scheduled work failed");
                 }
                 tokio::time::sleep(Duration::from_secs(300)).await;
+            }
+        });
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(20)).await;
+            loop {
+                let metrics = util::env("METRICS_URL", "http://dock-metrics:9100");
+                if relay.security_alerts(&metrics).await.is_err() {
+                    eprintln!("chat security relay failed");
+                }
+                tokio::time::sleep(Duration::from_secs(30)).await;
             }
         });
     }
@@ -654,5 +733,69 @@ mod tests {
         assert_eq!(due(at("2026-10-31T23:55:00+07:00")), Some("2026-10".into()));
         assert_eq!(due(at("2026-11-03T23:59:00+07:00")), Some("2026-10".into()));
         assert_eq!(due(at("2026-11-04T00:00:00+07:00")), None);
+    }
+
+    #[tokio::test]
+    async fn security_relay_anchors_first_then_posts_new_alerts_once() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let metrics = format!("http://{}", listener.local_addr().unwrap());
+        let outbox = Arc::new(Mutex::new(json!({"last":3,"events":[]})));
+        let served = outbox.clone();
+        tokio::spawn(async move {
+            loop {
+                let (mut s, _) = listener.accept().await.unwrap();
+                let mut buf = [0u8; 4096];
+                let _ = s.read(&mut buf).await;
+                let body = served.lock().unwrap().to_string();
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = s.write_all((head + &body).as_bytes()).await;
+            }
+        });
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE messages(id INTEGER PRIMARY KEY AUTOINCREMENT,ts INTEGER NOT NULL,role TEXT NOT NULL,text TEXT NOT NULL,read INTEGER NOT NULL DEFAULT 1,kind TEXT,data TEXT);CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE push_subs(endpoint TEXT PRIMARY KEY,p256dh TEXT NOT NULL,auth TEXT NOT NULL,created INTEGER NOT NULL);").unwrap();
+        let a = App {
+            db: Mutex::new(db),
+            client: reqwest::Client::new(),
+            push_client: reqwest::Client::new(),
+            readonly: false,
+        };
+        let messages = |a: &App| {
+            a.db.locked()
+                .query_row("SELECT (SELECT count(*) FROM messages WHERE kind='security'), coalesce((SELECT text FROM messages WHERE kind='security' ORDER BY id DESC LIMIT 1),'')", [], |r| {
+                    Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+                })
+                .unwrap()
+        };
+        // the first pass only anchors: what happened before the relay existed is not replayed
+        a.security_alerts(&metrics).await.unwrap();
+        assert_eq!(messages(&a).0, 0);
+        *outbox.lock().unwrap() = json!({"last":5,"events":[
+            {"id":4,"title":"SSH: ล็อกอินจากเครือข่ายใหม่","detail":"root จาก 192.0.2.1"},
+            {"id":5,"title":"มีไฟล์ใหม่: /etc/cron.d/x","detail":""}]});
+        a.security_alerts(&metrics).await.unwrap();
+        let (n, text) = messages(&a);
+        assert_eq!(n, 1);
+        assert!(text.starts_with("ความปลอดภัย: 2 เรื่องใหม่\n• SSH"), "{text}");
+        assert!(text.ends_with("/#/security"), "{text}");
+        // the same outbox again posts nothing
+        a.security_alerts(&metrics).await.unwrap();
+        assert_eq!(messages(&a).0, 1);
+        // a reset watch (ids start again) re-anchors instead of staying silent forever
+        *outbox.lock().unwrap() = json!({"last":1,"events":[]});
+        a.security_alerts(&metrics).await.unwrap();
+        *outbox.lock().unwrap() =
+            json!({"last":2,"events":[{"id":2,"title":"พอร์ตใหม่","detail":"TCP 8080"}]});
+        a.security_alerts(&metrics).await.unwrap();
+        assert_eq!(
+            messages(&a),
+            (
+                2,
+                "พอร์ตใหม่\nTCP 8080\nดูรายละเอียด: https://docker.chakkritton.com/#/security".into()
+            )
+        );
     }
 }

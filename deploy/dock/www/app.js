@@ -59,6 +59,12 @@ const ICONS = {
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  shield: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3zM9 12l2 2 4-4',
+  key: 'M13 15.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 1 1 11 0zM11.4 11.6 21 2M15.5 7.5l2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4',
+  lock: 'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 1 1 8 0v4',
+  file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5zM14 3v5h5M9 13h6M9 17h6',
+  globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
+  server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
 };
 const icon = (name, cls = '') =>
   h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: cls }, h('path', { d: ICONS[name] }));
@@ -807,6 +813,8 @@ async function overviewView(token) {
   const hostLine = h('p', { class: 'meta' }, bone('92%', 13, 'skel'), bone('58%', 13, 'skel bone-sub'));
   const hostTiles = h('div', { class: 'tiles' }, skelTiles(6, true));
   const chartsGrid = h('div', { class: 'grid' }, skelCard(170, '22%'));
+  const secTitle = h('h2', { class: 'section-title sec-title', hidden: true }, h('a', { href: '#/security' }, 'ความปลอดภัย', icon('chev', 'chev')));
+  const secBox = h('div', { class: 'sec-cats', hidden: true });
   const ngTiles = h('div', { class: 'tiles' }, skelTiles(4));
   const ngGrid = h('div', { class: 'grid' }, skelCard(150, '40%'));
   const ngTables = h('div', { class: 'grid' });
@@ -815,7 +823,7 @@ async function overviewView(token) {
   const ctrMem = h('div', { class: 'grid' });
   const body = h('div', { class: 'overview' },
     h('div', { class: 'filters' }, seg, live),
-    hostLine, hostTiles, chartsGrid,
+    hostLine, hostTiles, secTitle, secBox, chartsGrid,
     h('h2', { class: 'section-title' }, 'ทราฟฟิกเว็บ (Nginx Proxy Manager)'), ngTiles, ngGrid, ngTables,
     h('h2', { class: 'section-title' }, 'คอนเทนเนอร์'), ctrMem, ctrGrid);
   shell(topBar('ภาพรวม', { onRefresh: () => load() }), body, tabs('#/'));
@@ -825,11 +833,19 @@ async function overviewView(token) {
   const ctrCards = new Map();
   const load = async () => {
     body.classList.add('loading');
+    // the security cards are extra: an error there (or an older collector) must not break the overview
+    const sec = api('/security').catch(() => null);
     const [mx, list] = await Promise.all([metrics(overviewRange), docker('/containers/json?all=1')]);
     if (token !== viewToken) return;
     body.classList.remove('loading');
     clearSkel(body);
     const { times, step, host: hs, snapshot: sn } = mx;
+    sec.then((s) => {
+      if (token !== viewToken || !s?.enabled) return;
+      secTitle.hidden = false;
+      secBox.hidden = false;
+      patchChildren(secBox, secCards(s));
+    });
     const T = { times, step };
 
     // ---- host line + tiles
@@ -1018,6 +1034,211 @@ async function overviewView(token) {
   timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), every);
 }
 
+// ------------------------------------------------------------------ security (dock-metrics' security watch)
+// Logins, changed system files, bot probes, ports and containers, grouped in five categories. The
+// overview shows one card per category; each opens its own page. Important changes also arrive in the
+// chat (and as a push) through apps-chat.
+const SEC_CATS = [
+  ['ssh', 'key', 'การเข้าเครื่อง (SSH)'],
+  ['panel', 'lock', 'แผงควบคุม'],
+  ['files', 'file', 'ไฟล์สำคัญ'],
+  ['web', 'globe', 'บอทสแกนเว็บ'],
+  ['host', 'server', 'พอร์ตและคอนเทนเนอร์'],
+];
+const SEC_LEVEL = { info: ['ok', 'ปกติ'], warn: ['warn', 'ควรดู'], bad: ['bad', 'ต้องตรวจ'] };
+const SEC_HEADLINE = { info: 'ไม่พบความผิดปกติ', warn: 'มีเรื่องที่ควรดู', bad: 'มีเรื่องที่ต้องตรวจทันที' };
+const PANELS = { dock: 'Dock', portainer: 'Portainer', npm: 'Nginx Proxy Manager' };
+const PROBES = [
+  ['secrets', 'หาไฟล์ลับ (.env, .git)'],
+  ['wordpress', 'WordPress'],
+  ['php', 'PHP / phpMyAdmin'],
+  ['admin', 'แผงควบคุมทั่วไป'],
+  ['traversal', 'เจาะพาธ (../)'],
+];
+const PORT_NAMES = { 22: 'SSH', 80: 'HTTP', 443: 'HTTPS' };
+const RISKY = {
+  'docker-socket': 'ควบคุม Docker ได้ทั้งหมด (docker.sock)',
+  privileged: 'สิทธิ์เต็มเครื่อง (privileged)',
+  'host-network': 'ใช้เครือข่ายของเครื่องโดยตรง',
+  'host-pid': 'เห็นโปรเซสทั้งเครื่อง',
+  'host-ipc': 'ใช้ IPC ของเครื่อง',
+  'host-root': 'เมานต์ / ของเครื่อง',
+  unconfined: 'ปิด seccomp / AppArmor',
+};
+const riskyText = (f) => RISKY[f] ?? (f.startsWith('cap-add:') ? `เพิ่มสิทธิ์ ${f.slice(8)}` : f);
+const secDot = (level) => h('span', { class: `dot ${SEC_LEVEL[level]?.[0] ?? ''}`, title: SEC_LEVEL[level]?.[1] ?? '' });
+const secWhen = (ts) => fmtTime.format(new Date(ts * 1000));
+const shortKey = (k) => (k.length > 22 ? `${k.slice(0, 20)}…` : k);
+const in24h = (s, rows) => rows.filter((r) => r.ts > s.now - 86400).length;
+
+/** one line under each category: what is there right now */
+function secSummary(s, cat) {
+  const d = s.cats[cat];
+  if (cat === 'ssh') return `เข้าสำเร็จ ${in24h(s, d.logins)} · ไม่สำเร็จ ${fmtNum(d.failed24)} ใน 24 ชม.`;
+  if (cat === 'panel') return `ล็อกอิน ${in24h(s, d.logins)} · รหัสผิด ${fmtNum(d.failed24)} ใน 24 ชม.`;
+  if (cat === 'files') return d.changed ? `ถูกแก้ ${d.changed} จาก ${d.watched} ไฟล์` : `เฝ้า ${d.watched} ไฟล์ ไม่มีการแก้`;
+  if (cat === 'web') return `วันนี้ ${fmtNum(d.today)} ครั้ง · ส่วนใหญ่ได้ 404`;
+  const u = d.updates;
+  return [`พอร์ตเปิด ${d.ports.length}`, `อัปเดตรอ ${u.pending ?? '–'}`, u.reboot ? 'ควรรีบูต' : null].filter(Boolean).join(' · ');
+}
+/** the five category cards on the overview */
+function secCards(s) {
+  return SEC_CATS.map(([id, ic, label]) => h('a', { class: 'sec-cat', href: `#/security/${id}` },
+    h('span', { class: 'sec-cat-head' }, icon(ic, 'sec-cat-ic'), h('span', { class: 'sec-cat-name' }, label), secDot(s.cats[id].status)),
+    h('span', { class: 'sec-cat-sub' }, secSummary(s, id))));
+}
+const eventRow = (e) => h('div', { class: 'row wrap' }, secDot(e.level),
+  h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, e.title), e.detail ? h('span', { class: 'row-sub' }, e.detail) : null),
+  h('div', { class: 'row-side' }, secWhen(e.ts)));
+const eventList = (events, empty = 'ยังไม่มีเหตุการณ์') =>
+  h('div', { class: 'list' }, events.length ? events.map(eventRow) : h('p', { class: 'empty' }, empty));
+const listCard = (title, sub, rows, empty) =>
+  card(title, sub, h('div', { class: 'list flat' }, rows.length ? rows : h('p', { class: 'empty' }, empty)));
+const sideTime = (ts) => h('div', { class: 'row-side' }, secWhen(ts));
+const newPill = () => h('span', { class: 'pill tone-bad' }, 'ใหม่');
+
+async function securityView(token, cat) {
+  const meta = SEC_CATS.find(([id]) => id === cat);
+  const body = h('div', { class: 'overview' }, h('div', { class: 'tiles' }, skelTiles(4)), skelRows(5, { icon: true, side: 'dot' }));
+  shell(topBar(meta ? meta[2] : 'ความปลอดภัย', { back: meta ? '#/security' : '#/', onRefresh: () => load() }), body, tabs('#/'));
+  app.querySelector('.shell').classList.add('wide');
+  let mine = []; // this page's charts, rebuilt on refresh
+
+  const load = async () => {
+    const s = await api('/security');
+    if (token !== viewToken) return;
+    mine.forEach((c) => c.destroy());
+    charts = charts.filter((c) => !mine.includes(c));
+    mine = [];
+    if (!s.enabled) {
+      body.replaceChildren(h('p', { class: 'empty' }, 'ยังไม่ได้เปิดการเฝ้าระวัง'));
+      return;
+    }
+    const chartIn = (c, opts) => { mine.push(mkChart(c, opts)); return c; };
+    body.replaceChildren(...(meta ? secCategory(s, cat, chartIn) : secMain(s, load)));
+  };
+  await load();
+  if (token !== viewToken || meta) return;
+  timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), 30_000);
+}
+
+function secMain(s, reload) {
+  const ack = s.status !== 'info'
+    ? h('button', { class: 'btn', type: 'button', onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { await api('/security/ack', { method: 'POST' }); await reload(); } catch (err) { handleError(err); }
+      } }, icon('checkcircle'), 'รับทราบแล้ว')
+    : null;
+  return [
+    h('section', { class: `sec-banner tone-${SEC_LEVEL[s.status][0]}` },
+      h('span', { class: 'row-ic' }, icon('shield')),
+      h('div', { class: 'row-main' },
+        h('span', { class: 'row-title' }, SEC_HEADLINE[s.status]),
+        h('span', { class: 'row-sub' }, `เฝ้าระวังตั้งแต่ ${fmtStarted.format(new Date(s.since * 1000))}${s.acked ? ` · รับทราบล่าสุด ${secWhen(s.acked)}` : ''}`)),
+      ack),
+    h('div', { class: 'sec-cats' }, secCards(s)),
+    h('h2', { class: 'section-title' }, 'เหตุการณ์ล่าสุด'),
+    eventList(s.events.slice(0, 40)),
+    h('p', { class: 'meta sec-note' }, 'อ่าน log ทุก 5 วินาที ตรวจไฟล์ พอร์ต และคอนเทนเนอร์ทุกนาที เรื่องสำคัญจะส่งเข้าแชทและแจ้งเตือนของ Dock ด้วย กด "รับทราบแล้ว" เพื่อล้างสี (ประวัติยังอยู่)'),
+  ];
+}
+
+function secCategory(s, cat, chartIn) {
+  const d = s.cats[cat];
+  const events = s.events.filter((e) => e.cat === cat);
+  const days = (rows) => rows.map((r) => r.day);
+  if (cat === 'ssh') {
+    const c = card('ความพยายามเข้าที่ไม่สำเร็จ', 'รายวัน 14 วัน · ส่วนใหญ่เป็นบอทเดารหัส');
+    return [
+      h('div', { class: 'tiles' },
+        tile('เข้าสำเร็จ 24 ชม.', fmtNum(in24h(s, d.logins)), `จาก ${d.networks} เครือข่ายที่เคยเห็น`),
+        tile('ไม่สำเร็จ 24 ชม.', fmtNum(d.failed24), 'ปิดการเข้าด้วยรหัสผ่านไว้แล้ว'),
+        tile('คีย์ที่เคยใช้', fmtNum(d.keys.length), d.keys.length === 1 ? 'มีคีย์เดียว' : 'ตรวจว่ารู้จักทุกอัน'),
+        tile('IP ที่ลองบ่อยสุด', d.topIps[0]?.ip ?? '–', d.topIps[0] ? `${fmtNum(d.topIps[0].count)} ครั้งใน 24 ชม.` : '')),
+      h('div', { class: 'grid' },
+        chartIn(c, { times: days(d.failedDays), step: 86400, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), label: 'ความพยายามเข้าที่ไม่สำเร็จ',
+          series: [{ name: 'ไม่สำเร็จ', color: 'var(--s5)', values: d.failedDays.map((r) => r.count) }] }),
+        listCard('ล็อกอินล่าสุด', 'เครือข่ายใหม่หรือคีย์ใหม่จะแจ้งเตือน', d.logins.map((l) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `${l.user}@${l.ip} `, l.new ? newPill() : null), h('span', { class: 'row-sub' }, `${l.net} · ${shortKey(l.how)}`)),
+          sideTime(l.ts))), 'ยังไม่มีการล็อกอิน'),
+        listCard('IP ที่พยายามบ่อยสุด', '24 ชั่วโมงล่าสุด', d.topIps.map((x) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, x.ip)), h('div', { class: 'row-side' }, h('b', {}, fmtNum(x.count))))), 'ไม่มี'),
+        listCard('คีย์ที่เคยใช้เข้า', 'ถ้ามีคีย์ที่ไม่รู้จัก ให้ลบออกจาก authorized_keys', d.keys.map((k) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, k.key)), sideTime(k.first))), 'ยังไม่มี')),
+      h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events),
+    ];
+  }
+  if (cat === 'panel') {
+    const nets = Object.entries(d.networks).map(([p, n]) => `${PANELS[p] ?? p} ${n}`).join(' · ');
+    return [
+      h('div', { class: 'tiles' },
+        tile('ล็อกอิน 24 ชม.', fmtNum(in24h(s, d.logins)), 'Dock, Portainer, Nginx Proxy Manager'),
+        tile('รหัสผิด 24 ชม.', fmtNum(d.failed24), 'ผิด 10 ครั้งในชั่วโมงเดียวจะแจ้งเตือน'),
+        tile('เครือข่ายที่รู้จัก', nets || '–', 'ล็อกอินจากเครือข่ายใหม่จะแจ้งเตือน')),
+      h('div', { class: 'grid' },
+        listCard('ล็อกอินล่าสุด', 'ผ่าน Cloudflare จะไม่เห็น IP จริงบางครั้ง', d.logins.map((l) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `${PANELS[l.via] ?? l.via} `, l.new ? newPill() : null), h('span', { class: 'row-sub' }, `${l.ip} · ${l.how}`)),
+          sideTime(l.ts))), 'ยังไม่มีการล็อกอิน')),
+      h('h2', { class: 'section-title' }, 'การเปลี่ยนแปลงและเหตุการณ์'), eventList(events, 'ยังไม่มีการแก้ค่า'),
+    ];
+  }
+  if (cat === 'files') {
+    const fresh = (f) => f.changed && f.changed > Math.max(s.acked, s.now - 3 * 86400);
+    const files = [...d.list].sort((a, b) => (b.changed ?? 0) - (a.changed ?? 0) || (a.level === b.level ? a.path.localeCompare(b.path) : a.level === 'bad' ? -1 : 1));
+    return [
+      h('div', { class: 'tiles' },
+        tile('ไฟล์ที่เฝ้า', fmtNum(d.watched), 'บัญชีผู้ใช้ SSH cron systemd ไฟร์วอลล์'),
+        tile('ถูกแก้', fmtNum(d.changed), '3 วันล่าสุด หรือหลังกดรับทราบ'),
+        tile('ตรวจล่าสุด', d.checked ? ago(d.checked) : '–', 'ทุก 1 นาที')),
+      h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events, 'ยังไม่มีไฟล์ไหนถูกแก้'),
+      h('h2', { class: 'section-title' }, 'ไฟล์ที่เฝ้าอยู่'),
+      h('div', { class: 'list' }, files.map((f) => h('div', { class: 'row' }, secDot(fresh(f) ? f.level : 'info'),
+        h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, f.path), h('span', { class: 'row-sub' }, f.level === 'bad' ? 'สำคัญมาก' : 'สำคัญ')),
+        h('div', { class: 'row-side' }, f.changed ? `แก้ ${secWhen(f.changed)}` : 'ไม่เปลี่ยน')))),
+    ];
+  }
+  if (cat === 'web') {
+    const c = card('บอทที่สแกนหาช่องโหว่', 'รายวัน 14 วัน ทุกเว็บรวมกัน');
+    const week = d.days.slice(-7).reduce((a, r) => a + r.probes, 0);
+    const guard = d.days.reduce((a, r) => a + r.guard, 0);
+    return [
+      h('div', { class: 'tiles' },
+        tile('วันนี้', fmtNum(d.today), 'ครั้งที่บอทถามหาไฟล์หรือหน้าที่ไม่มีอยู่'),
+        tile('7 วัน', fmtNum(week), `เฉลี่ย ${fmtNum(week / 7)} ต่อวัน`),
+        tile('ด่านกันช่องโหว่ (415)', fmtNum(guard), 'ครั้งที่ด่านใน NPM ตีกลับ 14 วัน')),
+      h('div', { class: 'grid' },
+        chartIn(c, { times: days(d.days), step: 86400, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), label: 'บอทที่สแกนหาช่องโหว่',
+          series: PROBES.map(([k, name], i) => ({ name, color: SERIES[i], values: d.days.map((r) => r.kinds[k] ?? 0) })) }),
+        listCard('ที่ถูกถามบ่อยสุด', '7 วันล่าสุด', d.topPaths.map((p) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, p.path), h('span', { class: 'row-sub' }, siteName(p.host))),
+          h('div', { class: 'row-side' }, h('b', {}, fmtNum(p.count)), ago(p.last)))), 'ยังไม่มี')),
+      h('p', { class: 'meta sec-note' }, 'บอทพวกนี้สแกนทุกเว็บบนอินเทอร์เน็ต และได้ 404 กลับไป ไม่ต้องทำอะไร เว้นแต่ตัวเลขพุ่งผิดปกติหรือเห็นคำขอที่ได้ 200'),
+    ];
+  }
+  const u = d.updates;
+  return [
+    h('div', { class: 'tiles' },
+      tile('พอร์ตที่เปิดรับจากภายนอก', fmtNum(d.ports.length), d.ports.map((p) => p.replace('tcp/', '')).join(', ') || '–'),
+      tile('คอนเทนเนอร์', `${fmtNum(d.running)} / ${fmtNum(d.containers)}`, 'ทำงานอยู่ / ทั้งหมด'),
+      tile('อัปเดตระบบที่รอ', u.pending ?? '–', u.security ? `ความปลอดภัย ${u.security} รายการ` : 'unattended-upgrades ลงของความปลอดภัยให้เอง'),
+      tile('เคอร์เนล', u.kernel || '–', u.reboot ? `ควรรีบูตเพื่อใช้ ${u.newest}` : 'เป็นตัวล่าสุดที่ติดตั้ง')),
+    h('div', { class: 'grid' },
+      listCard('พอร์ตที่เปิด', 'พอร์ตใหม่จะแจ้งเตือนทันที', d.ports.map((p) => {
+        const n = Number(p.replace('tcp/', ''));
+        return h('div', { class: 'row' }, secDot(PORT_NAMES[n] ? 'info' : 'warn'),
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `TCP ${n}`), h('span', { class: 'row-sub' }, PORT_NAMES[n] ?? 'ไม่ได้ตั้งค่าไว้ในเอกสาร')));
+      }), 'อ่านพอร์ตไม่ได้'),
+      listCard('คอนเทนเนอร์ที่มีสิทธิ์พิเศษ', 'สิทธิ์ที่เพิ่มขึ้นหรือคอนเทนเนอร์ใหม่ที่มีสิทธิ์จะแจ้งเตือน', d.risky.map((c) => {
+        const intended = PROTECTED.has(c.name) && c.flags.every((f) => f === 'docker-socket');
+        return h('div', { class: 'row wrap' }, secDot(intended ? 'info' : 'warn'),
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name, intended ? h('span', { class: 'muted' }, ' · ตั้งใจไว้') : null), h('span', { class: 'row-sub' }, c.flags.map(riskyText).join(' · '))));
+      }), 'ไม่มี'),
+      listCard('ไม่ได้มาจาก compose', 'เช่นคอนเทนเนอร์ทดสอบที่รันมือ', d.unmanaged.map((c) => h('div', { class: 'row' }, secDot(c.running ? 'warn' : 'info'),
+        h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name), h('span', { class: 'row-sub' }, `${c.image} · ${c.running ? 'ทำงานอยู่' : 'หยุดแล้ว'}`)))), 'ไม่มี')),
+    h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events),
+  ];
+}
+
 // ------------------------------------------------------------------ web analytics
 // Page views + Web Vitals from the sites themselves (the analytics service; replaces Vercel Analytics).
 const WEB_RANGES = [[7, '7 วัน'], [30, '30 วัน'], [90, '90 วัน']];
@@ -1198,6 +1419,7 @@ function moreView() {
     extra, icon('chev', 'chev'));
   shell(topBar('เพิ่มเติม'),
     h('div', { class: 'list' },
+      item('#/security', 'shield', 'ความปลอดภัย', 'การเข้าเครื่อง ไฟล์สำคัญ พอร์ต และบอทที่สแกนเว็บ'),
       item('#/chat', 'chat', 'แชท', 'สรุปรายเดือนจากระบบ และถาม–ตอบ', badge()),
       item('#/backup', 'archive', 'สำรองข้อมูล', 'ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
     tabs('#/more'));
@@ -1270,7 +1492,7 @@ async function chatView(token) {
   let hasMore = false;
   let loadingOlder = false;
   // a server post's type → its icon and colour (instead of emoji in the text)
-  const KINDS = { down: ['alert', 'bad'], up: ['checkcircle', 'ok'], report: ['chart', 'info'] };
+  const KINDS = { down: ['alert', 'bad'], up: ['checkcircle', 'ok'], report: ['chart', 'info'], security: ['shield', 'warn'] };
   /** text with its https links made tappable (built as nodes, never as HTML) */
   const linkify = (text) => text.split(/(https:\/\/[^\s]+)/g).map((part, i) =>
     i % 2 ? h('a', { href: part, target: '_blank', rel: 'noopener' }, part.replace(/^https:\/\//, '')) : part);
@@ -1319,7 +1541,7 @@ async function chatView(token) {
     }
     const [title, ...rest] = m.text.split('\n');
     return h('div', { class: `msg ${m.role}${kind ? ` kind-${kind[1]}` : ''}`, 'data-id': m.id },
-      m.role === 'system' ? h('span', { class: 'msg-label' }, kind ? icon(kind[0], 'msg-ic') : null, m.kind === 'report' ? 'รายงานประจำเดือน' : m.kind ? 'แจ้งเตือนระบบ' : 'จากระบบ') : null,
+      m.role === 'system' ? h('span', { class: 'msg-label' }, kind ? icon(kind[0], 'msg-ic') : null, m.kind === 'report' ? 'รายงานประจำเดือน' : m.kind === 'security' ? 'แจ้งเตือนความปลอดภัย' : m.kind ? 'แจ้งเตือนระบบ' : 'จากระบบ') : null,
       kind
         ? h('div', { class: 'msg-text' }, h('b', { class: 'msg-title' }, title), rest.length ? '\n' : null, ...linkify(rest.join('\n')))
         : h('div', { class: 'msg-text' }, ...linkify(m.text)),
@@ -1487,6 +1709,8 @@ async function route() {
     else if (hash === '#/backup') await backupView(token);
     else if (hash === '#/more') moreView();
     else if (hash === '#/chat') await chatView(token);
+    else if (hash === '#/security') await securityView(token, null);
+    else if (/^#\/security\/[a-z]+$/.test(hash)) await securityView(token, hash.slice(11));
     else await overviewView(token);
   } catch (e) {
     if (token === viewToken) handleError(e);

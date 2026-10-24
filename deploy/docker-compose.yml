@@ -4,7 +4,7 @@
 #   nginx-proxy-manager  :80 :443 public (SSL)   UI → nginx.chakkritton.com
 #   portainer            internal only            UI → portainer.chakkritton.com
 #   dock                 internal only            UI → docker.chakkritton.com (minimal mobile UI on Portainer's API)
-#   dock-metrics         dock-internal only       host/container/proxy history for Dock
+#   dock-metrics         dock-internal only       host/container/proxy history + security watch for Dock
 #
 # The sites run in the "apps" stack (deploy/apps; Thai Weather's services come from deploy/weather.yml).
 #
@@ -73,8 +73,9 @@ services:
       - proxy
       - dock
 
-  # Rust host/container/proxy history, built from apps/rust-services. Read-only host views,
-  # no Docker socket or capabilities; reachable only from `dock` behind Portainer login.
+  # Rust host/container/proxy history and the security watch, built from apps/rust-services.
+  # Read-only host views, no Docker socket or capabilities; reachable only from `dock` behind
+  # Portainer login (and from apps-chat for security alerts) on dock-internal.
   # Retains the existing history volume and root UID needed for /proc/<pid>/net reads.
   dock-metrics:
     image: dock-metrics:local
@@ -83,6 +84,8 @@ services:
     restart: unless-stopped
     init: true
     user: "0:0"
+    # adm (4): /var/log/auth.log is syslog:adm 0640, and the container has no CAP_DAC_* to bypass it
+    group_add: ["4"]
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -92,6 +95,16 @@ services:
       - /sys/fs/cgroup:/host/cgroup:ro
       - /etc/hostname:/host/hostname:ro
       - /etc/os-release:/host/os-release:ro
+      # security watch (apps/rust-services/src/security.rs): logins, files an intruder would change,
+      # container configs, pending updates. Directories, not files, so log rotation and editors that
+      # replace a file are followed. Only hashes, user names and key fingerprints are kept.
+      - /var/log:/host/log:ro
+      - /etc:/host/etc:ro
+      - /root/.ssh:/host/ssh:ro
+      - /var/spool/cron:/host/cron:ro
+      - /boot:/host/boot:ro
+      - /var/lib/update-notifier:/host/apt:ro
+      - /var/lib/docker/containers:/host/containers:ro
       - type: volume
         source: npm-data
         target: /npm-logs

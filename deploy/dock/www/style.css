@@ -489,3 +489,32 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .msg.skel { min-width: 140px; }
 .list.skel { margin-bottom: 12px; }
 @media (prefers-reduced-motion: reduce) { .bone { animation: none; } }
+
+/* security: category cards (overview and its own page), banner, event rows */
+.sec-cats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
+@media (min-width: 620px) { .sec-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1080px) { .sec-cats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.sec-cats[hidden], .sec-title[hidden] { display: none; }
+.sec-cat { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); color: inherit; text-decoration: none; }
+.sec-cat-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sec-cat-ic { width: 18px; height: 18px; flex: none; }
+.sec-cat-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec-cat-sub { color: var(--muted); font-size: 12.5px; }
+.sec-title a { display: inline-flex; align-items: center; gap: 2px; color: inherit; text-decoration: none; }
+.sec-title .chev { width: 18px; height: 18px; color: var(--muted); }
+.sec-banner { display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.sec-banner .row-title { font-size: 17px; }
+.sec-banner .row-sub { white-space: normal; }
+.sec-banner .btn { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.sec-banner .btn svg { width: 16px; height: 16px; }
+.sec-banner.tone-ok .row-ic { color: var(--ok); }
+.sec-banner.tone-warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.sec-banner.tone-warn .row-ic { color: var(--warn); }
+.sec-banner.tone-bad { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.sec-banner.tone-bad .row-ic { color: var(--bad); }
+.sec-note { margin-top: 14px; }
+.row.wrap .row-title, .row.wrap .row-sub { white-space: normal; overflow-wrap: anywhere; }
+.row-title.mono { font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: normal; overflow-wrap: anywhere; }
+.muted { color: var(--muted); font-weight: 400; }
+.card .list.flat { margin: 0 -14px -10px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
+.msg.kind-warn .msg-label { color: var(--warn); }

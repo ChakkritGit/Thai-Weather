@@ -36,7 +36,7 @@ Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
 | expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
 | whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
 | drive-music.chakkritton.com | Drive Music (Google Drive player, Party Play sync) | github.com/ChakkritGit/Drive-Music-Web | VPS (`apps`) |
-| docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
+| docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, security watch, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
 | status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
 | health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/rust-services/runtime` | VPS |
 | nginx. / portainer.chakkritton.com | Nginx Proxy Manager / Portainer admin | images | VPS |
@@ -234,7 +234,30 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 22)
+## 9. Recent changes (2026-10-14 → 24)
+
+### Dock security watch (2026-10-24, Claude)
+Owner asked for security monitoring in Dock, grouped into categories on the overview. `dock-metrics`
+(`src/security.rs`, see its README) now watches five categories: SSH (logins from a new /24 or /64,
+new keys, non-key logins, account changes, failed attempts per day/IP), panels (Dock/Portainer/NPM logins
+from a new network, 10 wrong passwords in an hour, NPM config changes), 26 system files (accounts, sudo,
+SSH keys/config, cron, systemd units, profile, ufw rules, apt sources, ld.so.preload, PAM), web probes
+(bot scans per day by kind, top paths, the 415 guard) and host (new public TCP port, new or newly
+privileged containers, pending/security updates, reboot needed). Read-only mounts were added to the
+server stack (`/var/log`, `/etc`, `/root/.ssh`, `/var/spool/cron`, `/boot`, update-notifier,
+`/var/lib/docker/containers`) plus `group_add: ["4"]` (adm) for auth.log; the collector keeps
+`cap_drop: [ALL]` and no socket. Those mounts let the collector read private host files (root's SSH
+directory, container env in `config.v2.json`): it stores only hashes, user names and key fingerprints.
+- Dock: overview has a ความปลอดภัย row of five category cards; `#/security` (banner, รับทราบแล้ว ack,
+  recent events) and `#/security/<ssh|panel|files|web|host>`; also listed under เพิ่มเติม. nginx forwards
+  `GET /api/security` and `POST /api/security/ack` behind the Portainer login; `/security/outbox` is not
+  forwarded.
+- apps-chat polls `dock-metrics:9100/security/outbox` every 30 s (settings key `security_seen`) and posts one
+  `kind: "security"` system message per batch plus a push to `/#/security`. The first pass only anchors, and
+  the watch's own first run learns silently, so deploying did not post anything.
+- Not done: scanning images for CVEs (offer it to the owner; would need a pinned scanner such as Trivy and its
+  DB download); root's dotfiles (`/root/.bashrc` …) are not watched.
+
 
 ### Security review of the Rust migration (2026-10-22, Claude)
 Read: dbgw, reminders, backup, chat (auth paths), health, analytics, media, sync, rooms, portfolio-api,

@@ -8,8 +8,9 @@ its former Elysia APIs now use native Rust. gRPC remains deferred. See `HANDOFF.
 
 ## Build and test
 
-Use Rust **1.90.0**. Every direct dependency is exact; all 55 locked registry
-versions are a subset of the weather API lock audited on 2026-10-17. Re-audit
+Use Rust **1.90.0**. Every direct dependency is exact; all 63 locked registry
+versions are a subset of the weather API lock audited on 2026-10-17, plus `sha2` 0.10.9
+and its dependencies at the native runtime's versions (audited again 2026-10-24). Re-audit
 release ages and yanks before adding/updating any dependency. No new image base:
 the compiler uses the weather API's pinned Rust/bookworm digest. The runtime is
 a static x86-64 Linux binary in `scratch`, with no JS runtime or shell.
@@ -98,6 +99,23 @@ both against the real volume. Check health, old bucket preservation, resumed log
 offsets, new live samples and Dock's charts/icon. Keep a concrete rollback image
 until these pass; restore only this service if necessary. App autodeploy must no
 longer restart native services when an app repo changes.
+
+### Security watch
+
+`src/security.rs` feeds Dock's ความปลอดภัย page (`GET /security`, `POST /security/ack`, both
+behind Portainer login in Dock's nginx) and apps-chat's alert relay (`GET /security/outbox?after=N`,
+dock-internal only). It reads, through read-only mounts under `SECURITY_HOST` (default `/host`):
+`log/auth.log` (SSH logins, failed attempts, account changes; the container joins group `adm`),
+NPM's access logs (Dock/Portainer/NPM logins and NPM config changes, bot probes, the 415 guard),
+26 watched files and directories under `etc/`, `ssh/` and `cron/` (SHA-256, plus user names and key
+fingerprints for passwd/group/authorized_keys), `/proc/1/net/tcp*` (public listeners),
+`containers/*/config.v2.json` + `hostconfig.json` (new containers, privileged/socket/host-namespace
+flags) and `apt/updates-available` + `boot/` (pending updates, reboot needed).
+
+State is `DATA_DIR/security.json` (atomic rename; offsets, known /24 or /64 networks and SSH keys,
+file hashes, last 200 events). The first run, without that file, learns everything already present
+silently; only later changes become events. Delete the file to re-learn (apps-chat re-anchors when
+the event ids restart). Serve-only mode disables the watch and answers `{"enabled":false}`.
 
 Clean up exact unused images/volumes after checking **all** container references
 (including stopped containers) and current Compose declarations. Never delete a

@@ -116,6 +116,9 @@ class Contract(unittest.TestCase):
             self.assertNotIn("content-type", headers)
         for path, method in [("/missing", "GET"), ("/metrics", "POST")]:
             self.assertEqual(self.request(port, path, method)[::2], (404, b"NOT_FOUND"))
+        self.assertEqual(
+            json.loads(self.request(port, "/security")[2]), {"enabled": False}
+        )
         code, headers, body = self.request(port, "/metrics", "HEAD")
         self.assertEqual((code, headers["content-encoding"], body), (200, "gzip", b""))
         subprocess.run([str(BINARY), "--healthcheck"], env=env, check=True, timeout=5)
@@ -165,6 +168,37 @@ class Contract(unittest.TestCase):
         self.assertEqual(p.wait(timeout=10), 0)
         self.assertEqual(json.loads(gzip.decompress(history.read_bytes())), saved)
         self.assertFalse((self.root / "data/history.json.gz.tmp").exists())
+
+    def test_security_watch_learns_then_serves_and_saves(self):
+        host = self.root / "host"
+        (host / "log").mkdir(parents=True)
+        (host / "etc").mkdir()
+        (host / "log/auth.log").write_text(
+            "2026-10-24T09:00:00+07:00 h sshd[1]: Accepted publickey for root"
+            " from 192.0.2.1 port 1 ssh2: ED25519 SHA256:fixture\n"
+        )
+        (host / "etc/passwd").write_text("root:x:0:0::/root:/bin/sh\n")
+        self.env["SECURITY_HOST"] = str(host)
+        p, port, _ = self.start(False)
+        for _ in range(100):
+            code, headers, body = self.request(port, "/security")
+            data = json.loads(body)
+            if data["cats"]["files"]["watched"]:
+                break
+            time.sleep(0.05)
+        self.assertEqual((code, headers["cache-control"]), (200, "no-store"))
+        self.assertTrue(data["enabled"])
+        self.assertEqual(data["cats"]["files"]["watched"], 1)
+        self.assertEqual(data["cats"]["ssh"]["keys"][0]["key"], "SHA256:fixture")
+        outbox = json.loads(self.request(port, "/security/outbox?after=0")[2])
+        self.assertEqual(outbox["events"], [], "the first run is the baseline")
+        self.assertEqual(self.request(port, "/security/ack", "POST")[0], 200)
+        self.assertEqual(self.request(port, "/security", "POST")[0], 404)
+        p.send_signal(signal.SIGTERM)
+        self.assertEqual(p.wait(timeout=10), 0)
+        saved = json.loads((self.root / "data/security.json").read_text())
+        self.assertGreater(saved["acked"], 0)
+        self.assertNotIn("/bin/sh", (self.root / "data/security.json").read_text())
 
     def test_fixed_clock_requires_serve_only(self):
         result = subprocess.run(
