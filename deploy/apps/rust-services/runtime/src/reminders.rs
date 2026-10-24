@@ -110,11 +110,19 @@ fn reminder(entries: &[Value], today: &str) -> Result<Option<Value>, Error> {
             "{label}: {}{}",
             es.iter()
                 .take(3)
-                .map(|e| format!(
-                    "{} {}",
-                    e["name"].as_str().unwrap_or(""),
-                    money(amount(&e["amount"]))
-                ))
+                .map(|e| {
+                    // a debt saved without a monthly amount is generated at 0 until its amount is set
+                    let a = amount(&e["amount"]);
+                    format!(
+                        "{} {}",
+                        e["name"].as_str().unwrap_or(""),
+                        if a > 0.0 {
+                            money(a)
+                        } else {
+                            "(ยังไม่ใส่ยอด)".into()
+                        }
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(", "),
             if es.len() > 3 {
@@ -664,5 +672,12 @@ mod tests {
         .unwrap();
         assert_eq!(m["title"], "เกินกำหนด 1 รายการ");
         assert_eq!(m["body"], "เกินกำหนด: Old ฿100\nครบวันนี้: Now ฿200");
+        let unset = reminder(
+            &[json!({"name":"Shop","amount":0,"due_date":"2026-10-19"})],
+            "2026-10-19",
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(unset["body"], "ครบวันนี้: Shop (ยังไม่ใส่ยอด)");
     }
 }
