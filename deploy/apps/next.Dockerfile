@@ -16,8 +16,11 @@ RUN --mount=type=secret,id=env,target=/app/.env.production \
  && rm -f .next/standalone/.env* \
  && mkdir -p public
 
-FROM oven/bun:1.4.2-alpine AS bun
+FROM oven/bun:1.4.2-alpine@sha256:d888c0ae6c86d7866ff10c5aafdd9077b36aee6455b33dd270fb93c0dd5cef6f AS bun
 LABEL com.chakkrit.stack="next-bun-rust"
+# Alpine's stable branch only takes security and bug fixes; apply them at build time so OpenSSL, zlib and
+# musl do not wait for the next base image (owner, 2026-10-25, after the first image scan)
+RUN apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./
@@ -32,6 +35,7 @@ CMD ["bun", "server.js"]
 
 # Retain an explicit Node target for runtime comparisons and recovery.
 FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS node
+RUN apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/.next/standalone ./

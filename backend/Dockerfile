@@ -13,9 +13,14 @@ LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weath
       org.opencontainers.image.description="Rust HTTP API with a private Python numerical worker" \
       com.chakkrit.stack="rust-python"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 THWX_DATA_DIR=/var/lib/thwx
+# Debian's security updates and a pip without its known CVEs (2026-10-25 image scan, owner's request)
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/backend
 COPY requirements-runtime.txt ./
-RUN pip install --no-cache-dir -r requirements-runtime.txt
+RUN pip install --no-cache-dir --disable-pip-version-check pip==26.2.1 \
+ && pip install --no-cache-dir -r requirements-runtime.txt
 COPY --from=rust-build /build/target/release/thwx-api /usr/local/bin/thwx-api
 COPY app ./app
 COPY verify ./verify

@@ -236,7 +236,9 @@ services:
 
   # ---- the apps' own database (moved from Supabase; login stays on Supabase Auth) --------------------
   db:
-    image: postgres:17.11-alpine3.24
+    # postgres:17.11-alpine3.24 (pinned by digest) with su-exec in place of gosu: db/Dockerfile, build.sh db
+    image: apps-db:local
+    pull_policy: never
     container_name: apps-db
     restart: unless-stopped
     env_file: ${ENVS:-/opt/apps/env}/db.env

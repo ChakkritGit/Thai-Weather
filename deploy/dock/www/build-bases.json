@@ -14,6 +14,13 @@
     ]
   },
   {
+    "ref": "node",
+    "digest": null,
+    "files": [
+      "deploy/npm/Dockerfile"
+    ]
+  },
+  {
     "ref": "node:22.23.4-trixie-slim",
     "digest": "sha256:8eb619e402eaede1748a3c8173bffab391592812e85136452f781741c7242ddf",
     "files": [
@@ -30,10 +37,17 @@
   },
   {
     "ref": "oven/bun:1.4.2-alpine",
-    "digest": null,
+    "digest": "sha256:d888c0ae6c86d7866ff10c5aafdd9077b36aee6455b33dd270fb93c0dd5cef6f",
     "files": [
       "deploy/apps/next.Dockerfile",
       "frontend/Dockerfile"
+    ]
+  },
+  {
+    "ref": "postgres:17.11-alpine3.24",
+    "digest": "sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb",
+    "files": [
+      "deploy/apps/db/Dockerfile"
     ]
   },
   {

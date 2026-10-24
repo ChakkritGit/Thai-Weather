@@ -41,7 +41,7 @@ services:
       - proxy
 
   portainer:
-    image: portainer/portainer-ce:lts@sha256:03f94a406496dc84d37b552795fc424ccad8d0d7200353b6a82915f6e8f73ab0
+    image: portainer/portainer-ce:lts@sha256:3609c307943bca8e5c492f69ddd6965df177208b50678a4cff28391c8dd4e96e
     container_name: portainer
     restart: unless-stopped
     # L5: Portainer talks to the Docker socket as root (that socket is the real power); the process itself
@@ -58,7 +58,8 @@ services:
   # Minimal, mobile-first Docker dashboard: static page + /api forwarded to Portainer (deploy/dock).
   # No Docker socket here – login and every Docker call go through Portainer.
   dock:
-    image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    # stable line, slim: core nginx only (auth_request, proxy), without curl/libxml2/tiff and the rest
+    image: nginx:1.30.6-alpine3.24-slim@sha256:d9322bba63c6cfc63dc9e86522fd4f95fd4d9020a02b5bced282bbf38b8c3960
     container_name: dock
     restart: unless-stopped
     read_only: true

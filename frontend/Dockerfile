@@ -9,10 +9,13 @@ ARG THWX_API_URL=http://api:8000
 ENV THWX_API_URL=$THWX_API_URL NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM oven/bun:1.4.2-alpine
+FROM oven/bun:1.4.2-alpine@sha256:d888c0ae6c86d7866ff10c5aafdd9077b36aee6455b33dd270fb93c0dd5cef6f
 LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weather" \
       org.opencontainers.image.description="Thai Weather HD – Next.js web app" \
       com.chakkrit.stack="next-bun-rust"
+# Alpine's stable branch only takes security and bug fixes; apply them at build time so OpenSSL, zlib and
+# musl do not wait for the next base image (owner, 2026-10-25, after the first image scan)
+RUN apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./
