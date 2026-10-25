@@ -122,8 +122,8 @@ Python numerical worker and separate Python verification container retained. See
   for nginx.chakkritton.com, portainer.chakkritton.com, docker.chakkritton.com (user `admin` for the last
   two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
 - Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
-- CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*, and once the
-  owner makes the OAuth client: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
+- CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET — a Web OAuth client in project `calorieflow-bb756`, set 2026-10-25);
   `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow.env) and
   HEALTH_TOKEN (= the status Worker's CALORIEFLOW_HEALTH_TOKEN; the value is kept nowhere else — to rotate,
   generate one and pipe it into both).
@@ -285,9 +285,10 @@ out from the other macros, SEO files, Google sign-in.
   IndexNow key file is `public/<key>.txt` (public by design).
 - Worker: new `/ai/vision` (Llama 4 Scout, OpenAI-style `image_url` data URL, ≤1.4 MB); 25 photos/user/day.
 - PIN: scrypt hash on users, sessions.away_at/locked; `/api/lock` beacons; 10 wrong PINs a day sign the device out.
-- Google: code flow + PKCE (`src/lib/google.ts`), hidden until GOOGLE_CLIENT_ID/SECRET exist. gcloud cannot
-  create OAuth web clients, so the owner makes one in the console (project `calorieflow-bb756`), redirect URI
-  `https://calorieflow.chakkritton.com/api/auth/google/callback`.
+- Google: code flow + PKCE (`src/lib/google.ts`), hidden without GOOGLE_CLIENT_ID/SECRET. gcloud cannot create
+  OAuth web clients; the owner made one in the console (project `calorieflow-bb756`), redirect URI
+  `https://calorieflow.chakkritton.com/api/auth/google/callback`. While the consent screen is in "Testing", only
+  its test users can sign in.
 - Health Shortcut on the owner's devices is named "ส่งข้อมูลไป CalorieFlow"; the public one imports as
   "CalorieFlow-Health". The "Sync now" button uses the name saved per device (Settings → Apple Health).
 
