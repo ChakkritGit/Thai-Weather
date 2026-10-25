@@ -3,6 +3,7 @@
 import { chart } from './charts.js';
 import { BRANDS } from './brands.js';
 import { roll } from './roll.js';
+import { LANG, LANGS, LOCALE, THEMES, setLang, setTheme, theme, tx } from './i18n.js';
 
 const TOKEN_KEY = 'dock.jwt';
 const LIST_REFRESH_MS = 10_000;
@@ -63,6 +64,7 @@ const ICONS = {
   key: 'M13 15.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 1 1 11 0zM11.4 11.6 21 2M15.5 7.5l2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4',
   lock: 'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 1 1 8 0v4',
   file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5zM14 3v5h5M9 13h6M9 17h6',
+  contrast: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 2v20M12 7h5M12 12h7M12 17h5',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
   bug: 'M9 7a3 3 0 0 1 6 0v1H9zM7 10h10v4a5 5 0 0 1-10 0zM12 10v9M3 13h4M17 13h4M5 7l2 2.5M19 7l-2 2.5M5 20l2.5-2.5M19 20l-2.5-2.5',
@@ -156,7 +158,7 @@ async function ensureEnv() {
   if (envId !== null) return envId;
   const eps = await api('/endpoints');
   const env = eps.find((e) => e.Type === 1 || e.Type === 2) ?? eps[0];
-  if (!env) throw new Error('ไม่พบ Docker environment ใน Portainer');
+  if (!env) throw new Error(tx('ไม่พบ Docker environment ใน Portainer'));
   envId = env.Id;
   return envId;
 }
@@ -172,14 +174,14 @@ const fmtBytes = (b) => {
 const fmtPct = (p) => (Number.isFinite(p) ? `${p < 10 ? p.toFixed(1) : Math.round(p)}%` : '–');
 function ago(seconds) {
   const s = Math.max(0, Math.round(Date.now() / 1000 - seconds));
-  if (s < 60) return 'เมื่อสักครู่';
-  if (s < 3600) return `${Math.floor(s / 60)} นาทีที่แล้ว`;
-  if (s < 86400) return `${Math.floor(s / 3600)} ชั่วโมงที่แล้ว`;
-  return `${Math.floor(s / 86400)} วันที่แล้ว`;
+  if (s < 60) return tx('เมื่อสักครู่');
+  if (s < 3600) return tx('{0} นาทีที่แล้ว', Math.floor(s / 60));
+  if (s < 86400) return tx('{0} ชั่วโมงที่แล้ว', Math.floor(s / 3600));
+  return tx('{0} วันที่แล้ว', Math.floor(s / 86400));
 }
 /** Docker's English status ("Up 3 minutes (healthy)", "Exited (0) 2 hours ago") in Thai, without the health part */
 function statusText(status = '') {
-  const units = [[/seconds?/, 'วินาที'], [/minutes?/, 'นาที'], [/hours?/, 'ชั่วโมง'], [/days?/, 'วัน'], [/weeks?/, 'สัปดาห์'], [/months?/, 'เดือน'], [/years?/, 'ปี']];
+  const units = [[/seconds?/, tx('วินาที')], [/minutes?/, tx('นาที')], [/hours?/, tx('ชั่วโมง')], [/days?/, tx('วัน')], [/weeks?/, tx('สัปดาห์')], [/months?/, tx('เดือน')], [/years?/, tx('ปี')]];
   const dur = (d) => {
     d = d.replace(/^About an? /i, '~1 ').replace(/^Less than a second/i, '<1 second');
     for (const [re, th] of units) d = d.replace(re, th);
@@ -187,9 +189,9 @@ function statusText(status = '') {
   };
   const s = status.replace(/\s*\((healthy|unhealthy|health: starting)\)/, '');
   let m = /^Up (.+)$/.exec(s);
-  if (m) return `ทำงานมา ${dur(m[1])}`;
+  if (m) return tx('ทำงานมา {0}', dur(m[1]));
   m = /^Exited \((\d+)\) (.+) ago$/.exec(s);
-  if (m) return `หยุดเมื่อ ${dur(m[2])}ที่แล้ว${m[1] !== '0' ? ` (รหัส ${m[1]})` : ''}`;
+  if (m) return tx('หยุดเมื่อ {0}ที่แล้ว{1}', dur(m[2]), m[1] !== '0' ? tx(' (รหัส {0})', m[1]) : '');
   return s;
 }
 /**
@@ -198,23 +200,23 @@ function statusText(status = '') {
  * Under a day: hours · under 30 days: days and hours · from 30 days: the date and time it started.
  */
 const MONTH_S = 30 * 86400;
-const fmtStarted = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtStarted = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 function upFor(s) {
-  if (s < 60) return 'ไม่ถึงนาที';
-  if (s < 3600) return `${Math.floor(s / 60)} นาที`;
-  if (s < 86400) return `${Math.floor(s / 3600)} ชั่วโมง`;
+  if (s < 60) return tx('ไม่ถึงนาที');
+  if (s < 3600) return tx('{0} นาที', Math.floor(s / 60));
+  if (s < 86400) return tx('{0} ชั่วโมง', Math.floor(s / 3600));
   const d = Math.floor(s / 86400), hrs = Math.floor((s % 86400) / 3600);
-  return hrs ? `${d} วัน ${hrs} ชั่วโมง` : `${d} วัน`;
+  return hrs ? tx('{0} วัน {1} ชั่วโมง', d, hrs) : tx('{0} วัน', d);
 }
 /** "ทำงานมา 1 วัน 7 ชั่วโมง" or "ทำงานตั้งแต่ 15 ก.ย. 2569 10:20" */
 function runningSince(startedMs) {
   const s = Math.max(0, (Date.now() - startedMs) / 1000);
-  return s >= MONTH_S ? `ทำงานตั้งแต่ ${fmtStarted.format(startedMs)}` : `ทำงานมา ${upFor(s)}`;
+  return s >= MONTH_S ? tx('ทำงานตั้งแต่ {0}', fmtStarted.format(startedMs)) : tx('ทำงานมา {0}', upFor(s));
 }
 /** "เมื่อ 1 วัน 7 ชั่วโมงที่แล้ว" or the date, for the detail page */
 function startedText(startedMs) {
   const s = Math.max(0, (Date.now() - startedMs) / 1000);
-  return s >= MONTH_S ? fmtStarted.format(startedMs) : s < 60 ? 'เมื่อสักครู่' : `${upFor(s)}ที่แล้ว`;
+  return s >= MONTH_S ? fmtStarted.format(startedMs) : s < 60 ? tx('เมื่อสักครู่') : tx('{0}ที่แล้ว', upFor(s));
 }
 /** Docker's "Up …" as a rough number of seconds, only to notice a restart since StartedAt was read */
 function roughUp(status = '') {
@@ -250,19 +252,19 @@ function nameOf(c) {
 
 /** compose project/service → [brand mark, group] */
 const SERVICES = {
-  'apps/web': ['nextdotjs', 'ฟ้าละเอียด'], 'apps/api': ['fastapi', 'ฟ้าละเอียด'], 'apps/verify': ['python', 'ฟ้าละเอียด'],
-  'apps/weather-web-api': ['rust', 'ฟ้าละเอียด'],
+  'apps/web': ['nextdotjs', tx('ฟ้าละเอียด')], 'apps/api': ['fastapi', tx('ฟ้าละเอียด')], 'apps/verify': ['python', tx('ฟ้าละเอียด')],
+  'apps/weather-web-api': ['rust', tx('ฟ้าละเอียด')],
   'apps/portfolio': ['nextdotjs', 'Portfolio'], 'apps/portfolio-api': ['rust', 'Portfolio'], 'apps/media': ['bun', 'Portfolio'],
   'apps/expenses': ['nextdotjs', 'Spent/Cost'], 'apps/reminders': ['bun', 'Spent/Cost'],
   'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
   'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
   'apps/calorieflow': ['nextdotjs', 'CalorieFlow'],
-  'apps/db': ['postgresql', 'ฐานข้อมูล'], 'apps/rest': ['postgresql', 'ฐานข้อมูล'], 'apps/dbgw': ['bun', 'ฐานข้อมูล'],
-  'apps/health': ['bun', 'ระบบส่วนกลาง'], 'apps/status': ['bun', 'ระบบส่วนกลาง'], 'apps/analytics': ['bun', 'ระบบส่วนกลาง'], 'apps/backup': ['bun', 'ระบบส่วนกลาง'], 'apps/chat': ['bun', 'ระบบส่วนกลาง'],
-  'server/nginx-proxy-manager': ['nginxproxymanager', 'จัดการเซิร์ฟเวอร์'], 'server/portainer': ['portainer', 'จัดการเซิร์ฟเวอร์'],
-  'server/dock': ['nginx', 'จัดการเซิร์ฟเวอร์'], 'server/dock-metrics': ['bun', 'จัดการเซิร์ฟเวอร์'],
+  'apps/db': ['postgresql', tx('ฐานข้อมูล')], 'apps/rest': ['postgresql', tx('ฐานข้อมูล')], 'apps/dbgw': ['bun', tx('ฐานข้อมูล')],
+  'apps/health': ['bun', tx('ระบบส่วนกลาง')], 'apps/status': ['bun', tx('ระบบส่วนกลาง')], 'apps/analytics': ['bun', tx('ระบบส่วนกลาง')], 'apps/backup': ['bun', tx('ระบบส่วนกลาง')], 'apps/chat': ['bun', tx('ระบบส่วนกลาง')],
+  'server/nginx-proxy-manager': ['nginxproxymanager', tx('จัดการเซิร์ฟเวอร์')], 'server/portainer': ['portainer', tx('จัดการเซิร์ฟเวอร์')],
+  'server/dock': ['nginx', tx('จัดการเซิร์ฟเวอร์')], 'server/dock-metrics': ['bun', tx('จัดการเซิร์ฟเวอร์')],
 };
-const GROUP_ORDER = ['ฟ้าละเอียด', 'Portfolio', 'Spent/Cost', 'Whiteboard', 'Drive Music', 'CalorieFlow', 'ฐานข้อมูล', 'ระบบส่วนกลาง', 'จัดการเซิร์ฟเวอร์'];
+const GROUP_ORDER = [tx('ฟ้าละเอียด'), 'Portfolio', 'Spent/Cost', 'Whiteboard', 'Drive Music', 'CalorieFlow', tx('ฐานข้อมูล'), tx('ระบบส่วนกลาง'), tx('จัดการเซิร์ฟเวอร์')];
 function serviceOf(c) {
   const l = labelsOf(c);
   const known = SERVICES[`${l['com.docker.compose.project']}/${l['com.docker.compose.service']}`];
@@ -270,7 +272,7 @@ function serviceOf(c) {
   const stack = l['com.chakkrit.stack'];
   return { brand: brand === 'nextdotjs' && ['next-bun-elysia', 'next-bun-rust'].includes(stack) ? stack
     : (brand === 'fastapi' && stack === 'rust-python') || (brand === 'bun' && stack === 'rust') ? 'rust' : brand,
-    group: known?.[1] ?? l['com.docker.compose.project'] ?? 'อื่น ๆ' };
+    group: known?.[1] ?? l['com.docker.compose.project'] ?? tx('อื่น ๆ') };
 }
 /** containers in the fixed group order (unknown groups after, by name) */
 function groupContainers(list) {
@@ -314,13 +316,13 @@ function stateOf(c) {
   const state = c.State?.Status ?? c.State; // inspect has an object, list a string
   const health = c.State?.Health?.Status ?? /\((healthy|unhealthy|health: starting)\)/.exec(c.Status ?? '')?.[1];
   if (state === 'running') {
-    if (health === 'unhealthy') return { cls: 'bad', label: 'ไม่ปกติ (unhealthy)' };
-    if (health && health.includes('starting')) return { cls: 'warn', label: 'กำลังเริ่ม' };
-    return { cls: 'ok', label: health === 'healthy' ? 'ปกติ (healthy)' : 'ทำงาน' };
+    if (health === 'unhealthy') return { cls: 'bad', label: tx('ไม่ปกติ (unhealthy)') };
+    if (health && health.includes('starting')) return { cls: 'warn', label: tx('กำลังเริ่ม') };
+    return { cls: 'ok', label: health === 'healthy' ? tx('ปกติ (healthy)') : tx('ทำงาน') };
   }
-  if (state === 'restarting') return { cls: 'warn', label: 'กำลังรีสตาร์ท' };
-  if (state === 'paused') return { cls: 'warn', label: 'หยุดชั่วคราว' };
-  if (state === 'exited' || state === 'dead') return { cls: '', label: 'หยุดอยู่' };
+  if (state === 'restarting') return { cls: 'warn', label: tx('กำลังรีสตาร์ท') };
+  if (state === 'paused') return { cls: 'warn', label: tx('หยุดชั่วคราว') };
+  if (state === 'exited' || state === 'dead') return { cls: '', label: tx('หยุดอยู่') };
   return { cls: '', label: state ?? '–' };
 }
 
@@ -356,12 +358,12 @@ async function stats(id) {
 
 // ------------------------------------------------------------------ layout
 const TABS = [
-  ['#/', 'pulse', 'ภาพรวม'],
-  ['#/containers', 'box', 'คอนเทนเนอร์'],
-  ['#/images', 'layers', 'อิมเมจ'],
-  ['#/volumes', 'disk', 'วอลุ่ม'],
-  ['#/web', 'chart', 'สถิติเว็บ'],
-  ['#/more', 'more', 'เพิ่มเติม'],
+  ['#/', 'pulse', tx('ภาพรวม')],
+  ['#/containers', 'box', tx('คอนเทนเนอร์')],
+  ['#/images', 'layers', tx('อิมเมจ')],
+  ['#/volumes', 'disk', tx('วอลุ่ม')],
+  ['#/web', 'chart', tx('สถิติเว็บ')],
+  ['#/more', 'more', tx('เพิ่มเติม')],
 ];
 let unread = 0; // server posts in the chat not read yet (badge on เพิ่มเติม and แชท)
 function badge() {
@@ -373,7 +375,7 @@ async function refreshUnread() {
 }
 /** tapping the tab of the page you are on scrolls it back to the top */
 function tabs(current) {
-  return h('nav', { class: 'tabs', 'aria-label': 'เมนู' },
+  return h('nav', { class: 'tabs', 'aria-label': tx('เมนู') },
     TABS.map(([href, ic, label]) => h('a', {
       href, 'aria-current': href === current ? 'page' : false, 'data-tab-bounce': true,
       onclick: (e) => {
@@ -382,12 +384,12 @@ function tabs(current) {
           window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         }
       },
-    }, h('span', { class: 'tab-ic', 'data-tab-icon': true }, icon(ic), href === '#/more' ? badge() : null), label)));
+    }, h('span', { class: 'tab-ic', 'data-tab-icon': true }, icon(ic), href === '#/more' ? badge() : null), h('span', { class: 'tab-label' }, label))));
 }
 function topBar(title, { back, onRefresh, extra } = {}) {
   const refresh = onRefresh
     ? h('button', {
-        class: 'icon-btn', type: 'button', 'aria-label': 'รีเฟรช', title: 'รีเฟรช',
+        class: 'icon-btn', type: 'button', 'aria-label': tx('รีเฟรช'), title: tx('รีเฟรช'),
         onclick: async (e) => {
           const b = e.currentTarget;
           b.classList.add('spin');
@@ -396,12 +398,12 @@ function topBar(title, { back, onRefresh, extra } = {}) {
       }, icon('refresh'))
     : null;
   return h('header', { class: 'top' },
-    back ? h('a', { class: 'icon-btn', href: back, 'aria-label': 'กลับ' }, icon('back')) : null,
+    back ? h('a', { class: 'icon-btn', href: back, 'aria-label': tx('กลับ') }, icon('back')) : null,
     h('h1', {}, title),
     extra ?? null,
     refresh,
-    back || !PORTAINER_URL ? null : h('a', { class: 'icon-btn', href: PORTAINER_URL, 'aria-label': 'เปิด Portainer เต็ม', title: 'Portainer เต็ม', target: '_blank', rel: 'noopener' }, icon('ext')),
-    back ? null : h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'ออกจากระบบ', title: 'ออกจากระบบ', onclick: logout }, icon('out')));
+    back || !PORTAINER_URL ? null : h('a', { class: 'icon-btn', href: PORTAINER_URL, 'aria-label': tx('เปิด Portainer เต็ม'), title: tx('Portainer เต็ม'), target: '_blank', rel: 'noopener' }, icon('ext')),
+    back ? null : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tx('ออกจากระบบ'), title: tx('ออกจากระบบ'), onclick: logout }, icon('out')));
 }
 function shell(...children) {
   app.replaceChildren(h('main', { class: 'shell' }, ...children));
@@ -436,11 +438,35 @@ const skelChat = () => [
 const clearSkel = (root) => root.querySelectorAll('.skel').forEach((e) => e.remove());
 
 // ------------------------------------------------------------------ views
+// ------------------------------------------------------------------ language and theme (this device only, see i18n.js)
+const THEME_LABEL = { system: 'ตามระบบ', light: 'สว่าง', dark: 'มืด' };
+function segmented(options, current, pick) {
+  const box = h('div', { class: 'segmented', role: 'group' });
+  box.append(...options.map(([value, label]) => h('button', {
+    type: 'button', 'aria-pressed': String(value === current),
+    onclick: () => {
+      for (const b of box.children) b.setAttribute('aria-pressed', 'false');
+      box.querySelector(`[data-v="${value}"]`)?.setAttribute('aria-pressed', 'true');
+      pick(value);
+    },
+    'data-v': value,
+  }, label)));
+  return box;
+}
+const langPicker = () => segmented(Object.entries(LANGS), LANG, setLang);
+const themePicker = () => segmented(THEMES.map((t) => [t, tx(THEME_LABEL[t])]), theme(), setTheme);
+function prefsCard() {
+  const row = (ic, label, control) => h('div', { class: 'pref' }, h('span', { class: 'pref-label' }, icon(ic), label), control);
+  return h('section', { class: 'prefs', 'aria-label': tx('การแสดงผล') },
+    row('globe', tx('ภาษา'), langPicker()),
+    row('contrast', tx('ธีม'), themePicker()));
+}
+
 function loginView(message = '') {
   const err = h('p', { class: 'error', role: 'alert' }, message);
-  const user = h('input', { class: 'field', name: 'username', autocomplete: 'username', placeholder: 'ชื่อผู้ใช้', required: true, autocapitalize: 'none' });
-  const pass = h('input', { class: 'field', name: 'password', type: 'password', autocomplete: 'current-password', placeholder: 'รหัสผ่าน', required: true });
-  const submit = h('button', { class: 'btn primary', type: 'submit' }, 'เข้าสู่ระบบ');
+  const user = h('input', { class: 'field', name: 'username', autocomplete: 'username', placeholder: tx('ชื่อผู้ใช้'), required: true, autocapitalize: 'none' });
+  const pass = h('input', { class: 'field', name: 'password', type: 'password', autocomplete: 'current-password', placeholder: tx('รหัสผ่าน'), required: true });
+  const submit = h('button', { class: 'btn primary', type: 'submit' }, tx('เข้าสู่ระบบ'));
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
@@ -451,7 +477,7 @@ function loginView(message = '') {
         localStorage.setItem(TOKEN_KEY, jwt);
         route();
       } catch (ex) {
-        err.textContent = ex instanceof AuthError || /invalid|credential/i.test(ex.message) ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : `เข้าสู่ระบบไม่สำเร็จ: ${ex.message}`;
+        err.textContent = ex instanceof AuthError || /invalid|credential/i.test(ex.message) ? tx('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง') : tx('เข้าสู่ระบบไม่สำเร็จ: {0}', ex.message);
       } finally {
         submit.disabled = false;
       }
@@ -459,7 +485,8 @@ function loginView(message = '') {
   },
   h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('box')), 'Dock'),
   user, pass, err, submit,
-  h('p', { class: 'hint' }, 'ใช้บัญชีเดียวกับ Portainer'));
+  h('p', { class: 'hint' }, tx('ใช้บัญชีเดียวกับ Portainer')),
+  h('div', { class: 'login-prefs' }, langPicker(), themePicker()));
   app.replaceChildren(h('main', { class: 'login' }, form));
   hideSplash();
   user.focus();
@@ -479,14 +506,14 @@ async function containersView(token) {
       if (token === viewToken && r?.st && r.c?.State === 'running') setText(r.sub, `${r.st.label} · ${runningSince(startedAt.get(id))}`);
     });
     const running = list.filter((c) => c.State === 'running');
-    const metaText = `${running.length}/${list.length}| ทำงาน · ${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`;
+    const metaText = tx('{0}/{1}| ทำงาน · {2} CPU · {3} · {4}', running.length, list.length, info.NCPU, fmtBytes(info.MemTotal), info.OperatingSystem);
     if (meta.dataset.v !== metaText) {
       meta.dataset.v = metaText;
-      meta.replaceChildren(h('b', {}, `${running.length}/${list.length}`), ' ทำงาน · ', `${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`);
+      meta.replaceChildren(h('b', {}, `${running.length}/${list.length}`), tx(' ทำงาน · '), `${info.NCPU} CPU · ${fmtBytes(info.MemTotal)} · ${info.OperatingSystem}`);
     }
     // grouped by the app they belong to. Rows are made once and then only their changed text is
     // touched, so a refresh never blanks the CPU / RAM numbers (no flicker).
-    if (!list.length) { body.replaceChildren(h('div', { class: 'list' }, h('p', { class: 'empty' }, 'ยังไม่มีคอนเทนเนอร์'))); return; }
+    if (!list.length) { body.replaceChildren(h('div', { class: 'list' }, h('p', { class: 'empty' }, tx('ยังไม่มีคอนเทนเนอร์')))); return; }
     const groups = groupContainers(list);
     const seen = new Set();
     const order = groups.map(([g, cs]) => {
@@ -535,7 +562,7 @@ async function containersView(token) {
       setNumber(r.mem, fmtBytes(u.mem));
     }));
   };
-  shell(topBar('คอนเทนเนอร์', { onRefresh: load }), meta, body, tabs('#/containers'));
+  shell(topBar(tx('คอนเทนเนอร์'), { onRefresh: load }), meta, body, tabs('#/containers'));
   await load();
   if (token !== viewToken) return; // navigated away while loading: do not start a timer for an old view
   timer = setInterval(() => document.visibilityState === 'visible' && load().catch(handleError), LIST_REFRESH_MS);
@@ -557,7 +584,7 @@ function confirmButton(label, armedLabel, run, { danger = false, disabled = fals
       armed = 0;
       b.classList.remove('armed');
       b.disabled = true;
-      b.textContent = 'กำลังทำ…';
+      b.textContent = tx('กำลังทำ…');
       try { await run(); } finally { b.disabled = false; b.textContent = label; }
     },
   }, label);
@@ -606,49 +633,49 @@ async function containerView(token, id) {
   };
   const actions = h('div', { class: 'actions' },
     running
-      ? confirmButton('หยุด', 'ยืนยันหยุด?', () => act('stop', `หยุด ${name} แล้ว`), { danger: true, disabled: guarded })
-      : h('button', { class: 'btn primary', type: 'button', onclick: (e) => { e.currentTarget.disabled = true; act('start', `เริ่ม ${name} แล้ว`).catch(handleError); } }, 'เริ่ม'),
-    running ? confirmButton('รีสตาร์ท', 'ยืนยันรีสตาร์ท?', () => act('restart', `รีสตาร์ท ${name} แล้ว`)) : null);
+      ? confirmButton(tx('หยุด'), tx('ยืนยันหยุด?'), () => act('stop', tx('หยุด {0} แล้ว', name)), { danger: true, disabled: guarded })
+      : h('button', { class: 'btn primary', type: 'button', onclick: (e) => { e.currentTarget.disabled = true; act('start', tx('เริ่ม {0} แล้ว', name)).catch(handleError); } }, tx('เริ่ม')),
+    running ? confirmButton(tx('รีสตาร์ท'), tx('ยืนยันรีสตาร์ท?'), () => act('restart', tx('รีสตาร์ท {0} แล้ว', name))) : null);
 
   const statBox = (label, value, sub) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value), sub ? h('small', {}, sub) : null);
-  const statsEl = h('div', { class: 'stats' }, statBox('CPU', '…'), statBox('หน่วยความจำ', '…'), statBox('เครือข่าย', '…'));
+  const statsEl = h('div', { class: 'stats' }, statBox('CPU', '…'), statBox(tx('หน่วยความจำ'), '…'), statBox(tx('เครือข่าย'), '…'));
 
   const ports = Object.entries(c.NetworkSettings?.Ports ?? {})
     .map(([p, binds]) => (binds?.length ? binds.map((b) => `${b.HostIp || '0.0.0.0'}:${b.HostPort} → ${p}`).join(', ') : p));
   const mounts = (c.Mounts ?? []).map((m) => `${m.Name || m.Source} → ${m.Destination}${m.RW ? '' : ' (ro)'}`);
   const kv = (pairs) => h('div', { class: 'list' }, h('dl', { class: 'kv' }, pairs.filter(([, v]) => v).flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
   const info = kv([
-    ['อิมเมจ', c.Config.Image],
-    ['สร้างเมื่อ', ago(Date.parse(c.Created) / 1000)],
-    ['เริ่มเมื่อ', running ? startedText(Date.parse(c.State.StartedAt)) : null],
-    ['รีสตาร์ทอัตโนมัติ', c.HostConfig?.RestartPolicy?.Name || 'no'],
-    ['พอร์ต', ports.join('\n') || 'ภายในเท่านั้น'],
-    ['เครือข่าย', Object.keys(c.NetworkSettings?.Networks ?? {}).join(', ')],
-    ['ข้อมูลที่เมานต์', mounts.join('\n')],
+    [tx('อิมเมจ'), c.Config.Image],
+    [tx('สร้างเมื่อ'), ago(Date.parse(c.Created) / 1000)],
+    [tx('เริ่มเมื่อ'), running ? startedText(Date.parse(c.State.StartedAt)) : null],
+    [tx('รีสตาร์ทอัตโนมัติ'), c.HostConfig?.RestartPolicy?.Name || 'no'],
+    [tx('พอร์ต'), ports.join('\n') || tx('ภายในเท่านั้น')],
+    [tx('เครือข่าย'), Object.keys(c.NetworkSettings?.Networks ?? {}).join(', ')],
+    [tx('ข้อมูลที่เมานต์'), mounts.join('\n')],
   ]);
 
-  const logsEl = h('pre', { class: 'logs', tabindex: '0', 'aria-label': 'log' }, 'กำลังโหลด…');
+  const logsEl = h('pre', { class: 'logs', tabindex: '0', 'aria-label': 'log' }, tx('กำลังโหลด…'));
   const follow = h('input', { type: 'checkbox', checked: true });
   const loadLogs = async () => {
     const res = await docker(`/containers/${id}/logs?stdout=1&stderr=1&tail=300`, { raw: true });
     const lines = parseLogs(await res.arrayBuffer(), c.Config.Tty);
     if (token !== viewToken) return;
     const atBottom = logsEl.scrollHeight - logsEl.scrollTop - logsEl.clientHeight < 40;
-    logsEl.replaceChildren(...(lines.length ? lines.map((l) => (l.err ? h('span', { class: 'err' }, `${l.t}\n`) : `${l.t}\n`)) : ['(ไม่มี log)']));
+    logsEl.replaceChildren(...(lines.length ? lines.map((l) => (l.err ? h('span', { class: 'err' }, `${l.t}\n`) : `${l.t}\n`)) : [tx('(ไม่มี log)')]));
     if (atBottom || logsEl.dataset.first !== '1') { logsEl.scrollTop = logsEl.scrollHeight; logsEl.dataset.first = '1'; }
   };
   const loadStats = async () => {
-    if (!running) { patchChildren(statsEl, [statBox('สถานะ', 'หยุดอยู่', c.State.FinishedAt ? ago(Date.parse(c.State.FinishedAt) / 1000) : '')]); return; }
+    if (!running) { patchChildren(statsEl, [statBox(tx('สถานะ'), tx('หยุดอยู่'), c.State.FinishedAt ? ago(Date.parse(c.State.FinishedAt) / 1000) : '')]); return; }
     const u = await stats(id);
     if (token !== viewToken || !u) return;
     patchChildren(statsEl, [
       statBox('CPU', fmtPct(u.cpu)),
-      statBox('หน่วยความจำ', fmtBytes(u.mem), u.limit ? `จาก ${fmtBytes(u.limit)}` : ''),
-      statBox('เครือข่าย', `↓ ${fmtBytes(u.rx)}`, `↑ ${fmtBytes(u.tx)}`)]);
+      statBox(tx('หน่วยความจำ'), fmtBytes(u.mem), u.limit ? tx('จาก {0}', fmtBytes(u.limit)) : ''),
+      statBox(tx('เครือข่าย'), `↓ ${fmtBytes(u.rx)}`, `↑ ${fmtBytes(u.tx)}`)]);
   };
 
   // CPU / RAM history of this container from dock-metrics (last hour)
-  const history = h('section', { class: 'group' }, h('h2', { class: 'group-title' }, 'ย้อนหลัง 1 ชั่วโมง'));
+  const history = h('section', { class: 'group' }, h('h2', { class: 'group-title' }, tx('ย้อนหลัง 1 ชั่วโมง')));
   const histGrid = h('div', { class: 'mini-grid' });
   history.append(histGrid);
   let histCharts = null;
@@ -659,12 +686,12 @@ async function containerView(token, id) {
     if (!c) { history.hidden = true; return; }
     history.hidden = false;
     const cpu = { times: mx.times, series: [{ name: 'CPU', color: 'var(--s1)', values: c.cpu ?? [] }], kind: 'area', format: (v) => fmtPct(v), step: mx.step };
-    const mem = { times: mx.times, series: [{ name: 'หน่วยความจำ', color: 'var(--s2)', values: c.mem ?? [] }], kind: 'area', format: (v) => fmtBytes(v), step: mx.step };
+    const mem = { times: mx.times, series: [{ name: tx('หน่วยความจำ'), color: 'var(--s2)', values: c.mem ?? [] }], kind: 'area', format: (v) => fmtBytes(v), step: mx.step };
     if (!histCharts) {
       const a = h('div', { class: 'card' }, h('h3', { class: 'card-title' }, 'CPU'));
-      const b = h('div', { class: 'card' }, h('h3', { class: 'card-title' }, 'หน่วยความจำ'));
+      const b = h('div', { class: 'card' }, h('h3', { class: 'card-title' }, tx('หน่วยความจำ')));
       histGrid.append(a, b);
-      histCharts = [mkChart(a, { ...cpu, label: `CPU ของ ${name}`, height: 140 }), mkChart(b, { ...mem, label: `หน่วยความจำของ ${name}`, height: 140 })];
+      histCharts = [mkChart(a, { ...cpu, label: tx('CPU ของ {0}', name), height: 140 }), mkChart(b, { ...mem, label: tx('หน่วยความจำของ {0}', name), height: 140 })];
     } else {
       histCharts[0].update(cpu);
       histCharts[1].update(mem);
@@ -675,13 +702,13 @@ async function containerView(token, id) {
     topBar(name, { back: '#/containers', onRefresh: () => Promise.all([loadStats(), loadLogs(), loadHistory()]) }),
     h('p', { class: 'meta' }, h('span', { class: 'pill' }, h('span', { class: `dot ${st.cls}` }), st.label)),
     actions,
-    guarded && running ? h('p', { class: 'note' }, 'หยุดไม่ได้จากที่นี่ — ถ้าหยุดจะเข้าหน้านี้ไม่ได้ (รีสตาร์ทได้)') : null,
+    guarded && running ? h('p', { class: 'note' }, tx('หยุดไม่ได้จากที่นี่ — ถ้าหยุดจะเข้าหน้านี้ไม่ได้ (รีสตาร์ทได้)')) : null,
     statsEl,
     history,
     h('section', { class: 'group' },
-      h('div', { class: 'logs-head' }, h('h2', { class: 'group-title' }, 'Log ล่าสุด'), h('label', { class: 'switch' }, follow, 'อัปเดตอัตโนมัติ')),
+      h('div', { class: 'logs-head' }, h('h2', { class: 'group-title' }, tx('Log ล่าสุด')), h('label', { class: 'switch' }, follow, tx('อัปเดตอัตโนมัติ'))),
       logsEl),
-    h('section', { class: 'group' }, h('h2', { class: 'group-title' }, 'ข้อมูล'), info),
+    h('section', { class: 'group' }, h('h2', { class: 'group-title' }, tx('ข้อมูล')), info),
     tabs('#/containers'));
   await Promise.all([loadStats(), loadLogs(), loadHistory()]);
   if (token !== viewToken) return; // navigated away while loading
@@ -720,24 +747,24 @@ async function imagesView(token) {
     const base = new Map(images.map((i) => [i.Id, buildBaseOf(i, bases)]));
     const unused = images.filter((i) => !i.Containers && !base.get(i.Id)).length;
     const forBuild = images.filter((i) => !i.Containers && base.get(i.Id)).length;
-    meta.replaceChildren(h('b', {}, `${images.length}`), ` อิมเมจ · ${fmtBytes(total)}`,
-      unused ? ` · ไม่ได้ใช้ ${unused}` : '', forBuild ? ` · ฐาน build ${forBuild}` : '');
+    meta.replaceChildren(h('b', {}, `${images.length}`), tx(' อิมเมจ · {0}', fmtBytes(total)),
+      unused ? tx(' · ไม่ได้ใช้ {0}', unused) : '', forBuild ? tx(' · ฐาน build {0}', forBuild) : '');
     body.replaceChildren(h('div', { class: 'list' }, images.length
       ? images.map((i) => {
           const b = base.get(i.Id);
           // a base pulled by digest only has the digest as its tag; its Dockerfile names it better
           const tag = (b && b.digest ? b.ref : null)
             ?? i.RepoTags?.find((t) => t !== '<none>:<none>') ?? i.Id.replace('sha256:', '').slice(0, 12);
-          const label = i.Containers ? '' : b ? 'ใช้ build' : 'ไม่ได้ใช้';
+          const label = i.Containers ? '' : b ? tx('ใช้ build') : tx('ไม่ได้ใช้');
           return h('div', { class: 'row' },
             h('span', { class: 'row-main' },
               h('span', { class: 'row-title', title: b ? b.files.join('\n') : null }, tag),
               h('span', { class: 'row-sub' }, `${ago(i.Created)}${label ? ' · ' : ''}`, label ? h('span', { class: 'tag' }, label) : '')),
-            h('span', { class: 'row-side' }, h('b', {}, fmtBytes(i.Size)), i.Containers ? `ใช้ ${i.Containers}` : ''));
+            h('span', { class: 'row-side' }, h('b', {}, fmtBytes(i.Size)), i.Containers ? tx('ใช้ {0}', i.Containers) : ''));
         })
-      : h('p', { class: 'empty' }, 'ไม่มีอิมเมจ')));
+      : h('p', { class: 'empty' }, tx('ไม่มีอิมเมจ'))));
   };
-  shell(topBar('อิมเมจ', { onRefresh: load }), meta, body, tabs('#/images'));
+  shell(topBar(tx('อิมเมจ'), { onRefresh: load }), meta, body, tabs('#/images'));
   await load();
 }
 
@@ -749,28 +776,28 @@ async function volumesView(token) {
     if (token !== viewToken) return;
     const vols = [...(df.Volumes ?? [])].sort((a, b) => (b.UsageData?.Size ?? 0) - (a.UsageData?.Size ?? 0));
     const total = vols.reduce((s, v) => s + Math.max(0, v.UsageData?.Size ?? 0), 0);
-    meta.replaceChildren(h('b', {}, `${vols.length}`), ` วอลุ่ม · ${fmtBytes(total)}`);
+    meta.replaceChildren(h('b', {}, `${vols.length}`), tx(' วอลุ่ม · {0}', fmtBytes(total)));
     body.replaceChildren(h('div', { class: 'list' }, vols.length
       ? vols.map((v) => {
           const refs = v.UsageData?.RefCount ?? 0;
           return h('div', { class: 'row' },
             h('span', { class: 'row-main' },
               h('span', { class: 'row-title' }, v.Name),
-              h('span', { class: 'row-sub' }, refs ? `ใช้โดย ${refs} คอนเทนเนอร์` : 'ไม่ได้ใช้')),
+              h('span', { class: 'row-sub' }, refs ? tx('ใช้โดย {0} คอนเทนเนอร์', refs) : tx('ไม่ได้ใช้'))),
             h('span', { class: 'row-side' }, h('b', {}, fmtBytes(v.UsageData?.Size ?? NaN))));
         })
-      : h('p', { class: 'empty' }, 'ไม่มีวอลุ่ม')));
+      : h('p', { class: 'empty' }, tx('ไม่มีวอลุ่ม'))));
   };
-  shell(topBar('วอลุ่ม', { onRefresh: load }), meta, body, tabs('#/volumes'));
+  shell(topBar(tx('วอลุ่ม'), { onRefresh: load }), meta, body, tabs('#/volumes'));
   await load();
 }
 
 
 // ------------------------------------------------------------------ overview (host, proxy traffic, containers)
 const metrics = (range) => api(`/metrics?range=${range}`);
-const RANGES = [['1h', '1 ชม.', 10_000], ['24h', '24 ชม.', 60_000], ['7d', '7 วัน', 300_000]];
+const RANGES = [['1h', tx('1 ชม.'), 10_000], ['24h', tx('24 ชม.'), 60_000], ['7d', tx('7 วัน'), 300_000]];
 const fmtRate = (b, short) => (Number.isFinite(b) ? `${fmtBytes(b)}${short ? '' : '/s'}` : '–');
-const fmtNum = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('th-TH') : '–');
+const fmtNum = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString(LOCALE) : '–');
 const lastOf = (col) => (col ? [...col].reverse().find((v) => v !== null && v !== undefined) : undefined);
 const avgOf = (col) => {
   const v = (col ?? []).filter((x) => x !== null && x !== undefined);
@@ -782,7 +809,7 @@ function uptimeText(sec) {
   const d = Math.floor(sec / 86400);
   const hrs = Math.floor((sec % 86400) / 3600);
   const min = Math.floor((sec % 3600) / 60);
-  return d ? `${d} วัน ${hrs} ชม.` : hrs ? `${hrs} ชม. ${min} นาที` : `${min} นาที`;
+  return d ? tx('{0} วัน {1} ชม.', d, hrs) : hrs ? tx('{0} ชม. {1} นาที', hrs, min) : tx('{0} นาที', min);
 }
 const SERIES = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'];
 let overviewRange = (() => {
@@ -802,7 +829,7 @@ const card = (title, sub, ...children) =>
   h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { class: 'card-title' }, title), sub ? h('span', { class: 'card-sub' }, sub) : null), ...children);
 
 async function overviewView(token) {
-  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'ช่วงเวลา' },
+  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': tx('ช่วงเวลา') },
     RANGES.map(([r, label]) => h('button', {
       type: 'button', 'aria-pressed': r === overviewRange ? 'true' : 'false',
       onclick: () => {
@@ -811,11 +838,11 @@ async function overviewView(token) {
         route();
       },
     }, label)));
-  const live = h('span', { class: 'live' }, h('span', { class: 'dot ok' }), 'สด');
+  const live = h('span', { class: 'live' }, h('span', { class: 'dot ok' }), tx('สด'));
   const hostLine = h('p', { class: 'meta' }, bone('92%', 13, 'skel'), bone('58%', 13, 'skel bone-sub'));
   const hostTiles = h('div', { class: 'tiles' }, skelTiles(6, true));
   const chartsGrid = h('div', { class: 'grid' }, skelCard(170, '22%'));
-  const secTitle = h('h2', { class: 'section-title sec-title', hidden: true }, h('a', { href: '#/security' }, 'ความปลอดภัย', icon('chev', 'chev')));
+  const secTitle = h('h2', { class: 'section-title sec-title', hidden: true }, h('a', { href: '#/security' }, tx('ความปลอดภัย'), icon('chev', 'chev')));
   const secBox = h('div', { class: 'sec-cats', hidden: true });
   const ngTiles = h('div', { class: 'tiles' }, skelTiles(4));
   const ngGrid = h('div', { class: 'grid' }, skelCard(150, '40%'));
@@ -826,9 +853,9 @@ async function overviewView(token) {
   const body = h('div', { class: 'overview' },
     h('div', { class: 'filters' }, seg, live),
     hostLine, hostTiles, secTitle, secBox, chartsGrid,
-    h('h2', { class: 'section-title' }, 'ทราฟฟิกเว็บ (Nginx Proxy Manager)'), ngTiles, ngGrid, ngTables,
-    h('h2', { class: 'section-title' }, 'คอนเทนเนอร์'), ctrMem, ctrGrid);
-  shell(topBar('ภาพรวม', { onRefresh: () => load() }), body, tabs('#/'));
+    h('h2', { class: 'section-title' }, tx('ทราฟฟิกเว็บ (Nginx Proxy Manager)')), ngTiles, ngGrid, ngTables,
+    h('h2', { class: 'section-title' }, tx('คอนเทนเนอร์')), ctrMem, ctrGrid);
+  shell(topBar(tx('ภาพรวม'), { onRefresh: () => load() }), body, tabs('#/'));
   app.querySelector('.shell').classList.add('wide');
 
   const C = {}; // chart handles, created on first data
@@ -851,7 +878,7 @@ async function overviewView(token) {
     const T = { times, step };
 
     // ---- host line + tiles
-    hostLine.replaceChildren(h('b', {}, sn.hostname), ` · ${sn.os} · เคอร์เนล ${sn.kernel} · เปิดเครื่องมา ${uptimeText(sn.uptime_s)} · ${sn.cpus} CPU · โปรเซส ${String(sn.procs).split('/')[1] ?? '–'}`);
+    hostLine.replaceChildren(h('b', {}, sn.hostname), tx(' · {0} · เคอร์เนล {1} · เปิดเครื่องมา {2} · {3} CPU · โปรเซส {4}', sn.os, sn.kernel, uptimeText(sn.uptime_s), sn.cpus, String(sn.procs).split('/')[1] ?? '–'));
     const cpuNow = (lastOf(hs.cpu_user) ?? 0) + (lastOf(hs.cpu_system) ?? 0) + (lastOf(hs.cpu_iowait) ?? 0);
     const cpuAvg = avgOf((hs.cpu_user ?? []).map((v, i) => (v === null ? null : v + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))));
     const memUsed = sn.mem_total - sn.mem_available;
@@ -859,40 +886,40 @@ async function overviewView(token) {
     const diskPct = (sn.disk_used / sn.disk_total) * 100;
     const swapUsed = sn.swap_total - sn.swap_free;
     patchChildren(hostTiles, [
-      tile('CPU ตอนนี้', fmtPct(cpuNow), `เฉลี่ยช่วงนี้ ${fmtPct(cpuAvg)} · สูงสุด ${fmtPct(maxOf((hs.cpu_user ?? []).map((v, i) => (v ?? 0) + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))))}`, cpuNow, pctTone(cpuNow)),
-      tile('หน่วยความจำ', fmtBytes(memUsed), `จาก ${fmtBytes(sn.mem_total)} · ${fmtPct(memPct)}`, memPct, pctTone(memPct)),
-      tile('ดิสก์', fmtBytes(sn.disk_used), `ว่าง ${fmtBytes(sn.disk_free)} จาก ${fmtBytes(sn.disk_total)}`, diskPct, pctTone(diskPct)),
-      tile('Load (1 นาที)', sn.load[0].toFixed(2), `5 นาที ${sn.load[1].toFixed(2)} · 15 นาที ${sn.load[2].toFixed(2)} · เต็ม = ${sn.cpus}.00`, (sn.load[0] / sn.cpus) * 100, pctTone((sn.load[0] / sn.cpus) * 100)),
-      tile('เครือข่ายตอนนี้', `↓ ${fmtRate(lastOf(hs.net_rx))}`, `↑ ${fmtRate(lastOf(hs.net_tx))}`),
-      tile('Swap', fmtBytes(swapUsed), `จาก ${fmtBytes(sn.swap_total)}`, sn.swap_total ? (swapUsed / sn.swap_total) * 100 : NaN, ''),
+      tile(tx('CPU ตอนนี้'), fmtPct(cpuNow), tx('เฉลี่ยช่วงนี้ {0} · สูงสุด {1}', fmtPct(cpuAvg), fmtPct(maxOf((hs.cpu_user ?? []).map((v, i) => (v ?? 0) + (hs.cpu_system?.[i] ?? 0) + (hs.cpu_iowait?.[i] ?? 0))))), cpuNow, pctTone(cpuNow)),
+      tile(tx('หน่วยความจำ'), fmtBytes(memUsed), tx('จาก {0} · {1}', fmtBytes(sn.mem_total), fmtPct(memPct)), memPct, pctTone(memPct)),
+      tile(tx('ดิสก์'), fmtBytes(sn.disk_used), tx('ว่าง {0} จาก {1}', fmtBytes(sn.disk_free), fmtBytes(sn.disk_total)), diskPct, pctTone(diskPct)),
+      tile(tx('Load (1 นาที)'), sn.load[0].toFixed(2), tx('5 นาที {0} · 15 นาที {1} · เต็ม = {2}.00', sn.load[1].toFixed(2), sn.load[2].toFixed(2), sn.cpus), (sn.load[0] / sn.cpus) * 100, pctTone((sn.load[0] / sn.cpus) * 100)),
+      tile(tx('เครือข่ายตอนนี้'), `↓ ${fmtRate(lastOf(hs.net_rx))}`, `↑ ${fmtRate(lastOf(hs.net_tx))}`),
+      tile('Swap', fmtBytes(swapUsed), tx('จาก {0}', fmtBytes(sn.swap_total)), sn.swap_total ? (swapUsed / sn.swap_total) * 100 : NaN, ''),
     ]);
 
     // ---- host charts
     const hostCharts = [
-      ['cpu', 'CPU', '% ของทุกคอร์', { ...T, kind: 'stack', max: 100, format: (v) => fmtPct(v),
+      ['cpu', 'CPU', tx('% ของทุกคอร์'), { ...T, kind: 'stack', max: 100, format: (v) => fmtPct(v),
         series: [
-          { name: 'ผู้ใช้ (user)', color: SERIES[0], values: hs.cpu_user ?? [] },
-          { name: 'ระบบ (system)', color: SERIES[1], values: hs.cpu_system ?? [] },
-          { name: 'รอดิสก์ (iowait)', color: SERIES[2], values: hs.cpu_iowait ?? [] },
+          { name: tx('ผู้ใช้ (user)'), color: SERIES[0], values: hs.cpu_user ?? [] },
+          { name: tx('ระบบ (system)'), color: SERIES[1], values: hs.cpu_system ?? [] },
+          { name: tx('รอดิสก์ (iowait)'), color: SERIES[2], values: hs.cpu_iowait ?? [] },
         ] }],
-      ['mem', 'หน่วยความจำ', `ทั้งหมด ${fmtBytes(sn.mem_total)}`, { ...T, kind: 'stack', format: (v) => fmtBytes(v), ref: { value: sn.mem_total, label: 'ทั้งหมด' },
+      ['mem', tx('หน่วยความจำ'), tx('ทั้งหมด {0}', fmtBytes(sn.mem_total)), { ...T, kind: 'stack', format: (v) => fmtBytes(v), ref: { value: sn.mem_total, label: tx('ทั้งหมด') },
         series: [
-          { name: 'ใช้งาน', color: SERIES[0], values: hs.mem_used ?? [] },
-          { name: 'แคช (คืนได้)', color: SERIES[2], values: hs.mem_cache ?? [] },
+          { name: tx('ใช้งาน'), color: SERIES[0], values: hs.mem_used ?? [] },
+          { name: tx('แคช (คืนได้)'), color: SERIES[2], values: hs.mem_cache ?? [] },
         ] }],
-      ['net', 'เครือข่าย', 'ไบต์ต่อวินาที', { ...T, kind: 'line', format: (v, axis) => fmtRate(v, axis),
+      ['net', tx('เครือข่าย'), tx('ไบต์ต่อวินาที'), { ...T, kind: 'line', format: (v, axis) => fmtRate(v, axis),
         series: [
-          { name: 'รับ ↓', color: SERIES[0], values: hs.net_rx ?? [] },
-          { name: 'ส่ง ↑', color: SERIES[1], values: hs.net_tx ?? [] },
+          { name: tx('รับ ↓'), color: SERIES[0], values: hs.net_rx ?? [] },
+          { name: tx('ส่ง ↑'), color: SERIES[1], values: hs.net_tx ?? [] },
         ] }],
-      ['disk', 'ดิสก์ I/O', 'ไบต์ต่อวินาที', { ...T, kind: 'line', format: (v, axis) => fmtRate(v, axis),
+      ['disk', tx('ดิสก์ I/O'), tx('ไบต์ต่อวินาที'), { ...T, kind: 'line', format: (v, axis) => fmtRate(v, axis),
         series: [
-          { name: 'อ่าน', color: SERIES[0], values: hs.disk_rd ?? [] },
-          { name: 'เขียน', color: SERIES[1], values: hs.disk_wr ?? [] },
+          { name: tx('อ่าน'), color: SERIES[0], values: hs.disk_rd ?? [] },
+          { name: tx('เขียน'), color: SERIES[1], values: hs.disk_wr ?? [] },
         ] }],
-      ['load', 'Load average (1 นาที)', `เส้นอ้างอิง = ${sn.cpus} CPU`, { ...T, kind: 'area', format: (v) => v.toFixed(2), ref: { value: sn.cpus, label: `${sn.cpus} CPU` },
+      ['load', tx('Load average (1 นาที)'), tx('เส้นอ้างอิง = {0} CPU', sn.cpus), { ...T, kind: 'area', format: (v) => v.toFixed(2), ref: { value: sn.cpus, label: `${sn.cpus} CPU` },
         series: [{ name: 'Load', color: SERIES[0], values: hs.load1 ?? [] }] }],
-      ['swap', 'Swap ที่ใช้', `ทั้งหมด ${fmtBytes(sn.swap_total)}`, { ...T, kind: 'area', format: (v) => fmtBytes(v),
+      ['swap', tx('Swap ที่ใช้'), tx('ทั้งหมด {0}', fmtBytes(sn.swap_total)), { ...T, kind: 'area', format: (v) => fmtBytes(v),
         series: [{ name: 'Swap', color: SERIES[6], values: hs.swap_used ?? [] }] }],
     ];
     for (const [key, title, sub, opts] of hostCharts) {
@@ -912,27 +939,27 @@ async function overviewView(token) {
     const bytes = hosts.reduce((s2, k) => s2 + sumOf(ng[k].bytes), 0);
     const spanMin = (times.length * step) / 60;
     patchChildren(ngTiles, [
-      tile('คำขอทั้งหมด', fmtNum(allReq), `เฉลี่ย ${(allReq / spanMin).toFixed(1)} ต่อนาที`),
-      tile('ผู้เข้าชม (IP ไม่ซ้ำ)', fmtNum(mx.top?.unique_clients), 'นับจาก log ของ proxy'),
-      tile('ข้อผิดพลาด 4xx / 5xx', `${fmtNum(cls('s4'))} / ${fmtNum(cls('s5'))}`, allReq ? `${((errors / allReq) * 100).toFixed(1)}% ของคำขอ` : '–', allReq ? (errors / allReq) * 100 : NaN, errors / Math.max(1, allReq) > 0.05 ? 'warn' : ''),
-      tile('ข้อมูลที่ส่งออก', fmtBytes(bytes), 'body ของ response'),
+      tile(tx('คำขอทั้งหมด'), fmtNum(allReq), tx('เฉลี่ย {0} ต่อนาที', (allReq / spanMin).toFixed(1))),
+      tile(tx('ผู้เข้าชม (IP ไม่ซ้ำ)'), fmtNum(mx.top?.unique_clients), tx('นับจาก log ของ proxy')),
+      tile(tx('ข้อผิดพลาด 4xx / 5xx'), `${fmtNum(cls('s4'))} / ${fmtNum(cls('s5'))}`, allReq ? tx('{0}% ของคำขอ', ((errors / allReq) * 100).toFixed(1)) : '–', allReq ? (errors / allReq) * 100 : NaN, errors / Math.max(1, allReq) > 0.05 ? 'warn' : ''),
+      tile(tx('ข้อมูลที่ส่งออก'), fmtBytes(bytes), tx('body ของ response')),
     ]);
     const short = (hn) => hn.replace(/\.chakkritton\.com$/, '');
     const reqOpts = { ...T, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
       series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].req ?? [] })) };
     const statusOpts = { ...T, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v),
       series: [
-        { name: '2xx สำเร็จ', color: 'var(--good)', values: ng.all?.s2 ?? [] },
-        { name: '3xx เปลี่ยนเส้นทาง', color: 'var(--neutral)', values: ng.all?.s3 ?? [] },
-        { name: '4xx คำขอผิด', color: 'var(--warning)', values: ng.all?.s4 ?? [] },
-        { name: '5xx เซิร์ฟเวอร์ผิดพลาด', color: 'var(--critical)', values: ng.all?.s5 ?? [] },
+        { name: tx('2xx สำเร็จ'), color: 'var(--good)', values: ng.all?.s2 ?? [] },
+        { name: tx('3xx เปลี่ยนเส้นทาง'), color: 'var(--neutral)', values: ng.all?.s3 ?? [] },
+        { name: tx('4xx คำขอผิด'), color: 'var(--warning)', values: ng.all?.s4 ?? [] },
+        { name: tx('5xx เซิร์ฟเวอร์ผิดพลาด'), color: 'var(--critical)', values: ng.all?.s5 ?? [] },
       ] };
     const bwOpts = { ...T, kind: 'stack', legend: 'sum', format: (v) => fmtBytes(v),
       series: hosts.map((k, i) => ({ name: short(k), color: SERIES[i % SERIES.length], values: ng[k].bytes ?? [] })) };
     for (const [key, title, sub, opts] of [
-      ['req', 'คำขอตามเว็บไซต์', 'จำนวนต่อช่วง', reqOpts],
-      ['status', 'สถานะ HTTP', 'ทุกเว็บไซต์', statusOpts],
-      ['bw', 'ข้อมูลที่ส่งออกตามเว็บไซต์', 'ไบต์ต่อช่วง', bwOpts],
+      ['req', tx('คำขอตามเว็บไซต์'), tx('จำนวนต่อช่วง'), reqOpts],
+      ['status', tx('สถานะ HTTP'), tx('ทุกเว็บไซต์'), statusOpts],
+      ['bw', tx('ข้อมูลที่ส่งออกตามเว็บไซต์'), tx('ไบต์ต่อช่วง'), bwOpts],
     ]) {
       if (!C[key]) {
         const c = card(title, sub);
@@ -956,24 +983,24 @@ async function overviewView(token) {
       h('td', { class: 'mono' }, `${p.method} ${p.path}`),
       h('td', { class: 'num' }, fmtNum(p.count))));
     patchChildren(ngTables, [
-      card('สรุปตามเว็บไซต์', null, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-        h('tr', {}, h('th', {}, 'เว็บไซต์'), h('th', { class: 'num' }, 'คำขอ'), h('th', { class: 'num' }, 'ผิดพลาด'), h('th', { class: 'num' }, 'ส่งออก'), h('th', {}, 'สัดส่วน')),
+      card(tx('สรุปตามเว็บไซต์'), null, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+        h('tr', {}, h('th', {}, tx('เว็บไซต์')), h('th', { class: 'num' }, tx('คำขอ')), h('th', { class: 'num' }, tx('ผิดพลาด')), h('th', { class: 'num' }, tx('ส่งออก')), h('th', {}, tx('สัดส่วน'))),
         siteRows))),
-      card('หน้าที่ถูกเรียกมากที่สุด', 'ไม่รวมไฟล์ static', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-        h('tr', {}, h('th', {}, 'เว็บไซต์'), h('th', {}, 'คำขอ'), h('th', { class: 'num' }, 'ครั้ง')),
-        pathRows.length ? pathRows : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล')))))]);
+      card(tx('หน้าที่ถูกเรียกมากที่สุด'), tx('ไม่รวมไฟล์ static'), h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+        h('tr', {}, h('th', {}, tx('เว็บไซต์')), h('th', {}, tx('คำขอ')), h('th', { class: 'num' }, tx('ครั้ง'))),
+        pathRows.length ? pathRows : h('tr', {}, h('td', { colspan: 3 }, tx('ยังไม่มีข้อมูล'))))))]);
 
     // ---- containers: memory stack + small multiples
     const names = new Map(list.map((c) => [c.Id.slice(0, 12), { name: nameOf(c), c }]));
     const ids = Object.keys(mx.containers ?? {}).filter((id) => names.has(id)).sort((a, b) => names.get(a).name.localeCompare(names.get(b).name));
     const color = (i) => SERIES[i % SERIES.length];
-    const memOpts = { ...T, kind: 'stack', format: (v) => fmtBytes(v), ref: { value: sn.mem_total, label: 'RAM ทั้งเครื่อง' },
+    const memOpts = { ...T, kind: 'stack', format: (v) => fmtBytes(v), ref: { value: sn.mem_total, label: tx('RAM ทั้งเครื่อง') },
       series: ids.map((id, i) => ({ name: names.get(id).name, color: color(i), values: mx.containers[id].mem ?? [] })) };
     const cpuOpts = { ...T, kind: 'line', format: (v) => fmtPct(v),
       series: ids.map((id, i) => ({ name: names.get(id).name, color: color(i), values: mx.containers[id].cpu ?? [] })) };
     for (const [key, title, sub, opts] of [
-      ['cmem', 'หน่วยความจำต่อคอนเทนเนอร์', 'ซ้อนกัน = รวมทั้งหมด', memOpts],
-      ['ccpu', 'CPU ต่อคอนเทนเนอร์', '% ของทุกคอร์', cpuOpts],
+      ['cmem', tx('หน่วยความจำต่อคอนเทนเนอร์'), tx('ซ้อนกัน = รวมทั้งหมด'), memOpts],
+      ['ccpu', tx('CPU ต่อคอนเทนเนอร์'), tx('% ของทุกคอร์'), cpuOpts],
     ]) {
       if (!C[key]) {
         const c = card(title, sub);
@@ -1009,12 +1036,12 @@ async function overviewView(token) {
         const head = h('a', { class: 'mini-head', href: `#/c/${c.Id}` }, leadIcon(serviceOf(c).brand),
           h('span', { class: 'row-title name-with-ic' }, h('span', { class: 'name-text' }, name), h('span', { class: `dot ${st.cls}`, title: st.label })), icon('chev', 'chev'));
         const stWrap = h('div', { class: 'mini-stats' },
-          ['CPU', 'RAM', '↓ เน็ต', 'เขียนดิสก์'].map((label, k) => h('span', {}, h('b', {}, values[k]), label)));
+          ['CPU', 'RAM', tx('↓ เน็ต'), tx('เขียนดิสก์')].map((label, k) => h('span', {}, h('b', {}, values[k]), label)));
         const cpuBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'CPU'));
         const memBox = h('div', { class: 'mini-chart' }, h('span', { class: 'mini-label' }, 'RAM'));
         const el2 = h('section', { class: 'card mini' }, head, stWrap, cpuBox, memBox);
         groupGrids.get(serviceOf(c).group).grid.append(el2);
-        e = { el: el2, stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: `CPU ของ ${name}` }), mem: mkChart(memBox, { ...memO, label: `RAM ของ ${name}` }) };
+        e = { el: el2, stWrap, cpu: mkChart(cpuBox, { ...cpuO, label: tx('CPU ของ {0}', name) }), mem: mkChart(memBox, { ...memO, label: tx('RAM ของ {0}', name) }) };
         ctrCards.set(id, e);
       } else {
         e.stWrap.querySelectorAll('b').forEach((b, k) => setNumber(b, values[k]));
@@ -1041,38 +1068,38 @@ async function overviewView(token) {
 // overview shows one card per category; each opens its own page. Important changes also arrive in the
 // chat (and as a push) through apps-chat.
 const SEC_CATS = [
-  ['ssh', 'key', 'การเข้าเครื่อง (SSH)'],
-  ['panel', 'lock', 'แผงควบคุม'],
-  ['files', 'file', 'ไฟล์สำคัญ'],
-  ['web', 'globe', 'บอทสแกนเว็บ'],
-  ['host', 'server', 'พอร์ตและคอนเทนเนอร์'],
-  ['images', 'bug', 'ช่องโหว่ใน image'],
+  ['ssh', 'key', tx('การเข้าเครื่อง (SSH)')],
+  ['panel', 'lock', tx('แผงควบคุม')],
+  ['files', 'file', tx('ไฟล์สำคัญ')],
+  ['web', 'globe', tx('บอทสแกนเว็บ')],
+  ['host', 'server', tx('พอร์ตและคอนเทนเนอร์')],
+  ['images', 'bug', tx('ช่องโหว่ใน image')],
 ];
-const SEC_LEVEL = { info: ['ok', 'ปกติ'], warn: ['warn', 'ควรดู'], bad: ['bad', 'ต้องตรวจ'] };
-const SEC_HEADLINE = { info: 'ไม่พบความผิดปกติ', warn: 'มีเรื่องที่ควรดู', bad: 'มีเรื่องที่ต้องตรวจทันที' };
+const SEC_LEVEL = { info: ['ok', tx('ปกติ')], warn: ['warn', tx('ควรดู')], bad: ['bad', tx('ต้องตรวจ')] };
+const SEC_HEADLINE = { info: tx('ไม่พบความผิดปกติ'), warn: tx('มีเรื่องที่ควรดู'), bad: tx('มีเรื่องที่ต้องตรวจทันที') };
 const PANELS = { dock: 'Dock', portainer: 'Portainer', npm: 'Nginx Proxy Manager' };
 const PROBES = [
-  ['secrets', 'หาไฟล์ลับ (.env, .git)'],
+  ['secrets', tx('หาไฟล์ลับ (.env, .git)')],
   ['wordpress', 'WordPress'],
   ['php', 'PHP / phpMyAdmin'],
-  ['admin', 'แผงควบคุมทั่วไป'],
-  ['traversal', 'เจาะพาธ (../)'],
+  ['admin', tx('แผงควบคุมทั่วไป')],
+  ['traversal', tx('เจาะพาธ (../)')],
 ];
 const PORT_NAMES = { 22: 'SSH', 80: 'HTTP', 443: 'HTTPS' };
 const RISKY = {
-  'docker-socket': 'ควบคุม Docker ได้ทั้งหมด (docker.sock)',
-  privileged: 'สิทธิ์เต็มเครื่อง (privileged)',
-  'host-network': 'ใช้เครือข่ายของเครื่องโดยตรง',
-  'host-pid': 'เห็นโปรเซสทั้งเครื่อง',
-  'host-ipc': 'ใช้ IPC ของเครื่อง',
-  'host-root': 'เมานต์ / ของเครื่อง',
-  unconfined: 'ปิด seccomp / AppArmor',
+  'docker-socket': tx('ควบคุม Docker ได้ทั้งหมด (docker.sock)'),
+  privileged: tx('สิทธิ์เต็มเครื่อง (privileged)'),
+  'host-network': tx('ใช้เครือข่ายของเครื่องโดยตรง'),
+  'host-pid': tx('เห็นโปรเซสทั้งเครื่อง'),
+  'host-ipc': tx('ใช้ IPC ของเครื่อง'),
+  'host-root': tx('เมานต์ / ของเครื่อง'),
+  unconfined: tx('ปิด seccomp / AppArmor'),
 };
 const SEV_LEVEL = { CRITICAL: 'bad', HIGH: 'warn' };
-const SEV_TEXT = { CRITICAL: 'วิกฤต', HIGH: 'สูง', MEDIUM: 'กลาง', LOW: 'ต่ำ', UNKNOWN: 'ไม่ระบุ' };
+const SEV_TEXT = { CRITICAL: tx('วิกฤต'), HIGH: tx('สูง'), MEDIUM: tx('กลาง'), LOW: tx('ต่ำ'), UNKNOWN: tx('ไม่ระบุ') };
 /** fixable CRITICAL / HIGH findings over the scanned images */
 const fixTotals = (images) => images.reduce((t, i) => ({ c: t.c + (i.fixable?.CRITICAL ?? 0), h: t.h + (i.fixable?.HIGH ?? 0) }), { c: 0, h: 0 });
-const riskyText = (f) => RISKY[f] ?? (f.startsWith('cap-add:') ? `เพิ่มสิทธิ์ ${f.slice(8)}` : f);
+const riskyText = (f) => RISKY[f] ?? (f.startsWith('cap-add:') ? tx('เพิ่มสิทธิ์ {0}', f.slice(8)) : f);
 const secDot = (level) => h('span', { class: `dot ${SEC_LEVEL[level]?.[0] ?? ''}`, title: SEC_LEVEL[level]?.[1] ?? '' });
 const secWhen = (ts) => fmtTime.format(new Date(ts * 1000));
 const shortKey = (k) => (k.length > 22 ? `${k.slice(0, 20)}…` : k);
@@ -1085,17 +1112,17 @@ const in24h = (s, rows) => {
 /** one line under each category: what is there right now */
 function secSummary(s, cat) {
   const d = s.cats[cat];
-  if (cat === 'ssh') return `เข้าสำเร็จ ${in24h(s, d.logins)} · ไม่สำเร็จ ${fmtNum(d.failed24)} ใน 24 ชม.`;
-  if (cat === 'panel') return `ล็อกอิน ${in24h(s, d.logins)} · รหัสผิด ${fmtNum(d.failed24)} ใน 24 ชม.`;
-  if (cat === 'files') return d.changed ? `ถูกแก้ ${d.changed} จาก ${d.watched} ไฟล์` : `เฝ้า ${d.watched} ไฟล์ ไม่มีการแก้`;
-  if (cat === 'web') return `วันนี้ ${fmtNum(d.today)} ครั้ง · ส่วนใหญ่ได้ 404`;
+  if (cat === 'ssh') return tx('เข้าสำเร็จ {0} · ไม่สำเร็จ {1} ใน 24 ชม.', in24h(s, d.logins), fmtNum(d.failed24));
+  if (cat === 'panel') return tx('ล็อกอิน {0} · รหัสผิด {1} ใน 24 ชม.', in24h(s, d.logins), fmtNum(d.failed24));
+  if (cat === 'files') return d.changed ? tx('ถูกแก้ {0} จาก {1} ไฟล์', d.changed, d.watched) : tx('เฝ้า {0} ไฟล์ ไม่มีการแก้', d.watched);
+  if (cat === 'web') return tx('วันนี้ {0} ครั้ง · ส่วนใหญ่ได้ 404', fmtNum(d.today));
   if (cat === 'images') {
-    if (!d.scanned) return 'ยังไม่มีผลสแกน (สแกนทุกคืน)';
+    if (!d.scanned) return tx('ยังไม่มีผลสแกน (สแกนทุกคืน)');
     const t = fixTotals(d.images);
-    return `แก้ได้: วิกฤต ${t.c} · สูง ${t.h} · สแกน ${ago(d.scanned)}`;
+    return tx('แก้ได้: วิกฤต {0} · สูง {1} · สแกน {2}', t.c, t.h, ago(d.scanned));
   }
   const u = d.updates;
-  return [`พอร์ตเปิด ${d.ports.length}`, `อัปเดตรอ ${u.pending ?? '–'}`, u.reboot ? 'ควรรีบูต' : null].filter(Boolean).join(' · ');
+  return [tx('พอร์ตเปิด {0}', d.ports.length), tx('อัปเดตรอ {0}', u.pending ?? '–'), u.reboot ? tx('ควรรีบูต') : null].filter(Boolean).join(' · ');
 }
 /** the five category cards on the overview */
 function secCards(s) {
@@ -1106,17 +1133,17 @@ function secCards(s) {
 const eventRow = (e) => h('div', { class: 'row wrap' }, secDot(e.level),
   h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, e.title), e.detail ? h('span', { class: 'row-sub' }, e.detail) : null),
   h('div', { class: 'row-side' }, secWhen(e.ts)));
-const eventList = (events, empty = 'ยังไม่มีเหตุการณ์') =>
+const eventList = (events, empty = tx('ยังไม่มีเหตุการณ์')) =>
   h('div', { class: 'list' }, events.length ? events.map(eventRow) : h('p', { class: 'empty' }, empty));
 const listCard = (title, sub, rows, empty) =>
   card(title, sub, h('div', { class: 'list flat' }, rows.length ? rows : h('p', { class: 'empty' }, empty)));
 const sideTime = (ts) => h('div', { class: 'row-side' }, secWhen(ts));
-const newPill = () => h('span', { class: 'pill tone-bad' }, 'ใหม่');
+const newPill = () => h('span', { class: 'pill tone-bad' }, tx('ใหม่'));
 
 async function securityView(token, cat) {
   const meta = SEC_CATS.find(([id]) => id === cat);
   const body = h('div', { class: 'overview' }, h('div', { class: 'tiles' }, skelTiles(4)), skelRows(5, { icon: true, side: 'dot' }));
-  shell(topBar(meta ? meta[2] : 'ความปลอดภัย', { back: meta ? '#/security' : '#/', onRefresh: () => load() }), body, tabs('#/'));
+  shell(topBar(meta ? meta[2] : tx('ความปลอดภัย'), { back: meta ? '#/security' : '#/', onRefresh: () => load() }), body, tabs('#/'));
   app.querySelector('.shell').classList.add('wide');
   let mine = []; // this page's charts, rebuilt on refresh
 
@@ -1127,7 +1154,7 @@ async function securityView(token, cat) {
     charts = charts.filter((c) => !mine.includes(c));
     mine = [];
     if (!s.enabled) {
-      body.replaceChildren(h('p', { class: 'empty' }, 'ยังไม่ได้เปิดการเฝ้าระวัง'));
+      body.replaceChildren(h('p', { class: 'empty' }, tx('ยังไม่ได้เปิดการเฝ้าระวัง')));
       return;
     }
     const chartIn = (c, opts) => { mine.push(mkChart(c, opts)); return c; };
@@ -1143,19 +1170,19 @@ function secMain(s, reload) {
     ? h('button', { class: 'btn', type: 'button', onclick: async (e) => {
         e.currentTarget.disabled = true;
         try { await api('/security/ack', { method: 'POST' }); await reload(); } catch (err) { handleError(err); }
-      } }, icon('checkcircle'), 'รับทราบแล้ว')
+      } }, icon('checkcircle'), tx('รับทราบแล้ว'))
     : null;
   return [
     h('section', { class: `sec-banner tone-${SEC_LEVEL[s.status][0]}` },
       h('span', { class: 'row-ic' }, icon('shield')),
       h('div', { class: 'row-main' },
         h('span', { class: 'row-title' }, SEC_HEADLINE[s.status]),
-        h('span', { class: 'row-sub' }, `เฝ้าระวังตั้งแต่ ${fmtStarted.format(new Date(s.since * 1000))}${s.acked ? ` · รับทราบล่าสุด ${secWhen(s.acked)}` : ''}`)),
+        h('span', { class: 'row-sub' }, tx('เฝ้าระวังตั้งแต่ {0}{1}', fmtStarted.format(new Date(s.since * 1000)), s.acked ? tx(' · รับทราบล่าสุด {0}', secWhen(s.acked)) : ''))),
       ack),
     h('div', { class: 'sec-cats' }, secCards(s)),
-    h('h2', { class: 'section-title' }, 'เหตุการณ์ล่าสุด'),
+    h('h2', { class: 'section-title' }, tx('เหตุการณ์ล่าสุด')),
     eventList(s.events.slice(0, 40)),
-    h('p', { class: 'meta sec-note' }, 'อ่าน log ทุก 5 วินาที ตรวจไฟล์ พอร์ต และคอนเทนเนอร์ทุกนาที สแกนช่องโหว่ใน image ทุกคืน เรื่องสำคัญจะส่งเข้าแชทและแจ้งเตือนของ Dock ด้วย กด "รับทราบแล้ว" เพื่อล้างสี (ประวัติยังอยู่)'),
+    h('p', { class: 'meta sec-note' }, tx('อ่าน log ทุก 5 วินาที ตรวจไฟล์ พอร์ต และคอนเทนเนอร์ทุกนาที สแกนช่องโหว่ใน image ทุกคืน เรื่องสำคัญจะส่งเข้าแชทและแจ้งเตือนของ Dock ด้วย กด "รับทราบแล้ว" เพื่อล้างสี (ประวัติยังอยู่)')),
   ];
 }
 
@@ -1164,38 +1191,38 @@ function secCategory(s, cat, chartIn) {
   const events = s.events.filter((e) => e.cat === cat);
   const days = (rows) => rows.map((r) => r.day);
   if (cat === 'ssh') {
-    const c = card('ความพยายามเข้าที่ไม่สำเร็จ', 'รายวัน 14 วัน · ส่วนใหญ่เป็นบอทเดารหัส');
+    const c = card(tx('ความพยายามเข้าที่ไม่สำเร็จ'), tx('รายวัน 14 วัน · ส่วนใหญ่เป็นบอทเดารหัส'));
     return [
       h('div', { class: 'tiles' },
-        tile('เข้าสำเร็จ 24 ชม.', in24h(s, d.logins), `จาก ${d.networks} เครือข่ายที่เคยเห็น`),
-        tile('ไม่สำเร็จ 24 ชม.', fmtNum(d.failed24), 'ปิดการเข้าด้วยรหัสผ่านไว้แล้ว'),
-        tile('คีย์ที่เคยใช้', fmtNum(d.keys.length), d.keys.length === 1 ? 'มีคีย์เดียว' : 'ตรวจว่ารู้จักทุกอัน'),
-        tile('IP ที่ลองบ่อยสุด', d.topIps[0]?.ip ?? '–', d.topIps[0] ? `${fmtNum(d.topIps[0].count)} ครั้งใน 24 ชม.` : '')),
+        tile(tx('เข้าสำเร็จ 24 ชม.'), in24h(s, d.logins), tx('จาก {0} เครือข่ายที่เคยเห็น', d.networks)),
+        tile(tx('ไม่สำเร็จ 24 ชม.'), fmtNum(d.failed24), tx('ปิดการเข้าด้วยรหัสผ่านไว้แล้ว')),
+        tile(tx('คีย์ที่เคยใช้'), fmtNum(d.keys.length), d.keys.length === 1 ? tx('มีคีย์เดียว') : tx('ตรวจว่ารู้จักทุกอัน')),
+        tile(tx('IP ที่ลองบ่อยสุด'), d.topIps[0]?.ip ?? '–', d.topIps[0] ? tx('{0} ครั้งใน 24 ชม.', fmtNum(d.topIps[0].count)) : '')),
       h('div', { class: 'grid' },
-        chartIn(c, { times: days(d.failedDays), step: 86400, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), label: 'ความพยายามเข้าที่ไม่สำเร็จ',
-          series: [{ name: 'ไม่สำเร็จ', color: 'var(--s5)', values: d.failedDays.map((r) => r.count) }] }),
-        listCard('ล็อกอินล่าสุด', 'เครือข่ายใหม่หรือคีย์ใหม่จะแจ้งเตือน', d.logins.map((l) => h('div', { class: 'row' },
+        chartIn(c, { times: days(d.failedDays), step: 86400, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), label: tx('ความพยายามเข้าที่ไม่สำเร็จ'),
+          series: [{ name: tx('ไม่สำเร็จ'), color: 'var(--s5)', values: d.failedDays.map((r) => r.count) }] }),
+        listCard(tx('ล็อกอินล่าสุด'), tx('เครือข่ายใหม่หรือคีย์ใหม่จะแจ้งเตือน'), d.logins.map((l) => h('div', { class: 'row' },
           h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `${l.user}@${l.ip} `, l.new ? newPill() : null), h('span', { class: 'row-sub' }, `${l.net} · ${shortKey(l.how)}`)),
-          sideTime(l.ts))), 'ยังไม่มีการล็อกอิน'),
-        listCard('IP ที่พยายามบ่อยสุด', '24 ชั่วโมงล่าสุด', d.topIps.map((x) => h('div', { class: 'row' },
-          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, x.ip)), h('div', { class: 'row-side' }, h('b', {}, fmtNum(x.count))))), 'ไม่มี'),
-        listCard('คีย์ที่เคยใช้เข้า', 'ถ้ามีคีย์ที่ไม่รู้จัก ให้ลบออกจาก authorized_keys', d.keys.map((k) => h('div', { class: 'row' },
-          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, k.key)), sideTime(k.first))), 'ยังไม่มี')),
-      h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events),
+          sideTime(l.ts))), tx('ยังไม่มีการล็อกอิน')),
+        listCard(tx('IP ที่พยายามบ่อยสุด'), tx('24 ชั่วโมงล่าสุด'), d.topIps.map((x) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, x.ip)), h('div', { class: 'row-side' }, h('b', {}, fmtNum(x.count))))), tx('ไม่มี')),
+        listCard(tx('คีย์ที่เคยใช้เข้า'), tx('ถ้ามีคีย์ที่ไม่รู้จัก ให้ลบออกจาก authorized_keys'), d.keys.map((k) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, k.key)), sideTime(k.first))), tx('ยังไม่มี'))),
+      h('h2', { class: 'section-title' }, tx('เหตุการณ์')), eventList(events),
     ];
   }
   if (cat === 'panel') {
     const nets = Object.entries(d.networks).map(([p, n]) => `${PANELS[p] ?? p} ${n}`).join(' · ');
     return [
       h('div', { class: 'tiles' },
-        tile('ล็อกอิน 24 ชม.', in24h(s, d.logins), 'Dock, Portainer, Nginx Proxy Manager'),
-        tile('รหัสผิด 24 ชม.', fmtNum(d.failed24), 'ผิด 10 ครั้งในชั่วโมงเดียวจะแจ้งเตือน'),
-        tile('เครือข่ายที่รู้จัก', nets || '–', 'ล็อกอินจากเครือข่ายใหม่จะแจ้งเตือน')),
+        tile(tx('ล็อกอิน 24 ชม.'), in24h(s, d.logins), 'Dock, Portainer, Nginx Proxy Manager'),
+        tile(tx('รหัสผิด 24 ชม.'), fmtNum(d.failed24), tx('ผิด 10 ครั้งในชั่วโมงเดียวจะแจ้งเตือน')),
+        tile(tx('เครือข่ายที่รู้จัก'), nets || '–', tx('ล็อกอินจากเครือข่ายใหม่จะแจ้งเตือน'))),
       h('div', { class: 'grid' },
-        listCard('ล็อกอินล่าสุด', 'ผ่าน Cloudflare จะไม่เห็น IP จริงบางครั้ง', d.logins.map((l) => h('div', { class: 'row' },
+        listCard(tx('ล็อกอินล่าสุด'), tx('ผ่าน Cloudflare จะไม่เห็น IP จริงบางครั้ง'), d.logins.map((l) => h('div', { class: 'row' },
           h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `${PANELS[l.via] ?? l.via} `, l.new ? newPill() : null), h('span', { class: 'row-sub' }, `${l.ip} · ${l.how}`)),
-          sideTime(l.ts))), 'ยังไม่มีการล็อกอิน')),
-      h('h2', { class: 'section-title' }, 'การเปลี่ยนแปลงและเหตุการณ์'), eventList(events, 'ยังไม่มีการแก้ค่า'),
+          sideTime(l.ts))), tx('ยังไม่มีการล็อกอิน'))),
+      h('h2', { class: 'section-title' }, tx('การเปลี่ยนแปลงและเหตุการณ์')), eventList(events, tx('ยังไม่มีการแก้ค่า')),
     ];
   }
   if (cat === 'files') {
@@ -1203,32 +1230,32 @@ function secCategory(s, cat, chartIn) {
     const files = [...d.list].sort((a, b) => (b.changed ?? 0) - (a.changed ?? 0) || (a.level === b.level ? a.path.localeCompare(b.path) : a.level === 'bad' ? -1 : 1));
     return [
       h('div', { class: 'tiles' },
-        tile('ไฟล์ที่เฝ้า', fmtNum(d.watched), 'บัญชีผู้ใช้ SSH cron systemd ไฟร์วอลล์ shell ของ root'),
-        tile('ถูกแก้', fmtNum(d.changed), '3 วันล่าสุด หรือหลังกดรับทราบ'),
-        tile('ตรวจล่าสุด', d.checked ? ago(d.checked) : '–', 'ทุก 1 นาที')),
-      h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events, 'ยังไม่มีไฟล์ไหนถูกแก้'),
-      h('h2', { class: 'section-title' }, 'ไฟล์ที่เฝ้าอยู่'),
+        tile(tx('ไฟล์ที่เฝ้า'), fmtNum(d.watched), tx('บัญชีผู้ใช้ SSH cron systemd ไฟร์วอลล์ shell ของ root')),
+        tile(tx('ถูกแก้'), fmtNum(d.changed), tx('3 วันล่าสุด หรือหลังกดรับทราบ')),
+        tile(tx('ตรวจล่าสุด'), d.checked ? ago(d.checked) : '–', tx('ทุก 1 นาที'))),
+      h('h2', { class: 'section-title' }, tx('เหตุการณ์')), eventList(events, tx('ยังไม่มีไฟล์ไหนถูกแก้')),
+      h('h2', { class: 'section-title' }, tx('ไฟล์ที่เฝ้าอยู่')),
       h('div', { class: 'list' }, files.map((f) => h('div', { class: 'row' }, secDot(fresh(f) ? f.level : 'info'),
-        h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, f.path), h('span', { class: 'row-sub' }, f.level === 'bad' ? 'สำคัญมาก' : 'สำคัญ')),
-        h('div', { class: 'row-side' }, f.changed ? `แก้ ${secWhen(f.changed)}` : 'ไม่เปลี่ยน')))),
+        h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, f.path), h('span', { class: 'row-sub' }, f.level === 'bad' ? tx('สำคัญมาก') : tx('สำคัญ'))),
+        h('div', { class: 'row-side' }, f.changed ? tx('แก้ {0}', secWhen(f.changed)) : tx('ไม่เปลี่ยน'))))),
     ];
   }
   if (cat === 'web') {
-    const c = card('บอทที่สแกนหาช่องโหว่', 'รายวัน 14 วัน ทุกเว็บรวมกัน');
+    const c = card(tx('บอทที่สแกนหาช่องโหว่'), tx('รายวัน 14 วัน ทุกเว็บรวมกัน'));
     const week = d.days.slice(-7).reduce((a, r) => a + r.probes, 0);
     const guard = d.days.reduce((a, r) => a + r.guard, 0);
     return [
       h('div', { class: 'tiles' },
-        tile('วันนี้', fmtNum(d.today), 'ครั้งที่บอทถามหาไฟล์หรือหน้าที่ไม่มีอยู่'),
-        tile('7 วัน', fmtNum(week), `เฉลี่ย ${fmtNum(week / 7)} ต่อวัน`),
-        tile('ด่านกันช่องโหว่ (415)', fmtNum(guard), 'ครั้งที่ด่านใน NPM ตีกลับ 14 วัน')),
+        tile(tx('วันนี้'), fmtNum(d.today), tx('ครั้งที่บอทถามหาไฟล์หรือหน้าที่ไม่มีอยู่')),
+        tile(tx('7 วัน'), fmtNum(week), tx('เฉลี่ย {0} ต่อวัน', fmtNum(week / 7))),
+        tile(tx('ด่านกันช่องโหว่ (415)'), fmtNum(guard), tx('ครั้งที่ด่านใน NPM ตีกลับ 14 วัน'))),
       h('div', { class: 'grid' },
-        chartIn(c, { times: days(d.days), step: 86400, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), label: 'บอทที่สแกนหาช่องโหว่',
+        chartIn(c, { times: days(d.days), step: 86400, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), label: tx('บอทที่สแกนหาช่องโหว่'),
           series: PROBES.map(([k, name], i) => ({ name, color: SERIES[i], values: d.days.map((r) => r.kinds[k] ?? 0) })) }),
-        listCard('ที่ถูกถามบ่อยสุด', '7 วันล่าสุด', d.topPaths.map((p) => h('div', { class: 'row' },
+        listCard(tx('ที่ถูกถามบ่อยสุด'), tx('7 วันล่าสุด'), d.topPaths.map((p) => h('div', { class: 'row' },
           h('div', { class: 'row-main' }, h('span', { class: 'row-title mono' }, p.path), h('span', { class: 'row-sub' }, siteName(p.host))),
-          h('div', { class: 'row-side' }, h('b', {}, fmtNum(p.count)), ago(p.last)))), 'ยังไม่มี')),
-      h('p', { class: 'meta sec-note' }, 'บอทพวกนี้สแกนทุกเว็บบนอินเทอร์เน็ต และได้ 404 กลับไป ไม่ต้องทำอะไร เว้นแต่ตัวเลขพุ่งผิดปกติหรือเห็นคำขอที่ได้ 200'),
+          h('div', { class: 'row-side' }, h('b', {}, fmtNum(p.count)), ago(p.last)))), tx('ยังไม่มี'))),
+      h('p', { class: 'meta sec-note' }, tx('บอทพวกนี้สแกนทุกเว็บบนอินเทอร์เน็ต และได้ 404 กลับไป ไม่ต้องทำอะไร เว้นแต่ตัวเลขพุ่งผิดปกติหรือเห็นคำขอที่ได้ 200')),
     ];
   }
   if (cat === 'images') return secImages(s, d, events);
@@ -1236,30 +1263,30 @@ function secCategory(s, cat, chartIn) {
   const ports = d.ports.map((p) => Number(p.replace('tcp/', ''))).sort((a, b) => a - b);
   return [
     h('div', { class: 'tiles' },
-      tile('พอร์ตที่เปิดรับจากภายนอก', fmtNum(ports.length), ports.join(', ') || '–'),
-      tile('คอนเทนเนอร์', `${fmtNum(d.running)} / ${fmtNum(d.containers)}`, 'ทำงานอยู่ / ทั้งหมด'),
-      tile('อัปเดตระบบที่รอ', u.pending ?? '–', u.security ? `ความปลอดภัย ${u.security} รายการ` : 'unattended-upgrades ลงของความปลอดภัยให้เอง'),
-      tile('เคอร์เนล', u.kernel || '–', u.reboot ? `ควรรีบูตเพื่อใช้ ${u.newest}` : 'เป็นตัวล่าสุดที่ติดตั้ง')),
+      tile(tx('พอร์ตที่เปิดรับจากภายนอก'), fmtNum(ports.length), ports.join(', ') || '–'),
+      tile(tx('คอนเทนเนอร์'), `${fmtNum(d.running)} / ${fmtNum(d.containers)}`, tx('ทำงานอยู่ / ทั้งหมด')),
+      tile(tx('อัปเดตระบบที่รอ'), u.pending ?? '–', u.security ? tx('ความปลอดภัย {0} รายการ', u.security) : tx('unattended-upgrades ลงของความปลอดภัยให้เอง')),
+      tile(tx('เคอร์เนล'), u.kernel || '–', u.reboot ? tx('ควรรีบูตเพื่อใช้ {0}', u.newest) : tx('เป็นตัวล่าสุดที่ติดตั้ง'))),
     h('div', { class: 'grid' },
-      listCard('พอร์ตที่เปิด', 'พอร์ตใหม่จะแจ้งเตือนทันที', ports.map((n) => {
+      listCard(tx('พอร์ตที่เปิด'), tx('พอร์ตใหม่จะแจ้งเตือนทันที'), ports.map((n) => {
         return h('div', { class: 'row' }, secDot(PORT_NAMES[n] ? 'info' : 'warn'),
-          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `TCP ${n}`), h('span', { class: 'row-sub' }, PORT_NAMES[n] ?? 'ไม่ได้ตั้งค่าไว้ในเอกสาร')));
-      }), 'อ่านพอร์ตไม่ได้'),
-      listCard('คอนเทนเนอร์ที่มีสิทธิ์พิเศษ', 'สิทธิ์ที่เพิ่มขึ้นหรือคอนเทนเนอร์ใหม่ที่มีสิทธิ์จะแจ้งเตือน', d.risky.map((c) => {
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, `TCP ${n}`), h('span', { class: 'row-sub' }, PORT_NAMES[n] ?? tx('ไม่ได้ตั้งค่าไว้ในเอกสาร'))));
+      }), tx('อ่านพอร์ตไม่ได้')),
+      listCard(tx('คอนเทนเนอร์ที่มีสิทธิ์พิเศษ'), tx('สิทธิ์ที่เพิ่มขึ้นหรือคอนเทนเนอร์ใหม่ที่มีสิทธิ์จะแจ้งเตือน'), d.risky.map((c) => {
         const intended = PROTECTED.has(c.name) && c.flags.every((f) => f === 'docker-socket');
         return h('div', { class: 'row wrap' }, secDot(intended ? 'info' : 'warn'),
-          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name, intended ? h('span', { class: 'muted' }, ' · ตั้งใจไว้') : null), h('span', { class: 'row-sub' }, c.flags.map(riskyText).join(' · '))));
-      }), 'ไม่มี'),
-      listCard('ไม่ได้มาจาก compose', 'เช่นคอนเทนเนอร์ทดสอบที่รันมือ', d.unmanaged.map((c) => h('div', { class: 'row' }, secDot(c.running ? 'warn' : 'info'),
-        h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name), h('span', { class: 'row-sub' }, `${c.image} · ${c.running ? 'ทำงานอยู่' : 'หยุดแล้ว'}`)))), 'ไม่มี')),
-    h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events),
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name, intended ? h('span', { class: 'muted' }, tx(' · ตั้งใจไว้')) : null), h('span', { class: 'row-sub' }, c.flags.map(riskyText).join(' · '))));
+      }), tx('ไม่มี')),
+      listCard(tx('ไม่ได้มาจาก compose'), tx('เช่นคอนเทนเนอร์ทดสอบที่รันมือ'), d.unmanaged.map((c) => h('div', { class: 'row' }, secDot(c.running ? 'warn' : 'info'),
+        h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, c.name), h('span', { class: 'row-sub' }, `${c.image} · ${c.running ? tx('ทำงานอยู่') : tx('หยุดแล้ว')}`)))), tx('ไม่มี'))),
+    h('h2', { class: 'section-title' }, tx('เหตุการณ์')), eventList(events),
   ];
 }
 
 /** the nightly Trivy scan (deploy/hardening/dock-image-scan.py): images worst first, then what to update */
 function secImages(s, d, events) {
   if (!d.scanned) {
-    return [h('p', { class: 'empty' }, 'ยังไม่มีผลสแกน ตัวสแกนทำงานทุกคืนราว 04:10 น.'), h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events)];
+    return [h('p', { class: 'empty' }, tx('ยังไม่มีผลสแกน ตัวสแกนทำงานทุกคืนราว 04:10 น.')), h('h2', { class: 'section-title' }, tx('เหตุการณ์')), eventList(events)];
   }
   const t = fixTotals(d.images);
   const scanned = d.images.filter((i) => !i.error);
@@ -1270,58 +1297,58 @@ function secImages(s, d, events) {
   });
   const level = (i) => (i.error ? 'warn' : i.fixable?.CRITICAL ? 'bad' : i.fixable?.HIGH ? 'warn' : 'info');
   const fixList = images.filter((i) => !i.error && (i.fixable?.CRITICAL || i.fixable?.HIGH)).map((i) =>
-    listCard(i.image, `แก้ได้ วิกฤต ${i.fixable.CRITICAL} · สูง ${i.fixable.HIGH}`,
+    listCard(i.image, tx('แก้ได้ วิกฤต {0} · สูง {1}', i.fixable.CRITICAL, i.fixable.HIGH),
       i.vulns.filter((v) => v.fixed && SEV_LEVEL[v.severity]).slice(0, 12).map((v) => h('div', { class: 'row wrap' }, secDot(SEV_LEVEL[v.severity]),
         h('div', { class: 'row-main' },
           h('span', { class: 'row-title' }, `${v.pkg} `, h('span', { class: 'muted' }, v.id)),
-          h('span', { class: 'row-sub' }, `${v.installed} → ${v.fixed}${v.title ? ` · ${v.title}` : ''}`)))), 'ไม่มี'));
+          h('span', { class: 'row-sub' }, `${v.installed} → ${v.fixed}${v.title ? ` · ${v.title}` : ''}`)))), tx('ไม่มี')));
   return [
     h('div', { class: 'tiles' },
-      tile('แก้ได้ ระดับวิกฤต', fmtNum(t.c), 'มีเวอร์ชันที่แก้แล้ว'),
-      tile('แก้ได้ ระดับสูง', fmtNum(t.h), 'มีเวอร์ชันที่แก้แล้ว'),
-      tile('image ที่สแกน', `${fmtNum(scanned.length)} / ${fmtNum(d.images.length)}`, 'ทุก image ที่คอนเทนเนอร์ใช้อยู่'),
-      tile('สแกนล่าสุด', ago(d.scanned), `Trivy ${d.trivy ?? ''} · ทุกคืนราว 04:10 น.`)),
-    d.dbError ? h('p', { class: 'meta sec-note' }, `โหลดฐานข้อมูลช่องโหว่รอบนี้ไม่สำเร็จ ใช้ฐานข้อมูลเดิมแทน: ${d.dbError}`) : null,
-    h('h2', { class: 'section-title' }, 'image ที่ใช้อยู่'),
+      tile(tx('แก้ได้ ระดับวิกฤต'), fmtNum(t.c), tx('มีเวอร์ชันที่แก้แล้ว')),
+      tile(tx('แก้ได้ ระดับสูง'), fmtNum(t.h), tx('มีเวอร์ชันที่แก้แล้ว')),
+      tile(tx('image ที่สแกน'), `${fmtNum(scanned.length)} / ${fmtNum(d.images.length)}`, tx('ทุก image ที่คอนเทนเนอร์ใช้อยู่')),
+      tile(tx('สแกนล่าสุด'), ago(d.scanned), tx('Trivy {0} · ทุกคืนราว 04:10 น.', d.trivy ?? ''))),
+    d.dbError ? h('p', { class: 'meta sec-note' }, tx('โหลดฐานข้อมูลช่องโหว่รอบนี้ไม่สำเร็จ ใช้ฐานข้อมูลเดิมแทน: {0}', d.dbError)) : null,
+    h('h2', { class: 'section-title' }, tx('image ที่ใช้อยู่')),
     h('div', { class: 'list' }, images.map((i) => h('div', { class: 'row wrap' }, secDot(level(i)),
       h('div', { class: 'row-main' },
         h('span', { class: 'row-title' }, i.image),
-        h('span', { class: 'row-sub' }, i.error ?? [i.os || 'ไม่มีระบบปฏิบัติการ (static)', i.eosl ? 'OS หมดระยะซัพพอร์ตแล้ว' : null, i.containers.join(', ')].filter(Boolean).join(' · '))),
+        h('span', { class: 'row-sub' }, i.error ?? [i.os || tx('ไม่มีระบบปฏิบัติการ (static)'), i.eosl ? tx('OS หมดระยะซัพพอร์ตแล้ว') : null, i.containers.join(', ')].filter(Boolean).join(' · '))),
       i.error ? null : h('div', { class: 'row-side' }, h('b', {}, `${i.fixable.CRITICAL} · ${i.fixable.HIGH}`),
-        `ทั้งหมด ${fmtNum(Object.values(i.counts).reduce((a, n) => a + n, 0))}`)))),
-    h('p', { class: 'meta sec-note' }, 'ตัวเลขขวาคือรายการระดับวิกฤต · สูง ที่มีเวอร์ชันแก้แล้ว แก้โดยอัปเดต base image หรือแพ็กเกจแล้ว build ใหม่ รายการที่ยังไม่มีแพตช์ต้องรอผู้ผลิต ส่วนใหญ่อยู่ในโปรแกรมที่ไม่ได้เปิดรับจากภายนอก'),
-    fixList.length ? h('h2', { class: 'section-title' }, 'ควรอัปเดต') : null,
+        tx('ทั้งหมด {0}', fmtNum(Object.values(i.counts).reduce((a, n) => a + n, 0))))))),
+    h('p', { class: 'meta sec-note' }, tx('ตัวเลขขวาคือรายการระดับวิกฤต · สูง ที่มีเวอร์ชันแก้แล้ว แก้โดยอัปเดต base image หรือแพ็กเกจแล้ว build ใหม่ รายการที่ยังไม่มีแพตช์ต้องรอผู้ผลิต ส่วนใหญ่อยู่ในโปรแกรมที่ไม่ได้เปิดรับจากภายนอก')),
+    fixList.length ? h('h2', { class: 'section-title' }, tx('ควรอัปเดต')) : null,
     fixList.length ? h('div', { class: 'grid' }, fixList) : null,
-    h('h2', { class: 'section-title' }, 'เหตุการณ์'), eventList(events, 'ยังไม่มีการแจ้งเตือน'),
+    h('h2', { class: 'section-title' }, tx('เหตุการณ์')), eventList(events, tx('ยังไม่มีการแจ้งเตือน')),
   ];
 }
 
 // ------------------------------------------------------------------ web analytics
 // Page views + Web Vitals from the sites themselves (the analytics service; replaces Vercel Analytics).
-const WEB_RANGES = [[7, '7 วัน'], [30, '30 วัน'], [90, '90 วัน']];
+const WEB_RANGES = [[7, tx('7 วัน')], [30, tx('30 วัน')], [90, tx('90 วัน')]];
 let webDays = (() => { try { return Number(localStorage.getItem('dock.webDays')) || 7; } catch { return 7; } })();
 let webHost = (() => { try { return localStorage.getItem('dock.webHost') || ''; } catch { return ''; } })();
 const siteName = (hn) => (hn === 'chakkritton.com' ? 'portfolio' : hn.replace(/\.chakkritton\.com$/, ''));
 /** Google's "good / needs improvement" limits for the 75th percentile */
 const VITALS = [
-  ['LCP', 'Largest Contentful Paint', 2500, 4000, (v) => `${(v / 1000).toFixed(2)} วิ`],
+  ['LCP', 'Largest Contentful Paint', 2500, 4000, (v) => tx('{0} วิ', (v / 1000).toFixed(2))],
   ['INP', 'Interaction to Next Paint', 200, 500, (v) => `${Math.round(v)} ms`],
   ['CLS', 'Cumulative Layout Shift', 0.1, 0.25, (v) => v.toFixed(3)],
-  ['FCP', 'First Contentful Paint', 1800, 3000, (v) => `${(v / 1000).toFixed(2)} วิ`],
+  ['FCP', 'First Contentful Paint', 1800, 3000, (v) => tx('{0} วิ', (v / 1000).toFixed(2))],
   ['TTFB', 'Time to First Byte', 800, 1800, (v) => `${Math.round(v)} ms`],
 ];
 const vitalTone = (v, good, poor) => (v === null || v === undefined ? '' : v <= good ? 'ok' : v <= poor ? 'warn' : 'bad');
-const vitalText = (tone) => ({ ok: 'ดี', warn: 'ควรปรับ', bad: 'แย่' })[tone] ?? '–';
-const COUNTRY = new Intl.DisplayNames(['th'], { type: 'region' });
+const vitalText = (tone) => ({ ok: tx('ดี'), warn: tx('ควรปรับ'), bad: tx('แย่') })[tone] ?? '–';
+const COUNTRY = new Intl.DisplayNames([LANG], { type: 'region' });
 const countryName = (c) => { try { return COUNTRY.of(c) ?? c; } catch { return c; } };
 
 async function webView(token) {
-  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'ช่วงเวลา' },
+  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': tx('ช่วงเวลา') },
     WEB_RANGES.map(([d, label]) => h('button', {
       type: 'button', 'aria-pressed': d === webDays ? 'true' : 'false',
       onclick: () => { webDays = d; try { localStorage.setItem('dock.webDays', String(d)); } catch { /* ignore */ } route(); },
     }, label)));
-  const sites = h('div', { class: 'segmented scroll', role: 'group', 'aria-label': 'เว็บไซต์' });
+  const sites = h('div', { class: 'segmented scroll', role: 'group', 'aria-label': tx('เว็บไซต์') });
   const tiles = h('div', { class: 'tiles' }, skelTiles(4));
   const chartGrid = h('div', { class: 'grid' }, skelCard(190, '48%'));
   const tables = h('div', { class: 'grid' }, skelRows(5));
@@ -1329,9 +1356,9 @@ async function webView(token) {
   const body = h('div', { class: 'overview' },
     h('div', { class: 'filters' }, seg, sites),
     tiles, chartGrid,
-    h('h2', { class: 'section-title' }, 'ความเร็วที่ผู้ใช้จริงเห็น (Web Vitals, p75)'), vitalsBox,
-    h('h2', { class: 'section-title' }, 'มาจากไหน ดูอะไร'), tables);
-  shell(topBar('สถิติเว็บ', { onRefresh: () => load() }), body, tabs('#/web'));
+    h('h2', { class: 'section-title' }, tx('ความเร็วที่ผู้ใช้จริงเห็น (Web Vitals, p75)')), vitalsBox,
+    h('h2', { class: 'section-title' }, tx('มาจากไหน ดูอะไร')), tables);
+  shell(topBar(tx('สถิติเว็บ'), { onRefresh: () => load() }), body, tabs('#/web'));
   app.querySelector('.shell').classList.add('wide');
   let views = null;
 
@@ -1341,7 +1368,7 @@ async function webView(token) {
     if (token !== viewToken) return;
     body.classList.remove('loading');
     clearSkel(body);
-    sites.replaceChildren(...[['', 'ทุกเว็บ'], ...st.hosts.map((hn) => [hn, siteName(hn)])].map(([hn, label]) => h('button', {
+    sites.replaceChildren(...[['', tx('ทุกเว็บ')], ...st.hosts.map((hn) => [hn, siteName(hn)])].map(([hn, label]) => h('button', {
       type: 'button', 'aria-pressed': hn === (st.host ?? '') ? 'true' : 'false',
       onclick: () => { webHost = hn; try { localStorage.setItem('dock.webHost', hn); } catch { /* ignore */ } route(); },
     }, label)));
@@ -1358,22 +1385,22 @@ async function webView(token) {
     const lcp = st.vitals.LCP;
     const lcpTone = lcp ? vitalTone(lcp.p75, 2500, 4000) : '';
     patchChildren(tiles, [
-      tile('ผู้เข้าชม', fmtNum(total.visitors), 'นับแยกรายวัน ไม่ใช้คุกกี้'),
-      tile('เพจวิว', fmtNum(total.views), `เฉลี่ย ${fmtNum(total.views / st.days)} ต่อวัน`),
-      tile('หน้าต่อการเข้าชม', total.visitors ? (total.views / total.visitors).toFixed(1) : '–', 'เพจวิว ÷ ผู้เข้าชม'),
-      tile('LCP (p75)', lcp ? VITALS[0][4](lcp.p75) : '–', lcp ? `${vitalText(lcpTone)} · จาก ${fmtNum(lcp.n)} ครั้ง` : 'ยังไม่มีข้อมูล'),
+      tile(tx('ผู้เข้าชม'), fmtNum(total.visitors), tx('นับแยกรายวัน ไม่ใช้คุกกี้')),
+      tile(tx('เพจวิว'), fmtNum(total.views), tx('เฉลี่ย {0} ต่อวัน', fmtNum(total.views / st.days))),
+      tile(tx('หน้าต่อการเข้าชม'), total.visitors ? (total.views / total.visitors).toFixed(1) : '–', tx('เพจวิว ÷ ผู้เข้าชม')),
+      tile('LCP (p75)', lcp ? VITALS[0][4](lcp.p75) : '–', lcp ? tx('{0} · จาก {1} ครั้ง', vitalText(lcpTone), fmtNum(lcp.n)) : tx('ยังไม่มีข้อมูล')),
     ]);
     // whole numbers on the axis even for a quiet week
     const opts = { times, step: DAY, kind: 'columns', legend: 'sum', format: (v) => fmtNum(v), ...(Math.max(...pv) < 4 ? { max: 4 } : {}),
-      series: [{ name: 'เพจวิว', color: SERIES[0], values: pv }, { name: 'ผู้เข้าชม', color: SERIES[1], values: uv }] };
+      series: [{ name: tx('เพจวิว'), color: SERIES[0], values: pv }, { name: tx('ผู้เข้าชม'), color: SERIES[1], values: uv }] };
     if (!views) {
-      const c = card('ผู้เข้าชมและเพจวิวรายวัน', st.host ? siteName(st.host) : 'ทุกเว็บไซต์');
+      const c = card(tx('ผู้เข้าชมและเพจวิวรายวัน'), st.host ? siteName(st.host) : tx('ทุกเว็บไซต์'));
       chartGrid.append(c);
-      views = mkChart(c, { ...opts, label: 'ผู้เข้าชมและเพจวิวรายวัน' });
+      views = mkChart(c, { ...opts, label: tx('ผู้เข้าชมและเพจวิวรายวัน') });
     } else views.update(opts);
 
-    patchChildren(vitalsBox, [card('Web Vitals', 'ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้', h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-      h('tr', {}, h('th', {}, 'ตัวชี้วัด'), h('th', { class: 'num' }, 'ทั้งหมด'), h('th', { class: 'num' }, 'มือถือ'), h('th', { class: 'num' }, 'เดสก์ท็อป'), h('th', {}, 'ผล')),
+    patchChildren(vitalsBox, [card('Web Vitals', tx('ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้'), h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+      h('tr', {}, h('th', {}, tx('ตัวชี้วัด')), h('th', { class: 'num' }, tx('ทั้งหมด')), h('th', { class: 'num' }, tx('มือถือ')), h('th', { class: 'num' }, tx('เดสก์ท็อป')), h('th', {}, tx('ผล'))),
       VITALS.map(([key, label, good, poor, fmt]) => {
         const v = st.vitals[key];
         const tone = v ? vitalTone(v.p75, good, poor) : '';
@@ -1386,17 +1413,17 @@ async function webView(token) {
       }))))]);
 
     const table = (title, sub, head, rows, render) => card(title, sub, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-      h('tr', {}, h('th', {}, head), h('th', { class: 'num' }, 'ผู้เข้าชม'), h('th', { class: 'num' }, 'เพจวิว')),
+      h('tr', {}, h('th', {}, head), h('th', { class: 'num' }, tx('ผู้เข้าชม')), h('th', { class: 'num' }, tx('เพจวิว'))),
       rows.length ? rows.map((r) => h('tr', {}, h('td', { class: render === 'mono' ? 'mono' : '' }, typeof render === 'function' ? render(r.key) : r.key),
         h('td', { class: 'num' }, fmtNum(r.visitors)), h('td', { class: 'num' }, fmtNum(r.views))))
-        : h('tr', {}, h('td', { colspan: 3 }, 'ยังไม่มีข้อมูล')))));
+        : h('tr', {}, h('td', { colspan: 3 }, tx('ยังไม่มีข้อมูล'))))));
     patchChildren(tables, [
-      ...(st.host ? [] : [table('ตามเว็บไซต์', null, 'เว็บไซต์', st.perHost, siteName)]),
-      table('หน้าที่ถูกเปิดมากที่สุด', null, 'หน้า', st.pages, 'mono'),
-      table('มาจาก', 'เว็บที่ลิงก์มา (ไม่นับการเข้าตรง)', 'แหล่งที่มา', st.referrers),
-      table('ประเทศ', 'จาก Cloudflare', 'ประเทศ', st.countries, countryName),
-      table('อุปกรณ์', null, 'อุปกรณ์', st.devices, (d) => ({ mobile: 'มือถือ', tablet: 'แท็บเล็ต', desktop: 'คอมพิวเตอร์' })[d] ?? d),
-      table('เบราว์เซอร์', null, 'เบราว์เซอร์', st.browsers),
+      ...(st.host ? [] : [table(tx('ตามเว็บไซต์'), null, tx('เว็บไซต์'), st.perHost, siteName)]),
+      table(tx('หน้าที่ถูกเปิดมากที่สุด'), null, tx('หน้า'), st.pages, 'mono'),
+      table(tx('มาจาก'), tx('เว็บที่ลิงก์มา (ไม่นับการเข้าตรง)'), tx('แหล่งที่มา'), st.referrers),
+      table(tx('ประเทศ'), tx('จาก Cloudflare'), tx('ประเทศ'), st.countries, countryName),
+      table(tx('อุปกรณ์'), null, tx('อุปกรณ์'), st.devices, (d) => ({ mobile: tx('มือถือ'), tablet: tx('แท็บเล็ต'), desktop: tx('คอมพิวเตอร์') })[d] ?? d),
+      table(tx('เบราว์เซอร์'), null, tx('เบราว์เซอร์'), st.browsers),
     ]);
   };
   await load();
@@ -1407,22 +1434,22 @@ async function webView(token) {
 // ------------------------------------------------------------------ backup bundles
 // A zip of the whole server (databases, volumes, settings, code commits), encrypted with a passphrase;
 // its restore.sh puts everything back on this server or a new one (deploy/apps/backup).
-const fmtDate = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtDate = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 
 async function backupView(token) {
-  const pass1 = h('input', { class: 'field', type: 'password', autocomplete: 'new-password', placeholder: 'รหัสผ่านของไฟล์ (อย่างน้อย 12 ตัว)', minlength: 12 });
-  const pass2 = h('input', { class: 'field', type: 'password', autocomplete: 'new-password', placeholder: 'พิมพ์รหัสผ่านอีกครั้ง' });
+  const pass1 = h('input', { class: 'field', type: 'password', autocomplete: 'new-password', placeholder: tx('รหัสผ่านของไฟล์ (อย่างน้อย 12 ตัว)'), minlength: 12 });
+  const pass2 = h('input', { class: 'field', type: 'password', autocomplete: 'new-password', placeholder: tx('พิมพ์รหัสผ่านอีกครั้ง') });
   const status = h('p', { class: 'meta', role: 'status' }, ' ');
-  const create = h('button', { class: 'btn primary', type: 'submit' }, 'สร้างไฟล์สำรอง');
+  const create = h('button', { class: 'btn primary', type: 'submit' }, tx('สร้างไฟล์สำรอง'));
   const form = h('form', { class: 'backup-form', onsubmit: async (e) => {
     e.preventDefault();
-    if (pass1.value.length < 12) return toast('รหัสผ่านต้องยาวอย่างน้อย 12 ตัว');
-    if (pass1.value !== pass2.value) return toast('รหัสผ่านสองช่องไม่ตรงกัน');
+    if (pass1.value.length < 12) return toast(tx('รหัสผ่านต้องยาวอย่างน้อย 12 ตัว'));
+    if (pass1.value !== pass2.value) return toast(tx('รหัสผ่านสองช่องไม่ตรงกัน'));
     create.disabled = true;
     try {
       await api('/backups', { method: 'POST', body: { passphrase: pass1.value } });
       pass1.value = pass2.value = '';
-      toast('เริ่มสร้างไฟล์สำรองแล้ว');
+      toast(tx('เริ่มสร้างไฟล์สำรองแล้ว'));
       await load();
     } catch (err) {
       create.disabled = false;
@@ -1431,20 +1458,20 @@ async function backupView(token) {
   } }, pass1, pass2, create, status);
   const list = h('div', { class: 'list no-enter' }, ...skelRows(1).children);
   const body = h('div', { class: 'stack' },
-    card('สร้างไฟล์สำรองทั้งเซิร์ฟเวอร์', null,
-      h('p', { class: 'backup-text' }, 'รวมฐานข้อมูล ข้อมูลใน Docker volume ทุกตัว ไฟล์ตั้งค่า และ commit ของโค้ด เป็น zip เดียว ข้อมูลข้างในเข้ารหัสด้วยรหัสผ่านนี้ — ลืมรหัสผ่าน = เปิดไฟล์ไม่ได้'),
+    card(tx('สร้างไฟล์สำรองทั้งเซิร์ฟเวอร์'), null,
+      h('p', { class: 'backup-text' }, tx('รวมฐานข้อมูล ข้อมูลใน Docker volume ทุกตัว ไฟล์ตั้งค่า และ commit ของโค้ด เป็น zip เดียว ข้อมูลข้างในเข้ารหัสด้วยรหัสผ่านนี้ — ลืมรหัสผ่าน = เปิดไฟล์ไม่ได้')),
       form),
-    h('h2', { class: 'section-title' }, 'ไฟล์ที่มี (เก็บ 5 ไฟล์ล่าสุด)'), list,
-    card('กู้คืน', 'บนเครื่องเดิมหรือ Ubuntu 24.04 เครื่องใหม่',
-      h('pre', { class: 'logs backup-steps' }, 'unzip chakkritton-server-backup-*.zip -d restore\ncd restore\nsudo bash restore.sh --check   # ตรวจก่อน ไม่เปลี่ยนอะไร\nsudo bash restore.sh           # กู้คืนทั้งหมด')));
-  shell(topBar('สำรองข้อมูล', { back: '#/more', onRefresh: () => load() }), body, tabs('#/more'));
+    h('h2', { class: 'section-title' }, tx('ไฟล์ที่มี (เก็บ 5 ไฟล์ล่าสุด)')), list,
+    card(tx('กู้คืน'), tx('บนเครื่องเดิมหรือ Ubuntu 24.04 เครื่องใหม่'),
+      h('pre', { class: 'logs backup-steps' }, tx('unzip chakkritton-server-backup-*.zip -d restore\ncd restore\nsudo bash restore.sh --check   # ตรวจก่อน ไม่เปลี่ยนอะไร\nsudo bash restore.sh           # กู้คืนทั้งหมด'))));
+  shell(topBar(tx('สำรองข้อมูล'), { back: '#/more', onRefresh: () => load() }), body, tabs('#/more'));
 
   const load = async () => {
     const { bundles, job } = await api('/backups');
     if (token !== viewToken) return;
     const running = job && !job.done && !job.error;
     create.disabled = !!running;
-    status.textContent = running ? `กำลังสร้าง ${job.name} — ${job.step}…` : job?.error ? `ครั้งล่าสุดไม่สำเร็จ: ${job.error}` : ' ';
+    status.textContent = running ? tx('กำลังสร้าง {0} — {1}…', job.name, job.step) : job?.error ? tx('ครั้งล่าสุดไม่สำเร็จ: {0}', job.error) : ' ';
     list.replaceChildren(...(bundles.length ? bundles.map((b) => h('div', { class: 'row' },
       h('div', { class: 'row-main' },
         h('span', { class: 'row-title' }, fmtDate.format(new Date(b.created))),
@@ -1456,12 +1483,12 @@ async function backupView(token) {
             const { url } = await api(`/backups/${encodeURIComponent(b.name)}/link`, { method: 'POST' });
             location.href = url;
           } catch (err) { handleError(err); }
-        } }, icon('download'), 'ดาวน์โหลด'),
-        confirmButton('ลบ', 'แตะอีกครั้งเพื่อลบ', async () => {
+        } }, icon('download'), tx('ดาวน์โหลด')),
+        confirmButton(tx('ลบ'), tx('แตะอีกครั้งเพื่อลบ'), async () => {
           await api(`/backups/${encodeURIComponent(b.name)}`, { method: 'DELETE' });
           await load();
         }, { danger: true }))))
-      : [h('p', { class: 'empty' }, 'ยังไม่มีไฟล์สำรอง')]));
+      : [h('p', { class: 'empty' }, tx('ยังไม่มีไฟล์สำรอง'))]));
     clearInterval(timer);
     if (running) timer = setInterval(() => load().catch(handleError), 3000);
   };
@@ -1474,11 +1501,12 @@ function moreView() {
     h('span', { class: 'row-ic' }, icon(ic)),
     h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, title), h('span', { class: 'row-sub' }, sub)),
     extra, icon('chev', 'chev'));
-  shell(topBar('เพิ่มเติม'),
+  shell(topBar(tx('เพิ่มเติม')),
     h('div', { class: 'list' },
-      item('#/security', 'shield', 'ความปลอดภัย', 'การเข้าเครื่อง ไฟล์สำคัญ พอร์ต บอทที่สแกนเว็บ และช่องโหว่ใน image'),
-      item('#/chat', 'chat', 'แชท', 'สรุปรายเดือนจากระบบ และถาม–ตอบ', badge()),
-      item('#/backup', 'archive', 'สำรองข้อมูล', 'ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
+      item('#/security', 'shield', tx('ความปลอดภัย'), tx('การเข้าเครื่อง ไฟล์สำคัญ พอร์ต บอทที่สแกนเว็บ และช่องโหว่ใน image')),
+      item('#/chat', 'chat', tx('แชท'), tx('สรุปรายเดือนจากระบบ และถาม–ตอบ'), badge()),
+      item('#/backup', 'archive', tx('สำรองข้อมูล'), tx('ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน'))),
+    prefsCard(),
     tabs('#/more'));
 }
 
@@ -1495,16 +1523,16 @@ const b64uToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/
 /** on: ask permission (needs the tap), subscribe, register with the chat service, send a test */
 async function enablePush() {
   if (!pushSupported()) {
-    toast(isIos() && !standalone() ? 'iPhone: แชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิด Dock จากไอคอนก่อน' : 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน');
+    toast(isIos() && !standalone() ? tx('iPhone: แชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิด Dock จากไอคอนก่อน') : tx('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน'));
     return false;
   }
-  if ((await Notification.requestPermission()) !== 'granted') { toast('ไม่ได้รับอนุญาตให้แจ้งเตือน (เปิดได้ในการตั้งค่า)'); return false; }
+  if ((await Notification.requestPermission()) !== 'granted') { toast(tx('ไม่ได้รับอนุญาตให้แจ้งเตือน (เปิดได้ในการตั้งค่า)')); return false; }
   const reg = await navigator.serviceWorker.ready;
   const { key } = await api('/chat/push/key');
   const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(key) });
   await api('/chat/push/subscribe', { method: 'POST', body: sub.toJSON() });
   await api('/chat/push/test', { method: 'POST', body: { endpoint: sub.endpoint } }).catch(() => {});
-  toast('เปิดการแจ้งเตือนแล้ว');
+  toast(tx('เปิดการแจ้งเตือนแล้ว'));
   return true;
 }
 async function disablePush() {
@@ -1513,14 +1541,14 @@ async function disablePush() {
     await api('/chat/push/unsubscribe', { method: 'POST', body: { endpoint: sub.endpoint } }).catch(() => {});
     await sub.unsubscribe();
   }
-  toast('ปิดการแจ้งเตือนแล้ว');
+  toast(tx('ปิดการแจ้งเตือนแล้ว'));
 }
 function pushButton() {
   const b = h('button', { class: 'icon-btn', type: 'button' });
   const paint = (on) => {
     b.replaceChildren(icon(on ? 'bell' : 'belloff'));
-    b.setAttribute('aria-label', on ? 'ปิดการแจ้งเตือน' : 'เปิดการแจ้งเตือน');
-    b.title = on ? 'แจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)' : 'เปิดการแจ้งเตือน';
+    b.setAttribute('aria-label', on ? tx('ปิดการแจ้งเตือน') : tx('เปิดการแจ้งเตือน'));
+    b.title = on ? tx('แจ้งเตือนเปิดอยู่ (แตะเพื่อปิด)') : tx('เปิดการแจ้งเตือน');
     b.classList.toggle('on', on);
   };
   currentSub().then((s) => paint(!!s)).catch(() => paint(false));
@@ -1535,12 +1563,12 @@ function pushButton() {
 
 // The server posts its monthly summary here; what is typed is answered by the chat service
 // (commands, or an LLM once one is configured in chat.env).
-const fmtTime = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+const fmtTime = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 async function chatView(token) {
   const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' }, ...skelChat());
   const note = h('p', { class: 'chat-note' }, ' ');
-  const input = h('textarea', { class: 'field chat-input', rows: 1, placeholder: 'พิมพ์ข้อความ…', maxlength: 4000, 'aria-label': 'ข้อความ' });
-  const send = h('button', { class: 'icon-btn send', type: 'submit', 'aria-label': 'ส่ง', disabled: true }, icon('send'));
+  const input = h('textarea', { class: 'field chat-input', rows: 1, placeholder: tx('พิมพ์ข้อความ…'), maxlength: 4000, 'aria-label': tx('ข้อความ') });
+  const send = h('button', { class: 'icon-btn send', type: 'submit', 'aria-label': tx('ส่ง'), disabled: true }, icon('send'));
   let lastId = 0;
   let busy = false;
   const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 80;
@@ -1568,23 +1596,23 @@ async function chatView(token) {
     };
     // columns, so a month that has only just started (one day) still shows its figure
     if (d.cpu.some((r) => r.avg !== null)) {
-      chartBox('CPU เฉลี่ยรายวัน', { times: dayTimes(d.cpu), step: 86400, kind: 'columns', format: (v) => fmtPct(v),
-        series: [{ name: 'เฉลี่ย', color: 'var(--s1)', values: d.cpu.map((r) => r.avg) }] });
+      chartBox(tx('CPU เฉลี่ยรายวัน'), { times: dayTimes(d.cpu), step: 86400, kind: 'columns', format: (v) => fmtPct(v),
+        series: [{ name: tx('เฉลี่ย'), color: 'var(--s1)', values: d.cpu.map((r) => r.avg) }] });
     }
     if (d.visitors.length) {
-      chartBox('ผู้เข้าชมรายวัน', { times: dayTimes(d.visitors), step: 86400, kind: 'columns', format: (v) => fmtNum(v),
-        series: [{ name: 'ผู้เข้าชม', color: 'var(--s3)', values: d.visitors.map((r) => r.visitors) }] });
+      chartBox(tx('ผู้เข้าชมรายวัน'), { times: dayTimes(d.visitors), step: 86400, kind: 'columns', format: (v) => fmtNum(v),
+        series: [{ name: tx('ผู้เข้าชม'), color: 'var(--s3)', values: d.visitors.map((r) => r.visitors) }] });
     }
     if (d.sites.length) {
       const top = Math.max(...d.sites.map((x) => x.requests), 1);
-      body.append(h('div', { class: 'report-sites' }, h('span', { class: 'report-h' }, 'คำขอตามเว็บ'),
+      body.append(h('div', { class: 'report-sites' }, h('span', { class: 'report-h' }, tx('คำขอตามเว็บ')),
         d.sites.map((x) => h('div', { class: 'site-row' },
           h('span', { class: 'site-name' }, x.site),
           h('span', { class: 'site-bar' }, h('span', { style: `width:${((x.requests / top) * 100).toFixed(1)}%` })),
           h('span', { class: 'site-num' }, fmtNum(x.requests)),
           x.errorsPct >= 1 ? h('span', { class: 'pill tone-bad' }, `5xx ${x.errorsPct.toFixed(1)}%`) : null))));
     }
-    body.append(h('div', { class: 'report-tips' }, h('span', { class: 'report-h' }, 'คำแนะนำ'),
+    body.append(h('div', { class: 'report-tips' }, h('span', { class: 'report-h' }, tx('คำแนะนำ')),
       d.tips.map((t) => h('div', { class: `tip tip-${t.level}` }, icon(TIP[t.level][0], 'msg-ic'), h('span', {}, t.text)))));
     return body;
   };
@@ -1592,13 +1620,13 @@ async function chatView(token) {
     const kind = KINDS[m.kind];
     if (m.kind === 'report' && m.data) {
       return h('div', { class: `msg ${m.role} report-msg`, 'data-id': m.id },
-        h('span', { class: 'msg-label' }, icon('chart', 'msg-ic'), m.role === 'system' ? 'รายงานประจำเดือน' : 'สรุป'),
+        h('span', { class: 'msg-label' }, icon('chart', 'msg-ic'), m.role === 'system' ? tx('รายงานประจำเดือน') : tx('สรุป')),
         reportCard(m.data),
         h('span', { class: 'msg-time' }, fmtTime.format(new Date(m.ts))));
     }
     const [title, ...rest] = m.text.split('\n');
     return h('div', { class: `msg ${m.role}${kind ? ` kind-${kind[1]}` : ''}`, 'data-id': m.id },
-      m.role === 'system' ? h('span', { class: 'msg-label' }, kind ? icon(kind[0], 'msg-ic') : null, m.kind === 'report' ? 'รายงานประจำเดือน' : m.kind === 'security' ? 'แจ้งเตือนความปลอดภัย' : m.kind ? 'แจ้งเตือนระบบ' : 'จากระบบ') : null,
+      m.role === 'system' ? h('span', { class: 'msg-label' }, kind ? icon(kind[0], 'msg-ic') : null, m.kind === 'report' ? tx('รายงานประจำเดือน') : m.kind === 'security' ? tx('แจ้งเตือนความปลอดภัย') : m.kind ? tx('แจ้งเตือนระบบ') : tx('จากระบบ')) : null,
       kind
         ? h('div', { class: 'msg-text' }, h('b', { class: 'msg-title' }, title), rest.length ? '\n' : null, ...linkify(rest.join('\n')))
         : h('div', { class: 'msg-text' }, ...linkify(m.text)),
@@ -1606,8 +1634,8 @@ async function chatView(token) {
   };
   const empty = () => h('div', { class: 'chat-empty' },
     h('span', { class: 'row-ic' }, icon('chat')),
-    h('b', {}, 'ยังไม่มีข้อความ'),
-    h('p', {}, 'สรุปรายเดือนและแจ้งเตือนเว็บล่มจะมาที่นี่ หรือแตะ สรุป / เดือนก่อน / ช่วย ด้านล่างเพื่อถาม'));
+    h('b', {}, tx('ยังไม่มีข้อความ')),
+    h('p', {}, tx('สรุปรายเดือนและแจ้งเตือนเว็บล่มจะมาที่นี่ หรือแตะ สรุป / เดือนก่อน / ช่วย ด้านล่างเพื่อถาม')));
   const add = (msgs) => {
     const follow = atBottom();
     log.querySelector('.chat-empty')?.remove();
@@ -1616,7 +1644,7 @@ async function chatView(token) {
     if (follow) toBottom();
   };
   // scrolling to the top brings the previous page; the view stays on the message you were reading
-  const older = h('div', { class: 'chat-older', hidden: true }, h('span', { class: 'spinner' }), 'กำลังโหลดข้อความก่อนหน้า…');
+  const older = h('div', { class: 'chat-older', hidden: true }, h('span', { class: 'spinner' }), tx('กำลังโหลดข้อความก่อนหน้า…'));
   const loadOlder = async () => {
     if (!hasMore || loadingOlder || !firstId) return;
     loadingOlder = true;
@@ -1646,7 +1674,7 @@ async function chatView(token) {
     }
     add(res.messages);
     if (!log.querySelector('.msg')) log.replaceChildren(empty());
-    note.textContent = res.llm ? ' ' : 'ยังไม่ได้เชื่อม LLM — ตอบได้เฉพาะคำสั่ง (สรุป, เดือนก่อน, ช่วย)';
+    note.textContent = res.llm ? ' ' : tx('ยังไม่ได้เชื่อม LLM — ตอบได้เฉพาะคำสั่ง (สรุป, เดือนก่อน, ช่วย)');
     if (res.messages.some((m) => !m.read)) { await api('/chat/read', { method: 'POST' }).catch(() => {}); refreshUnread(); }
   };
   const submit = async (text) => {
@@ -1654,7 +1682,7 @@ async function chatView(token) {
     if (!text || busy) return;
     busy = true;
     send.disabled = true;
-    const typing = h('div', { class: 'msg assistant typing' }, h('div', { class: 'msg-text' }, 'กำลังตอบ…'));
+    const typing = h('div', { class: 'msg assistant typing' }, h('div', { class: 'msg-text' }, tx('กำลังตอบ…')));
     log.querySelector('.chat-empty')?.remove();
     clearSkel(log);
     log.append(h('div', { class: 'msg user pending' }, h('div', { class: 'msg-text' }, text)), typing);
@@ -1684,14 +1712,15 @@ async function chatView(token) {
     }
   });
   const form = h('form', { class: 'chat-compose', onsubmit: (e) => { e.preventDefault(); const t = input.value; input.value = ''; grow(); submit(t); } },
-    h('div', { class: 'chat-quick' }, ['สรุป', 'เดือนก่อน', 'ช่วย'].map((t) => h('button', { type: 'button', class: 'chip', onclick: () => submit(t) }, t))),
+    h('div', { class: 'chat-quick' }, // the commands go to the server in Thai (it reads them); the chips show them in the chosen language
+    ['สรุป', 'เดือนก่อน', 'ช่วย'].map((c) => h('button', { type: 'button', class: 'chip', onclick: () => submit(c) }, tx(c)))),
     h('div', { class: 'chat-row' }, input, send), note);
-  const clearBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'ล้างแชท', title: 'ล้างแชท' }, icon('trash'));
+  const clearBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': tx('ล้างแชท'), title: tx('ล้างแชท') }, icon('trash'));
   let clearArmed = 0;
   clearBtn.addEventListener('click', async () => {
     if (!clearArmed) {
       clearBtn.classList.add('armed');
-      toast('แตะอีกครั้งเพื่อล้างแชททั้งหมด');
+      toast(tx('แตะอีกครั้งเพื่อล้างแชททั้งหมด'));
       clearArmed = window.setTimeout(() => { clearArmed = 0; clearBtn.classList.remove('armed'); }, 3000);
       return;
     }
@@ -1703,10 +1732,10 @@ async function chatView(token) {
       lastId = 0; firstId = 0; hasMore = false;
       log.replaceChildren(empty());
       refreshUnread();
-      toast('ล้างแชทแล้ว');
+      toast(tx('ล้างแชทแล้ว'));
     } catch (err) { handleError(err); }
   });
-  shell(topBar('แชท', { back: '#/more', onRefresh: () => load(), extra: [clearBtn, pushButton()] }), older, log, form, tabs('#/more'));
+  shell(topBar(tx('แชท'), { back: '#/more', onRefresh: () => load(), extra: [clearBtn, pushButton()] }), older, log, form, tabs('#/more'));
   app.querySelector('.shell').classList.add('chat');
   // the composer sits right on top of the tab bar, whatever height that has on this device
   const nav = app.querySelector('.tabs');
@@ -1743,8 +1772,8 @@ async function logout() {
 }
 
 function handleError(e) {
-  if (e instanceof AuthError) return loginView('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-  toast(`ผิดพลาด: ${e.message}`);
+  if (e instanceof AuthError) return loginView(tx('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'));
+  toast(tx('ผิดพลาด: {0}', e.message));
 }
 
 async function route() {
@@ -1856,6 +1885,7 @@ function installPwaChrome() {
 }
 
 installPwaChrome();
+document.getElementById('splash')?.setAttribute('aria-label', tx('กำลังโหลด…'));
 
 // a new page starts at its top
 window.addEventListener('hashchange', () => { window.scrollTo(0, 0); route(); });

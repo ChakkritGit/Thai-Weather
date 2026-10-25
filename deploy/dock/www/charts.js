@@ -2,6 +2,7 @@
 // Lines 2px, area wash ~10%, stacked fills separated by the surface, columns <= 24px with a 4px rounded
 // top, hairline grid, one y-axis. Crosshair + tooltip listing every series (pointer and keyboard),
 // legend for >= 2 series, a table view for every chart. All text is set with textContent.
+import { LOCALE, tx } from './i18n.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, ns = SVG) => {
@@ -20,6 +21,8 @@ const div = (cls, text) => {
 const resolve = (c) => (c.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue(c.slice(4, -1)).trim() || c : c);
 const live = new Set(); // rendered charts, redrawn when the OS switches light / dark
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => live.forEach((r) => r()));
+// … or when the theme is picked in Dock (i18n.js setTheme)
+window.addEventListener('dock-theme', () => live.forEach((r) => r()));
 
 /** 0, 25, 50 … – clean tick steps (1 / 2 / 2.5 / 5 × 10^k) */
 export function niceTicks(max, count = 4) {
@@ -37,10 +40,10 @@ const timeFmt = (rangeS, daily = false) => {
   const opts = daily || rangeS > 2 * 86400
     ? { weekday: 'short', day: 'numeric' }
     : { hour: '2-digit', minute: '2-digit', hour12: false };
-  const f = new Intl.DateTimeFormat('th-TH', { ...opts, timeZone: 'Asia/Bangkok' });
+  const f = new Intl.DateTimeFormat(LOCALE, { ...opts, timeZone: 'Asia/Bangkok' });
   return (t) => f.format(new Date(t * 1000));
 };
-const fullTime = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+const fullTime = new Intl.DateTimeFormat(LOCALE, { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 /** Wall-clock ticks shared by every chart with the same time range and width. */
 function timeTicks(start, end, width) {
@@ -95,7 +98,7 @@ export function chart(host, initial) {
   const details = document.createElement('details');
   details.className = 'chart-table';
   const summary = document.createElement('summary');
-  summary.textContent = 'ดูเป็นตาราง';
+  summary.textContent = tx('ดูเป็นตาราง');
   details.append(summary);
   plot.append(tip);
   wrap.append(plot);
@@ -281,7 +284,7 @@ export function chart(host, initial) {
     if (!compact) {
       const table = document.createElement('table');
       const head = document.createElement('tr');
-      for (const h of ['เวลา', ...series.map((s2) => s2.name)]) {
+      for (const h of [tx('เวลา'), ...series.map((s2) => s2.name)]) {
         const th = document.createElement('th');
         th.textContent = h;
         head.append(th);
@@ -323,7 +326,7 @@ export function chart(host, initial) {
       if (v !== null) { dot.setAttribute('cx', px); dot.setAttribute('cy', y(v)); }
     });
     const step = opts.kind === 'columns' ? ends[i] - times[i] : (opts.step ?? 0);
-    const head = div('tip-time', fullTime.format(new Date(times[i] * 1000)) + (step >= 120 ? ` · ${Math.round(step / 60)} นาที` : ''));
+    const head = div('tip-time', fullTime.format(new Date(times[i] * 1000)) + (step >= 120 ? tx(' · {0} นาที', Math.round(step / 60)) : ''));
     const rows = series.map((ser) => {
       const r = div('tip-row');
       const key = document.createElement('span');
@@ -360,7 +363,7 @@ export function chart(host, initial) {
     return best;
   };
   plot.tabIndex = 0;
-  plot.setAttribute('aria-label', `${initial.label} – ใช้ปุ่มลูกศรเพื่อดูค่า`);
+  plot.setAttribute('aria-label', tx('{0} – ใช้ปุ่มลูกศรเพื่อดูค่า', initial.label));
   plot.addEventListener('pointermove', (e) => geo && show(nearest(e.clientX)));
   plot.addEventListener('pointerdown', (e) => geo && show(nearest(e.clientX)));
   plot.addEventListener('pointerleave', (e) => e.pointerType === 'mouse' && hide());

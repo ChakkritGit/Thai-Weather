@@ -1,4 +1,4 @@
-/* Dock – minimal, mobile-first. One accent, system font, light/dark from the OS. */
+/* Dock – minimal, mobile-first. One accent, system font, light/dark from the OS or picked in เพิ่มเติม (html[data-theme]). */
 :root {
   --bg: #f6f6f4;
   --surface: #ffffff;
@@ -16,8 +16,10 @@
   --gutter: 16px;
   color-scheme: light dark;
 }
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #111214;
     --surface: #1a1b1e;
     --line: #2a2b2f;
@@ -31,6 +33,20 @@
     --bad: #f06b6b;
     --code-bg: #141517;
   }
+}
+:root[data-theme='dark'] {
+  --bg: #111214;
+  --surface: #1a1b1e;
+  --line: #2a2b2f;
+  --text: #ececee;
+  --muted: #9a9ca3;
+  --faint: #5f6168;
+  --accent: #ececee;
+  --on-accent: #111214;
+  --ok: #3ccf7e;
+  --warn: #e2ad2b;
+  --bad: #f06b6b;
+  --code-bg: #141517;
 }
 
 * { box-sizing: border-box; }
@@ -144,6 +160,11 @@ pre.logs .err { color: var(--bad); }
   padding: 6px 4px; border-radius: 12px; text-decoration: none; color: var(--faint); font-size: 12px; font-weight: 600;
 }
 .tabs a svg { width: 22px; height: 22px; }
+.tabs a { min-width: 0; }
+/* one line in every language (Japanese ボリューム wrapped at 390 px) */
+.tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[lang='ja'] .tabs a { padding-inline: 0; }
+html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .tabs a[aria-current='page'] { color: var(--text); }
 
 /* login */
@@ -175,11 +196,16 @@ pre.logs .err { color: var(--bad); }
   --grid: #ecebe7; --axis: #d3d2cc; --tick: #898781;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --neutral: #6b6d72;
     --grid: #26272b; --axis: #383a3f; --tick: #898781;
   }
+}
+:root[data-theme='dark'] {
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --neutral: #6b6d72;
+  --grid: #26272b; --axis: #383a3f; --tick: #898781;
 }
 
 .shell.wide { max-width: 1180px; }
@@ -420,6 +446,9 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .splash-mark svg { width: 38px; height: 38px; }
 .splash-name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
 .splash-tag { color: var(--muted); font-size: 14px; }
+.splash-tag::after { content: 'ดูแลเซิร์ฟเวอร์'; }
+html[lang='en'] .splash-tag::after { content: 'Server care'; }
+html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 .splash-bar { position: relative; width: 120px; height: 3px; margin-top: 22px; overflow: hidden; border-radius: 999px; background: var(--line); }
 .splash-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit; background: var(--text); animation: splash-slide 1.1s ease-in-out infinite; }
 @keyframes splash-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
@@ -526,3 +555,11 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .muted { color: var(--muted); font-weight: 400; }
 .card .list.flat { margin: 0 -14px -10px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
 .msg.kind-warn .msg-label { color: var(--warn); }
+
+/* ------------------------------------------------------------------ display settings (เพิ่มเติม, login) */
+.prefs { display: grid; gap: 14px; margin-top: 24px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.pref { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pref-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.pref-label svg { width: 18px; height: 18px; color: var(--muted); }
+.prefs .segmented button { padding: 0 12px; }
+.login-prefs { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }

@@ -39,6 +39,7 @@
   <link rel="apple-touch-startup-image" href="splash/375x667@2-dark.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)">
   <link rel="apple-touch-startup-image" href="splash/320x568@2-light.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: light)">
   <link rel="apple-touch-startup-image" href="splash/320x568@2-dark.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)">
+  <script src="boot.js"></script>
   <link rel="stylesheet" href="style.css">
   <title>Dock</title>
 </head>
@@ -47,11 +48,11 @@
   <div class="splash" id="splash" role="status" aria-label="กำลังโหลด">
     <span class="splash-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg></span>
     <span class="splash-name">Dock</span>
-    <span class="splash-tag">ดูแลเซิร์ฟเวอร์</span>
+    <span class="splash-tag" aria-hidden="true"></span>
     <span class="splash-bar" aria-hidden="true"></span>
   </div>
   <div id="app" aria-live="polite"></div>
-  <noscript>ต้องเปิด JavaScript</noscript>
+  <noscript>ต้องเปิด JavaScript · JavaScript is required</noscript>
   <script type="module" src="app.js"></script>
 </body>
 </html>
