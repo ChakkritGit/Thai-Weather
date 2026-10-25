@@ -1859,6 +1859,18 @@ installPwaChrome();
 
 // a new page starts at its top
 window.addEventListener('hashchange', () => { window.scrollTo(0, 0); route(); });
+// a deploy while the Home Screen app stays open (iOS keeps it for days): reload when app.js changes
+{
+  const stamp = () => fetch('app.js', { method: 'HEAD', cache: 'no-store' })
+    .then((r) => r.headers.get('etag') ?? r.headers.get('last-modified')).catch(() => null);
+  let loaded = null;
+  stamp().then((v) => { loaded = v; });
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || !loaded) return;
+    const now = await stamp();
+    if (now && now !== loaded) location.reload();
+  });
+}
 // push only (see sw.js); Dock keeps working without it
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 route();
