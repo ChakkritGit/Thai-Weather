@@ -64,6 +64,7 @@ const ICONS = {
   key: 'M13 15.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 1 1 11 0zM11.4 11.6 21 2M15.5 7.5l2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4',
   lock: 'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 1 1 8 0v4',
   file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5zM14 3v5h5M9 13h6M9 17h6',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
   contrast: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 2v20M12 7h5M12 12h7M12 17h5',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
@@ -453,13 +454,29 @@ function segmented(options, current, pick) {
   }, label)));
   return box;
 }
+// the sign-in page has no menu, so it gets the two pickers inline
 const langPicker = () => segmented(Object.entries(LANGS), LANG, setLang);
 const themePicker = () => segmented(THEMES.map((t) => [t, tx(THEME_LABEL[t])]), theme(), setTheme);
-function prefsCard() {
-  const row = (ic, label, control) => h('div', { class: 'pref' }, h('span', { class: 'pref-label' }, icon(ic), label), control);
-  return h('section', { class: 'prefs', 'aria-label': tx('การแสดงผล') },
-    row('globe', tx('ภาษา'), langPicker()),
-    row('contrast', tx('ธีม'), themePicker()));
+const displaySummary = () => `${LANGS[LANG]} · ${tx(THEME_LABEL[theme()])}`;
+
+/** เพิ่มเติม → การแสดงผล: two lists to pick from, a tick on the current choice (like the other sub-pages) */
+function displayView() {
+  const choices = (label, options, current, pick) => {
+    const list = h('div', { class: 'list', role: 'radiogroup', 'aria-label': label });
+    const rows = options.map(([value, text]) => h('button', {
+      type: 'button', class: 'row choice', role: 'radio', 'aria-checked': String(value === current), 'data-v': value,
+      onclick: () => {
+        for (const r of rows) r.setAttribute('aria-checked', String(r === rows.find((x) => x.dataset.v === value)));
+        pick(value);
+      },
+    }, h('span', { class: 'row-main' }, h('span', { class: 'row-title' }, text)), icon('check', 'tick')));
+    list.append(...rows);
+    return h('section', { class: 'group' }, h('h2', { class: 'group-title' }, label), list);
+  };
+  shell(topBar(tx('การแสดงผล'), { back: '#/more' }),
+    choices(tx('ภาษา'), Object.entries(LANGS), LANG, setLang),
+    choices(tx('ธีม'), THEMES.map((t) => [t, tx(THEME_LABEL[t])]), theme(), setTheme),
+    tabs('#/more'));
 }
 
 function loginView(message = '') {
@@ -1505,8 +1522,8 @@ function moreView() {
     h('div', { class: 'list' },
       item('#/security', 'shield', tx('ความปลอดภัย'), tx('การเข้าเครื่อง ไฟล์สำคัญ พอร์ต บอทที่สแกนเว็บ และช่องโหว่ใน image')),
       item('#/chat', 'chat', tx('แชท'), tx('สรุปรายเดือนจากระบบ และถาม–ตอบ'), badge()),
-      item('#/backup', 'archive', tx('สำรองข้อมูล'), tx('ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน'))),
-    prefsCard(),
+      item('#/backup', 'archive', tx('สำรองข้อมูล'), tx('ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
+      item('#/display', 'contrast', tx('การแสดงผล'), displaySummary())),
     tabs('#/more'));
 }
 
@@ -1793,6 +1810,7 @@ async function route() {
     else if (hash === '#/volumes') await volumesView(token);
     else if (hash === '#/web') await webView(token);
     else if (hash === '#/backup') await backupView(token);
+    else if (hash === '#/display') displayView();
     else if (hash === '#/more') moreView();
     else if (hash === '#/chat') await chatView(token);
     else if (hash === '#/security') await securityView(token, null);

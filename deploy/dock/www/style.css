@@ -160,9 +160,8 @@ pre.logs .err { color: var(--bad); }
   padding: 6px 4px; border-radius: 12px; text-decoration: none; color: var(--faint); font-size: 12px; font-weight: 600;
 }
 .tabs a svg { width: 22px; height: 22px; }
-.tabs a { min-width: 0; }
-/* one line in every language (Japanese ボリューム wrapped at 390 px) */
-.tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* one line in every language (Japanese ボリューム wrapped at 390 px); a long Thai word may run past its cell, as before */
+.tab-label { white-space: nowrap; }
 html[lang='ja'] .tabs a { padding-inline: 0; }
 html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .tabs a[aria-current='page'] { color: var(--text); }
@@ -556,10 +555,8 @@ html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 .card .list.flat { margin: 0 -14px -10px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
 .msg.kind-warn .msg-label { color: var(--warn); }
 
-/* ------------------------------------------------------------------ display settings (เพิ่มเติม, login) */
-.prefs { display: grid; gap: 14px; margin-top: 24px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-.pref { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.pref-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
-.pref-label svg { width: 18px; height: 18px; color: var(--muted); }
-.prefs .segmented button { padding: 0 12px; }
+/* ------------------------------------------------------------------ display settings (เพิ่มเติม → การแสดงผล, sign-in) */
+.row.choice { color: inherit; font: inherit; cursor: pointer; }
+.row.choice .tick { width: 20px; height: 20px; color: var(--text); visibility: hidden; }
+.row.choice[aria-checked='true'] .tick { visibility: visible; }
 .login-prefs { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
