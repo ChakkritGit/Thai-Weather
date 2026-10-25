@@ -1193,7 +1193,8 @@ async function securityView(token, cat) {
       return;
     }
     const chartIn = (c, opts) => { mine.push(mkChart(c, opts)); return c; };
-    body.replaceChildren(...(meta ? secCategory(s, cat, chartIn) : secMain(s, load)));
+    // the views return arrays with null for parts not shown; replaceChildren would print those as "null"
+    body.replaceChildren(...(meta ? secCategory(s, cat, chartIn) : secMain(s, load)).flat().filter((c) => c != null && c !== false));
   };
   await load();
   if (token !== viewToken || meta) return;
