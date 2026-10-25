@@ -285,6 +285,11 @@ out from the other macros, SEO files, Google sign-in.
   IndexNow key file is `public/<key>.txt` (public by design).
 - Worker: new `/ai/vision` (Llama 4 Scout, OpenAI-style `image_url` data URL, ≤1.4 MB); 25 photos/user/day.
 - PIN: scrypt hash on users, sessions.away_at/locked; `/api/lock` beacons; 10 wrong PINs a day sign the device out.
+  "Use passkey" on the PIN screen runs `/api/auth/unlock-options` → `unlock` (a passkey of that account only).
+- Skins: classic, cartoon, pencil, pixel, comic, nightcat, halloween, christmas (`SKINS` + the `users_skin_check`
+  migration + glyphs in `skin-icons.tsx` + tokens in `globals.css`). Halloween is offered on the home page
+  15 Oct–1 Nov, Christmas 1 Dec–6 Jan. Night cat answers the owner's wish for LINE's Peanuts theme: Snoopy is
+  licensed, so the cat is our own character in that line style — keep it that way.
 - Google: code flow + PKCE (`src/lib/google.ts`), hidden without GOOGLE_CLIENT_ID/SECRET. gcloud cannot create
   OAuth web clients; the owner made one in the console (project `calorieflow-bb756`), redirect URI
   `https://calorieflow.chakkritton.com/api/auth/google/callback`. While the consent screen is in "Testing", only
