@@ -44,4 +44,6 @@ used=$(docker ps -aq | xargs -r docker inspect -f '{{.Image}}' | sort -u)
 for id in $(docker images -q --no-trunc --filter dangling=true | sort -u); do
   echo "$used" | grep -qx "$id" || docker rmi "$id" >/dev/null 2>&1 || true
 done
-docker builder prune -f --keep-storage 3gb >/dev/null 2>&1 || true
+# -a: without it only dangling cache goes, and the cache grew to 36 GB (Docker 29 also turned the old
+# --keep-storage into --reserved-space, a floor rather than a ceiling); --max-used-space is the ceiling.
+docker builder prune -af --max-used-space 3gb >/dev/null 2>&1 || true

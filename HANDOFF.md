@@ -317,6 +317,10 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   image. Restarted with the refresher idle and the run 2.8 h old: same run `20261024T1500Z`, no forecast fetched.
   `verify` was recreated only because its image record had been deleted.
 - Backup: musl/musl-utils 1.2.5-r13, zlib 1.3.2-r1. All Rust services recreated on the current `apps-rust`.
+- Build cache had grown to 36 GB (VPS disk 82 %, 2026-10-25): `docker builder prune -f --keep-storage` pruned only
+  dangling cache, and Docker 29 made keep-storage a floor. `autodeploy.sh` now runs `-af --max-used-space 3gb`.
+  The "unused" images Dock lists (rust/trivy as `<none>`, jc21 NPM, node, postgres, python) are build or scan
+  bases pinned by digest — keep them.
 - `autodeploy.sh` no longer runs `docker image prune`: under the containerd image store it deleted images that
   containers still ran (that is why nine services showed "image เดิมถูกลบไปแล้ว"). It removes only dangling
   images no container uses.
