@@ -37,6 +37,7 @@ Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
 | expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
 | whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
 | drive-music.chakkritton.com | Drive Music (Google Drive player, Party Play sync) | github.com/ChakkritGit/Drive-Music-Web | VPS (`apps`) |
+| calorieflow.chakkritton.com | CalorieFlow (calories/water/weight, AI coach, Web Push, Apple Health via iOS Shortcut) | github.com/ChakkritGit/CalorieFlowWeb (**private**; `worker/` = AI Worker) | VPS (`apps`), own DB `calorieflow` in apps-db; AI = Cloudflare Worker `calorieflow-ai` |
 | docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, security watch, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
 | status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
 | health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/rust-services/runtime` | VPS |
@@ -120,7 +121,11 @@ Python numerical worker and separate Python verification container retained. See
 - Admin passwords: macOS Keychain on the owner's Mac — `security find-internet-password -s <host> -w`
   for nginx.chakkritton.com, portainer.chakkritton.com, docker.chakkritton.com (user `admin` for the last
   two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
-- Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, ALERT_TO.
+- Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
+- CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*);
+  `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow.env) and
+  HEALTH_TOKEN (= the status Worker's CALORIEFLOW_HEALTH_TOKEN; the value is kept nowhere else — to rotate,
+  generate one and pipe it into both).
 - Google Picker API key for Drive Music is commented out in `drive-music.env` (see §7).
 
 ## 5. Rules that cost time to rediscover
@@ -219,6 +224,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
+- CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app), the Apple Health Shortcut
+  (owner was building it on 2026-10-25), importing the old version's `.wgd` export.
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
@@ -240,6 +247,29 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 25)
+
+### CalorieFlow on the VPS (2026-10-25, Claude)
+Owner: bring the CalorieFlow web app over with a new layout (reference images), accounts with data on the
+server, an LLM coach like Scrolly (daily analysis + notifications), Web Push, Apple Health if possible.
+- Repo **CalorieFlowWeb** rewritten (Vite + IndexedDB → Next 16.4.1 on Bun) and made **private**; deploy key
+  `/root/.ssh/github-deploy/calorieflow`; in `autodeploy.sh`, `build.sh`, rollout like the other Next apps.
+  The iOS app repo CalorieFlowIOS is untouched. The old Firebase-hosted version stays up so people can export
+  `.wgd` and import it (Settings → ข้อมูล).
+- Sign-in: passkeys (@simplewebauthn 14, discoverable credentials), DB sessions (cookie `cf_session`).
+- Data: database `calorieflow` (role `calorieflow`, created by `db/init.sh` on fresh clusters when
+  `CALORIEFLOW_PASSWORD` is in db.env); the app migrates its own schema on start (`src/lib/schema.ts`,
+  advisory lock). Nightly dump + backup bundle include it.
+- AI: Worker `calorieflow-ai` (Workers AI qwen3-30b, route `calorieflow.chakkritton.com/ai/*`, rate limit
+  namespace 1002), deploy `cd worker && npx -y wrangler@4.144.0 deploy`. Workers AI streams number tokens as
+  JSON numbers (`"response":9`) — read `choices[0].delta.content` first (fixed in `src/lib/sse.ts`).
+- Scheduler in-process (`src/lib/scheduler.ts`): 13:00 meal / 15:00 water reminders, 20:30–21:59 daily
+  analysis + push; each job is claimed in the `usage` table so the two containers of a rollout never push twice.
+  `/api/health` is ok only with the DB answering and the scheduler heartbeat < 5 min.
+- Apple Health: no web API exists (Google Fit's API is shut, Health Connect is Android-only), so an iOS
+  Shortcut posts the day's totals to `/api/health-sync` with a personal `cfh_` token (Settings → Apple Health).
+- Status page group CalorieFlow (app + hourly AI check), Dock group, analytics host, NPM host
+  (`client_max_body_size 10m` for imports), portfolio home apps list (no blog/project page, owner's request).
+- CVE: `npm audit` 0, Trivy image scan 0 findings (2026-10-25).
 
 ### Security fixes from the first image scan (2026-10-25, Claude)
 Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-approved exceptions to the
