@@ -122,7 +122,8 @@ Python numerical worker and separate Python verification container retained. See
   for nginx.chakkritton.com, portainer.chakkritton.com, docker.chakkritton.com (user `admin` for the last
   two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
 - Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
-- CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*);
+- CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*, and once the
+  owner makes the OAuth client: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
   `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow.env) and
   HEALTH_TOKEN (= the status Worker's CALORIEFLOW_HEALTH_TOKEN; the value is kept nowhere else — to rotate,
   generate one and pipe it into both).
@@ -224,8 +225,9 @@ integration cases and is not a complete backend check. Test sockets need local s
   purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
-- CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app), the Apple Health Shortcut
-  (owner was building it on 2026-10-25), importing the old version's `.wgd` export.
+- CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app), importing the old version's
+  `.wgd` export; after 2026-10-25 evening: the PIN lock, skins (incl. Halloween), the Health page animations,
+  photo estimates on real meals, and the Thai date format (Buddhist year) under Bun.
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
@@ -270,6 +272,24 @@ server, an LLM coach like Scrolly (daily analysis + notifications), Web Push, Ap
 - Status page group CalorieFlow (app + hourly AI check), Dock group, analytics host, NPM host
   (`client_max_body_size 10m` for imports), portfolio home apps list (no blog/project page, owner's request).
 - CVE: `npm audit` 0, Trivy image scan 0 findings (2026-10-25).
+
+### CalorieFlow round 2 (2026-10-25 evening, Claude)
+Owner: sub-pages in settings, profile pictures, Health/stress page with heartbeat and dreamy sleep animations,
+photo calorie estimates, theme (system/light/dark), the portfolio's three languages, custom skins that change the
+bottom-nav icons (cartoon, coloured pencil, pixel, then Halloween), an optional PIN lock in the skin, carbs worked
+out from the other macros, SEO files, Google sign-in.
+- i18n: `src/lib/i18n` (th source + en + ja, a test checks keys and placeholders). Users have locale/theme/skin;
+  signed-out pages use cookies `cf_lang`/`cf_theme`. Landing pages `/` (signed out, rewritten by `src/proxy.ts`
+  to the visitor's language), `/en`, `/ja`; `/th` redirects to `/`. robots, sitemap (hreflang), llms.txt,
+  llms-full.txt, feed.xml from `src/lib/landing.ts` and `src/lib/changelog.ts` (add an entry per release).
+  IndexNow key file is `public/<key>.txt` (public by design).
+- Worker: new `/ai/vision` (Llama 4 Scout, OpenAI-style `image_url` data URL, ≤1.4 MB); 25 photos/user/day.
+- PIN: scrypt hash on users, sessions.away_at/locked; `/api/lock` beacons; 10 wrong PINs a day sign the device out.
+- Google: code flow + PKCE (`src/lib/google.ts`), hidden until GOOGLE_CLIENT_ID/SECRET exist. gcloud cannot
+  create OAuth web clients, so the owner makes one in the console (project `calorieflow-bb756`), redirect URI
+  `https://calorieflow.chakkritton.com/api/auth/google/callback`.
+- Health Shortcut on the owner's devices is named "ส่งข้อมูลไป CalorieFlow"; the public one imports as
+  "CalorieFlow-Health". The "Sync now" button uses the name saved per device (Settings → Apple Health).
 
 ### Security fixes from the first image scan (2026-10-25, Claude)
 Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-approved exceptions to the
