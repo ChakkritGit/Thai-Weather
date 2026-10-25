@@ -126,7 +126,7 @@ if [ $BUILD = 1 ]; then
   (cd "$WX" && docker compose -f docker-compose.yml -f docker-compose.build.yml build)
   (cd "$WX" && docker compose pull --ignore-buildable -q 2>/dev/null || docker compose pull -q portainer dock)
   (cd "$APPS" && docker compose build web api)
-  for img in rust backup portfolio expenses whiteboard drive-music; do (cd "$APPS" && ./build.sh "$img"); done
+  for img in rust backup portfolio expenses whiteboard drive-music calorieflow; do (cd "$APPS" && ./build.sh "$img"); done
 fi
 
 say "Starting the server stack (proxy, Portainer, Dock)"
@@ -162,7 +162,7 @@ systemctl disable --now apps-autodeploy.timer >/dev/null 2>&1 || true
 say "Checking"
 sleep 20
 docker ps --format '{{.Names}}\t{{.Status}}' | sort
-for h in thai-weather.chakkritton.com chakkritton.com expenses.chakkritton.com whiteboard.chakkritton.com drive-music.chakkritton.com docker.chakkritton.com; do
+for h in thai-weather.chakkritton.com chakkritton.com expenses.chakkritton.com whiteboard.chakkritton.com drive-music.chakkritton.com calorieflow.chakkritton.com docker.chakkritton.com; do
   printf '%-32s %s\n' "$h" "$(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "$h:443:127.0.0.1" "https://$h/")"
 done
 printf '%-32s %s\n' "health.chakkritton.com/ping" "$(curl -sk -o /dev/null -m 15 -w '%{http_code}' --resolve "health.chakkritton.com:443:127.0.0.1" "https://health.chakkritton.com/ping")"
@@ -173,7 +173,7 @@ Done. Notes:
   * Auto-deploy is OFF so the restored code stays. Turn it back on when you want the newest commits:
       systemctl enable --now apps-autodeploy.timer
   * A different server? Point the Cloudflare DNS records (chakkritton.com, www, thai-weather, expenses,
-    whiteboard, drive-music, health, docker, nginx, portainer) at this server's IP, proxied.
+    whiteboard, drive-music, calorieflow, health, docker, nginx, portainer) at this server's IP, proxied.
     status.chakkritton.com is a Cloudflare Worker (deploy/status-worker): leave its DNS alone; it reads
     health.chakkritton.com with PROBE_SECRET from the restored health.env, so nothing to change there.
   * Logins (Nginx Proxy Manager, Portainer) are the same as when the bundle was made.

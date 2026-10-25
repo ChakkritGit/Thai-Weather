@@ -7,6 +7,7 @@
 #     rooms      Rust       whiteboard.chakkritton.com/rooms/ (Yjs relay, was the whiteboard-rooms Worker)
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
 #     sync       Rust       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
+#   calorieflow  Next.js   calorieflow.chakkritton.com       (repo CalorieFlowWeb; its AI is the calorieflow-ai Worker)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
 #   web, api, verify, weather-web-api        thai-weather.chakkritton.com (this repo; ../weather.yml)
@@ -112,6 +113,22 @@ services:
     env_file: ${ENVS:-/opt/apps/env}/drive-music.env
     volumes:
       - drive-music-cache:/app/.next/cache
+
+  calorieflow:
+    <<: *next
+    image: apps-calorieflow:local
+    # no container_name: ../rollout.sh runs the new and the old side by side; NPM reaches either by this alias.
+    # Talks to apps-db itself (its own database and role); runs its reminder/analysis scheduler in-process,
+    # with claims in the database so the two containers of a rollout never push twice.
+    networks:
+      proxy:
+        aliases: [apps-calorieflow]
+      apps:
+        aliases: [apps-calorieflow]
+    pull_policy: never
+    env_file: ${ENVS:-/opt/apps/env}/calorieflow.env
+    volumes:
+      - calorieflow-cache:/app/.next/cache
 
   # Native Rust WebSocket services.
   rooms:
@@ -375,6 +392,7 @@ volumes:
   expenses-cache:
   whiteboard-cache:
   drive-music-cache:
+  calorieflow-cache:
   sync-data:
   chat-data:
   analytics-data:

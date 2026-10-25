@@ -14,14 +14,14 @@ deploy() { # <image to build> <compose services to restart...>
   ./build.sh "$img"
   case "$img" in
     # the web apps switch with no gap (new container healthy before the old one stops)
-    portfolio|expenses|whiteboard|drive-music) ../rollout.sh "$img" ;;
+    portfolio|expenses|whiteboard|drive-music|calorieflow) ../rollout.sh "$img" ;;
     *) docker compose up -d --no-deps "$@" ;;
   esac
 }
 
 force=${2:-}
 [ "${1:-}" = "--force" ] || force=""
-for app in portfolio expenses whiteboard drive-music; do
+for app in portfolio expenses whiteboard drive-music calorieflow; do
   dir="$REPOS/$app"
   git -C "$dir" fetch -q origin main
   old=$(git -C "$dir" rev-parse HEAD)

@@ -256,12 +256,13 @@ const SERVICES = {
   'apps/expenses': ['nextdotjs', 'Spent/Cost'], 'apps/reminders': ['bun', 'Spent/Cost'],
   'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
   'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
+  'apps/calorieflow': ['nextdotjs', 'CalorieFlow'],
   'apps/db': ['postgresql', 'ฐานข้อมูล'], 'apps/rest': ['postgresql', 'ฐานข้อมูล'], 'apps/dbgw': ['bun', 'ฐานข้อมูล'],
   'apps/health': ['bun', 'ระบบส่วนกลาง'], 'apps/status': ['bun', 'ระบบส่วนกลาง'], 'apps/analytics': ['bun', 'ระบบส่วนกลาง'], 'apps/backup': ['bun', 'ระบบส่วนกลาง'], 'apps/chat': ['bun', 'ระบบส่วนกลาง'],
   'server/nginx-proxy-manager': ['nginxproxymanager', 'จัดการเซิร์ฟเวอร์'], 'server/portainer': ['portainer', 'จัดการเซิร์ฟเวอร์'],
   'server/dock': ['nginx', 'จัดการเซิร์ฟเวอร์'], 'server/dock-metrics': ['bun', 'จัดการเซิร์ฟเวอร์'],
 };
-const GROUP_ORDER = ['ฟ้าละเอียด', 'Portfolio', 'Spent/Cost', 'Whiteboard', 'Drive Music', 'ฐานข้อมูล', 'ระบบส่วนกลาง', 'จัดการเซิร์ฟเวอร์'];
+const GROUP_ORDER = ['ฟ้าละเอียด', 'Portfolio', 'Spent/Cost', 'Whiteboard', 'Drive Music', 'CalorieFlow', 'ฐานข้อมูล', 'ระบบส่วนกลาง', 'จัดการเซิร์ฟเวอร์'];
 function serviceOf(c) {
   const l = labelsOf(c);
   const known = SERVICES[`${l['com.docker.compose.project']}/${l['com.docker.compose.service']}`];

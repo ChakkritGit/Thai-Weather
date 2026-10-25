@@ -1,4 +1,4 @@
-export type CheckId = 'server' | 'weather' | 'weatherapi' | 'portfolio' | 'assistant' | 'ai' | 'expenses' | 'reminders' | 'whiteboard' | 'rooms' | 'music' | 'musicauth' | 'musicsync'
+export type CheckId = 'server' | 'weather' | 'weatherapi' | 'portfolio' | 'assistant' | 'ai' | 'expenses' | 'reminders' | 'whiteboard' | 'rooms' | 'music' | 'musicauth' | 'musicsync' | 'calorieflow' | 'calorieflowai'
 /** Checks the VPS's health endpoint answers for (the Worker cannot reach them from outside). */
 export const INTERNAL_IDS = ['rooms', 'musicsync', 'reminders'] as const satisfies readonly CheckId[]
 export type FailureReason = 'http-error' | 'timeout' | 'network' | 'invalid-response' | 'unhealthy' | 'heartbeat-stale'
@@ -57,6 +57,8 @@ export interface Env {
   PROBE_SECRET: string
   /** the portfolio's hourly AI check */
   HEALTH_TOKEN: string
+  /** CalorieFlow's hourly AI check (the calorieflow-ai Worker's HEALTH_TOKEN) */
+  CALORIEFLOW_HEALTH_TOKEN: string
 }
 /** Something that answers fetch(): the rooms / sync containers, reached on the internal network. */
 export interface Internal {

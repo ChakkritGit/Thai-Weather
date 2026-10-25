@@ -97,7 +97,7 @@ test('reminder checks distinguish stale heartbeats and malformed responses witho
   }
 })
 
-const env = { HEALTH_URL: 'https://h/health', PROBE_SECRET: 'p', HEALTH_TOKEN: 't' }
+const env = { HEALTH_URL: 'https://h/health', PROBE_SECRET: 'p', HEALTH_TOKEN: 't', CALORIEFLOW_HEALTH_TOKEN: 'c' }
 const NOW = Date.UTC(2026, 9, 16, 10, 5)
 const report = (over: Record<string, unknown> = {}) => ({
   at: NOW - 30_000,
@@ -109,9 +109,9 @@ const report = (over: Record<string, unknown> = {}) => ({
 test('runChecks asks the model only in minutes 0-4', async () => {
   stub((url) => (url === env.HEALTH_URL ? json(report()) : json({ ok: true })))
   const ids = async (min: number) => (await runChecks(env, Date.UTC(2026, 9, 2, 10, min))).map((r) => r.id)
-  for (const m of [0, 4]) assert.ok((await ids(m)).includes('ai'), `minute ${m}`)
-  for (const m of [5, 59]) assert.ok(!(await ids(m)).includes('ai'), `minute ${m}`)
-  assert.deepEqual((await ids(5)).sort(), ['assistant', 'expenses', 'music', 'musicauth', 'musicsync', 'portfolio', 'reminders', 'rooms', 'server', 'weather', 'weatherapi', 'whiteboard'])
+  for (const m of [0, 4]) for (const id of ['ai', 'calorieflowai']) assert.ok((await ids(m)).includes(id), `${id} minute ${m}`)
+  for (const m of [5, 59]) for (const id of ['ai', 'calorieflowai']) assert.ok(!(await ids(m)).includes(id), `${id} minute ${m}`)
+  assert.deepEqual((await ids(5)).sort(), ['assistant', 'calorieflow', 'expenses', 'music', 'musicauth', 'musicsync', 'portfolio', 'reminders', 'rooms', 'server', 'weather', 'weatherapi', 'whiteboard'])
 })
 
 test('Thai Weather checks the web and API independently with read-only requests', async () => {

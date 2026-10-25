@@ -12,6 +12,7 @@ const GROUPS = [
   { id: 'spentcost', name: 'Spent-Cost' },
   { id: 'whiteboard', name: 'Whiteboard' },
   { id: 'drivemusic', name: 'Drive Music' },
+  { id: 'calorieflow', name: 'CalorieFlow' },
 ] as const
 const LABEL = { up: 'ปกติ', slow: 'ช้า', down: 'ล่ม', unknown: 'ยังไม่มีข้อมูล' } as const
 

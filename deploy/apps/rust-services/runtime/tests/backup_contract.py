@@ -163,7 +163,7 @@ printf 'PGDMP-fixture-%s' "$name" > "$out"
                     self.assertNotIn("volumes/apps_portfolio-cache.tar.gz", names)
                     meta = json.load(t.extractfile("./meta.json"))
                     self.assertEqual(meta["format"], 1)
-                    self.assertEqual(meta["databases"], ["expenses", "portfolio"])
+                    self.assertEqual(meta["databases"], ["expenses", "portfolio", "calorieflow"])
                     self.assertEqual(meta["repos"]["fixture"]["commit"], "a" * 40)
                     self.assertEqual(meta["repos"]["fixture"]["branch"], "main")
                     volume = t.extractfile("./volumes/apps_media-data.tar.gz").read()

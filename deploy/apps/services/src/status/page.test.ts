@@ -66,7 +66,7 @@ test('a name with markup is escaped', () => {
 test('routes: json, page, and 404', async () => {
   const get = (p: string) => handle(new Request(`https://status.chakkritton.com${p}`), allUp(), NOW)
   const j = (await get('/api/status').json()) as { services: unknown[]; incidents: unknown[]; lastRun: number }
-  assert.equal(j.services.length, 13)
+  assert.equal(j.services.length, 15)
   assert.equal(get('/api/status').headers.get('Cache-Control'), 'public, max-age=60')
   assert.equal(get('/').status, 200)
   assert.equal(get('/nope').status, 404)

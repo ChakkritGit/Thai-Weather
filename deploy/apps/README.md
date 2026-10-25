@@ -7,19 +7,21 @@
 | `whiteboard` | Next.js (repo Whiteboard) | whiteboard.chakkritton.com | Vercel `whiteboard` |
 | `rooms` | Rust/Yrs, Yjs relay | whiteboard.chakkritton.com/rooms/ | Worker `whiteboard-rooms` |
 | `drive-music` | Next.js (repo Drive-Music-Web) | drive-music.chakkritton.com | Vercel `drive-music` |
+| `calorieflow` | Next.js (repo CalorieFlowWeb), own database + passkeys, in-process push scheduler | calorieflow.chakkritton.com | Firebase Hosting (IndexedDB only) |
 | `sync` | Rust, Party Play protocol 2 (native state machine, SQLite storage) | drive-music.chakkritton.com/parties/ | Worker `drive-music-sync` |
 | `health` | Rust: every container's Docker health (host snapshot every 30 s) + the internal checks, for the status Worker; relays its alerts to Dock | health.chakkritton.com (needs `x-probe-secret`) | – |
 | `analytics` | Rust, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |
 
-| `db` | Postgres 17 (`expenses`, `portfolio`) | internal only | Supabase databases |
+| `db` | Postgres 17 (`expenses`, `portfolio`, `calorieflow`) | internal only | Supabase databases |
 | `rest` + `dbgw` | PostgREST behind a Rust gateway that checks Supabase Auth sessions | expenses.chakkritton.com/data/ | Supabase `/rest/v1` |
 | `reminders` | Rust, Spent-Cost bill reminders (daily delivery receipts, scheduled in Bangkok) | internal | Edge Function `push-reminders` + pg_cron |
 | `media` | Rust, portfolio uploads | chakkritton.com/media/ | Supabase Storage bucket |
 | `backup` | Rust + pinned native tools, whole-server backup bundles | Dock → เพิ่มเติม → สำรองข้อมูล | – |
 | `chat` | Rust: monthly server report (last evening of the month), commands, optional LLM, Web Push | Dock → เพิ่มเติม → แชท | – |
 
-Stays elsewhere: the AI worker `mr-worldwide` on Cloudflare (route `chakkritton.com/api/assistant*`,
-Workers AI), and **login for Spent-Cost on Supabase Auth** (project `yavhirzrepgpvvapohyz`, now auth only).
+Stays elsewhere: the AI workers on Cloudflare, `mr-worldwide` (route `chakkritton.com/api/assistant*`) and
+`calorieflow-ai` (route `calorieflow.chakkritton.com/ai/*`, in the CalorieFlowWeb repo), both Workers AI, and
+**login for Spent-Cost on Supabase Auth** (project `yavhirzrepgpvvapohyz`, now auth only).
 
 ## Database
 

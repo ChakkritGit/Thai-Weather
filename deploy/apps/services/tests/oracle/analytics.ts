@@ -15,7 +15,7 @@ const DAY = 86_400_000
 const KEEP_DAYS = Number(process.env.KEEP_DAYS ?? 400)
 /** sites we count; anything else posting here is ignored */
 const HOSTS = new Set(
-  (process.env.HOSTS ?? 'chakkritton.com,expenses.chakkritton.com,whiteboard.chakkritton.com,drive-music.chakkritton.com,thai-weather.chakkritton.com')
+  (process.env.HOSTS ?? 'chakkritton.com,expenses.chakkritton.com,whiteboard.chakkritton.com,drive-music.chakkritton.com,calorieflow.chakkritton.com,thai-weather.chakkritton.com')
     .split(',')
     .map((h) => h.trim())
     .filter(Boolean),

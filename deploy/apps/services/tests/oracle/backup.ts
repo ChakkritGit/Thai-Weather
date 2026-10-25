@@ -93,7 +93,7 @@ export async function makeBundle(passphrase: string, name = `chakkritton-server-
 
     job.step = 'สำรองฐานข้อมูล'
     const db = await readEnv(join(ENV_DIR, 'db.env'))
-    for (const name of ['expenses', 'portfolio']) {
+    for (const name of ['expenses', 'portfolio', 'calorieflow']) {
       await run(['pg_dump', '-h', DB_HOST, '-U', 'postgres', '-Fc', '-f', join(payload, 'db', `${name}.dump`), name], { env: { PGPASSWORD: db.POSTGRES_PASSWORD } })
     }
 
@@ -115,7 +115,7 @@ export async function makeBundle(passphrase: string, name = `chakkritton-server-
 
     const repos: Record<string, unknown> = { 'thai-weather': await gitHead(TW_REPO) }
     if (existsSync(REPOS)) for (const r of (await readdir(REPOS)).sort()) repos[r] = await gitHead(join(REPOS, r))
-    await writeFile(join(payload, 'meta.json'), JSON.stringify({ created: new Date().toISOString(), format: 1, repos, volumes: sizes, databases: ['expenses', 'portfolio'] }, null, 2))
+    await writeFile(join(payload, 'meta.json'), JSON.stringify({ created: new Date().toISOString(), format: 1, repos, volumes: sizes, databases: ['expenses', 'portfolio', 'calorieflow'] }, null, 2))
 
     job.step = 'เข้ารหัส'
     await run(['tar', '-cf', join(work, 'payload.tar'), '-C', payload, '.'])

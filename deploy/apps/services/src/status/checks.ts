@@ -1,6 +1,6 @@
 import { INTERNAL_IDS, type CheckId, type Env, type HealthReport, type Result, type FailureReason } from './types'
 
-export const CHECKS: { id: CheckId; group: 'server' | 'thaiweather' | 'portfolio' | 'spentcost' | 'whiteboard' | 'drivemusic'; name: string; hourly?: true }[] = [
+export const CHECKS: { id: CheckId; group: 'server' | 'thaiweather' | 'portfolio' | 'spentcost' | 'whiteboard' | 'drivemusic' | 'calorieflow'; name: string; hourly?: true }[] = [
   { id: 'server', group: 'server', name: 'เซิร์ฟเวอร์และ container' },
   { id: 'weather', group: 'thaiweather', name: 'Thai Weather' },
   { id: 'weatherapi', group: 'thaiweather', name: 'Thai Weather API' },
@@ -14,6 +14,8 @@ export const CHECKS: { id: CheckId; group: 'server' | 'thaiweather' | 'portfolio
   { id: 'music', group: 'drivemusic', name: 'Drive Music' },
   { id: 'musicsync', group: 'drivemusic', name: 'Party Play sync' },
   { id: 'musicauth', group: 'drivemusic', name: 'ล็อกอิน Google ของ Drive Music' },
+  { id: 'calorieflow', group: 'calorieflow', name: 'CalorieFlow' },
+  { id: 'calorieflowai', group: 'calorieflow', name: 'โค้ช AI ของ CalorieFlow', hourly: true },
 ]
 
 export const TIMEOUT_MS = 10_000
@@ -110,6 +112,11 @@ export async function runChecks(env: Env, scheduledTime: number): Promise<Result
     httpCheck('musicauth', 'https://drive-music.chakkritton.com/api/auth/providers', {}, async (r) =>
       r.ok && 'google' in ((await r.json().catch(() => ({}))) as object), 1,
     ),
+    // ok only with the database answering and the reminder scheduler's heartbeat under 5 minutes old
+    httpCheck('calorieflow', 'https://calorieflow.chakkritton.com/api/health', {}, jsonOk, 1),
+    ...(hourly
+      ? [httpCheck('calorieflowai', 'https://calorieflow.chakkritton.com/ai/health?ai=1', { headers: { 'x-health-token': env.CALORIEFLOW_HEALTH_TOKEN } }, jsonOk)]
+      : []),
   ])
   return results.flat()
 }

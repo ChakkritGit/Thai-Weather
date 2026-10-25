@@ -25,7 +25,7 @@ const VITALS: [&str; 5] = ["LCP", "INP", "CLS", "FCP", "TTFB"];
 // Events per client IP per minute (a page view plus its vitals is ~6), and how many IPs one minute tracks.
 const PER_MINUTE: u32 = 120;
 const MAX_CLIENTS: usize = 50_000;
-const HOSTS: &str = "chakkritton.com,expenses.chakkritton.com,whiteboard.chakkritton.com,drive-music.chakkritton.com,thai-weather.chakkritton.com";
+const HOSTS: &str = "chakkritton.com,expenses.chakkritton.com,whiteboard.chakkritton.com,drive-music.chakkritton.com,calorieflow.chakkritton.com,thai-weather.chakkritton.com";
 struct Analytics {
     db: Mutex<Connection>,
     hosts: Vec<String>,

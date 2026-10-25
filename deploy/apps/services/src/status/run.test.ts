@@ -11,7 +11,7 @@ afterEach(() => {
   globalThis.fetch = realFetch
 })
 
-const env = { HEALTH_URL: 'https://health.test/health', PROBE_SECRET: 'p', HEALTH_TOKEN: 't' }
+const env = { HEALTH_URL: 'https://health.test/health', PROBE_SECRET: 'p', HEALTH_TOKEN: 't', CALORIEFLOW_HEALTH_TOKEN: 'c' }
 const kv = (): Store & { data: Map<string, string> } => {
   const data = new Map<string, string>()
   return { data, get: async (k) => (data.has(k) ? JSON.parse(data.get(k)!) : null), put: async (k, v) => void data.set(k, v) }
@@ -52,17 +52,17 @@ test('a VPS that stops answering: one e-mail for every down alert, then "back up
   await tick(env, store, T + 5 * 60_000, mail, () => T + 5 * 60_000)
   assert.equal(mails.length, 0) // one failure is not "down" yet
   const down = await tick(env, store, T + 10 * 60_000, mail, () => T + 10 * 60_000)
-  assert.equal(down.alerts.length, 12) // every check goes through the VPS
+  assert.equal(down.alerts.length, 13) // every check goes through the VPS
   assert.equal(mails.length, 1)
-  assert.match(mails[0].subject, /^เซิร์ฟเวอร์และ container ล่ม และอีก 11 รายการ$/)
+  assert.match(mails[0].subject, /^เซิร์ฟเวอร์และ container ล่ม และอีก 12 รายการ$/)
   assert.match(mails[0].html, /ดูหน้าสถานะ/)
 
   world({ vps: true, relayed })
   const back = await tick(env, store, T + 30 * 60_000, mail, () => T + 30 * 60_000)
   assert.equal(back.undelivered.length, 0)
-  assert.equal(relayed.length, 12)
+  assert.equal(relayed.length, 13)
   assert.equal(mails.length, 1)
-  assert.equal((await load(store)).incidents.length, 12)
+  assert.equal((await load(store)).incidents.length, 13)
 })
 
 test('the e-mail escapes what it shows and keeps a plain-text part', () => {

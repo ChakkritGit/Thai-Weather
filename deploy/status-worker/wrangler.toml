@@ -1,6 +1,7 @@
 # status.chakkritton.com on Cloudflare, off the VPS it watches (code: ../apps/services/src/status/).
 # Deploy: npx wrangler@4.144.0 deploy   (from this directory)
 # Secrets (wrangler secret put): PROBE_SECRET (= PROBE_SECRET in /opt/apps/env/health.env), HEALTH_TOKEN,
+# CALORIEFLOW_HEALTH_TOKEN (= the calorieflow-ai Worker's HEALTH_TOKEN),
 # ALERT_TO (Email Routing's verified destination address).
 name = "status"
 main = "../apps/services/src/status/worker.ts"

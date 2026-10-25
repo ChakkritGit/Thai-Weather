@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build one Next app or the native Rust service images.
-#   ./build.sh portfolio|expenses|whiteboard|drive-music|rust|backup|db
+#   ./build.sh portfolio|expenses|whiteboard|drive-music|calorieflow|rust|backup|db
 # Not `docker compose build`: Compose's bake path refuses to read the secret file without an extra grant.
 # The app's env file is mounted only during `next build` (NEXT_PUBLIC_* are inlined) and never lands in a layer.
 set -eu
@@ -16,7 +16,7 @@ case "$name" in
       --build-context runtime=docker-image://apps-rust:local . ;;
   db)
     docker buildx build --load -t apps-db:local db ;;
-  portfolio|expenses|whiteboard|drive-music)
+  portfolio|expenses|whiteboard|drive-music|calorieflow)
     # `next build` pre-renders the ISR pages (portfolio: home, blog, projects, topics, sitemap, feed) and needs
     # the database for that, so the build runs on the host network with the internal names pointed at the
     # running containers. Without it the pages were built empty and served that way for a day.

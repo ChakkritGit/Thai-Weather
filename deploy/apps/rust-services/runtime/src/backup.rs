@@ -151,7 +151,7 @@ impl Backups {
                 .filter(|l| !l.starts_with('#'))
                 .find_map(|l| l.strip_prefix("POSTGRES_PASSWORD="))
                 .ok_or("missing database configuration")?;
-            for name in ["expenses", "portfolio"] {
+            for name in ["expenses", "portfolio", "calorieflow"] {
                 cmd(
                     &args(&[
                         "pg_dump",
@@ -229,7 +229,7 @@ impl Backups {
             fs::write(
                 payload.join("meta.json"),
                 serde_json::to_vec_pretty(
-                    &json!({"created":created,"format":1,"repos":repos,"volumes":sizes,"databases":["expenses","portfolio"]}),
+                    &json!({"created":created,"format":1,"repos":repos,"volumes":sizes,"databases":["expenses","portfolio","calorieflow"]}),
                 )?,
             )?;
             self.step("เข้ารหัส");
