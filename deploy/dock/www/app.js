@@ -65,6 +65,9 @@ const ICONS = {
   lock: 'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 1 1 8 0v4',
   file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5zM14 3v5h5M9 13h6M9 17h6',
   check: 'M5 12.5l4.5 4.5L19 7.5',
+  chevdown: 'M6 9l6 6 6-6',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z',
   contrast: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 2v20M12 7h5M12 12h7M12 17h5',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
@@ -441,22 +444,37 @@ const clearSkel = (root) => root.querySelectorAll('.skel').forEach((e) => e.remo
 // ------------------------------------------------------------------ views
 // ------------------------------------------------------------------ language and theme (this device only, see i18n.js)
 const THEME_LABEL = { system: 'ตามระบบ', light: 'สว่าง', dark: 'มืด' };
-function segmented(options, current, pick) {
-  const box = h('div', { class: 'segmented', role: 'group' });
-  box.append(...options.map(([value, label]) => h('button', {
-    type: 'button', 'aria-pressed': String(value === current),
+const THEME_ICON = { system: 'contrast', light: 'sun', dark: 'moon' };
+/** the sign-in page has no menu: a small dropdown each for language and theme (outside tap / Escape closes) */
+function dropdown(ic, label, options, current, pick) {
+  const wrap = h('div', { class: 'dd' });
+  const btnLabel = h('span', {}, options.find(([v]) => v === current)?.[1] ?? '');
+  const btnIcon = h('span', { class: 'dd-ic' }, icon(typeof ic === 'function' ? ic(current) : ic));
+  const btn = h('button', { type: 'button', class: 'dd-btn', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': label }, btnIcon, btnLabel, icon('chevdown', 'dd-chev'));
+  const menu = h('div', { class: 'dd-menu', role: 'menu', hidden: true });
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', esc); };
+  const outside = (e) => { if (!wrap.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') { close(); btn.focus(); } };
+  btn.addEventListener('click', () => {
+    if (!menu.hidden) return close();
+    menu.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', esc);
+  });
+  menu.append(...options.map(([value, text]) => h('button', {
+    type: 'button', role: 'menuitemradio', class: 'dd-item', 'aria-checked': String(value === current), 'data-v': value,
     onclick: () => {
-      for (const b of box.children) b.setAttribute('aria-pressed', 'false');
-      box.querySelector(`[data-v="${value}"]`)?.setAttribute('aria-pressed', 'true');
+      close();
+      for (const it of menu.children) it.setAttribute('aria-checked', String(it.dataset.v === value));
+      btnLabel.textContent = text;
+      if (typeof ic === 'function') btnIcon.replaceChildren(icon(ic(value)));
       pick(value);
     },
-    'data-v': value,
-  }, label)));
-  return box;
+  }, h('span', {}, text), icon('check', 'tick'))));
+  wrap.append(btn, menu);
+  return wrap;
 }
-// the sign-in page has no menu, so it gets the two pickers inline
-const langPicker = () => segmented(Object.entries(LANGS), LANG, setLang);
-const themePicker = () => segmented(THEMES.map((t) => [t, tx(THEME_LABEL[t])]), theme(), setTheme);
+const langPicker = () => dropdown('globe', tx('ภาษา'), Object.entries(LANGS), LANG, setLang);
+const themePicker = () => dropdown((t) => THEME_ICON[t], tx('ธีม'), THEMES.map((t) => [t, tx(THEME_LABEL[t])]), theme(), setTheme);
 const displaySummary = () => `${LANGS[LANG]} · ${tx(THEME_LABEL[theme()])}`;
 
 /** เพิ่มเติม → การแสดงผล: two lists to pick from, a tick on the current choice (like the other sub-pages) */

@@ -559,4 +559,15 @@ html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 .row.choice { color: inherit; font: inherit; cursor: pointer; }
 .row.choice .tick { width: 20px; height: 20px; color: var(--text); visibility: hidden; }
 .row.choice[aria-checked='true'] .tick { visibility: visible; }
-.login-prefs { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.login-prefs { display: flex; justify-content: center; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+.dd { position: relative; }
+.dd-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dd-btn[aria-expanded='true'] { color: var(--text); border-color: var(--faint); }
+.dd-ic { display: inline-grid; }
+.dd-ic svg { width: 16px; height: 16px; }
+.dd-chev { width: 14px; height: 14px; opacity: 0.7; }
+.dd-menu { position: absolute; top: calc(100% + 6px); left: 50%; translate: -50% 0; z-index: 10; min-width: 160px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.25); }
+.dd-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 40px; padding: 0 10px 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.dd-item:hover, .dd-item:focus-visible { background: var(--bg); }
+.dd-item .tick { width: 16px; height: 16px; visibility: hidden; }
+.dd-item[aria-checked='true'] .tick { visibility: visible; }
