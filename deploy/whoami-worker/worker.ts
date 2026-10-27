@@ -34,13 +34,15 @@ const SCRIPT = String.raw`
   let history = '<span class="d">Last login: ' + d.slice(0, 10) + d.slice(15, 24) + " on ttys001</span>\n";
   let data = null, error = "", fetchedAt = 0, live = false;
 
+  // shell highlighting: the command at full strength, its flags dimmer
+  const shell = (cmd) => cmd.split(/( +)/).map((w) => (w.startsWith("-") ? '<span class="fl">' + esc(w) + "</span>" : esc(w))).join("");
   async function type(cmd) {
     for (let i = 1; i <= cmd.length; i++) {
-      t.innerHTML = history + prompt + esc(cmd.slice(0, i)) + cursor;
+      t.innerHTML = history + prompt + shell(cmd.slice(0, i)) + cursor;
       await wait(80 + Math.random() * 80);
     }
     await wait(260);
-    history += prompt + esc(cmd) + "\n";
+    history += prompt + shell(cmd) + "\n";
   }
 
   // characters that fit on one line, so a phone gets the narrow table
@@ -121,6 +123,7 @@ const SCRIPT = String.raw`
     if (counts.unknown) out += '  <span class="d">' + counts.unknown + " unknown</span>";
     const open = data.incidents.filter((i) => !i.end).length;
     out += '<span class="d">  ·  incidents 7d: ' + data.incidents.length + (open ? ", " + open + " open" : "") + "</span>\n";
+    out += '<span class="d">tap a header to sort</span>\n';
     return out;
   }
 
@@ -136,7 +139,7 @@ const SCRIPT = String.raw`
     } else if (!error) out += "\nconnecting...\n";
     if (error) out += '<span class="bad">status: ' + esc(error) + "</span>\n";
     out += '\n<span class="' + (live ? "ok" : "d") + '">●</span><span class="d"> ' + (live ? "live" : "paused") +
-      "  ·  updated " + (fetchedAt ? ago(now - fetchedAt) + " ago" : "-") + (data ? "  ·  tap a header to sort" : "") + "</span>" + cursor;
+      "  ·  updated " + (fetchedAt ? ago(now - fetchedAt) + " ago" : "-") + "</span>" + cursor;
     t.innerHTML = out;
     if (focusCol !== null) t.querySelector('button[data-col="' + focusCol + '"]')?.focus({ preventScroll: true });
   }
@@ -198,6 +201,7 @@ const PAGE = `<!doctype html>
   }
   .p, .ok { color: var(--ok); } .h { color: var(--you); } .d { color: var(--dim); } .warn { color: var(--warn); } .bad { color: var(--bad); }
   .hd { font-weight: 700; }
+  .fl { color: #9aa4af; }
   button.hd { all: unset; font-weight: 700; white-space: pre; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   button.hd:hover, button.hd.on { color: var(--you); }
   button.hd:focus-visible { outline: 1px dashed var(--you); outline-offset: -1px; }
