@@ -5,3 +5,8 @@ main = "worker.ts"
 compatibility_date = "2026-09-01"
 workers_dev = false
 routes = [{ pattern = "whoami.chakkritton.com", custom_domain = true }]
+
+# the status Worker, for /status.json (status --watch)
+[[services]]
+binding = "STATUS"
+service = "status"
