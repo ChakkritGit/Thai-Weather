@@ -54,10 +54,45 @@ const SCRIPT = String.raw`
     return Math.floor((t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / w);
   }
 
+  // the column the table is sorted by (null: the status page's own order) and which way; kept per viewer
+  let sort = { col: null, asc: true };
+  try { sort = Object.assign(sort, JSON.parse(localStorage.getItem("whoami-sort") || "{}")); } catch {}
+  const RANK = { down: 0, slow: 1, unknown: 2, up: 3 };
+  const keyOf = (s, col, now) =>
+    col === 0 ? s.id
+      : col === 1 ? RANK[s.status] ?? 2
+      : col === 2 ? (s.status === "unknown" || !s.ms ? Infinity : s.ms)
+      : col === 3 ? s.uptime90 ?? -1
+      : s.since ? now - s.since : Infinity;
+  function sorted(list) {
+    if (sort.col === null) return list;
+    const now = Date.now();
+    return list.slice().sort((a, b) => {
+      const x = keyOf(a, sort.col, now), y = keyOf(b, sort.col, now);
+      const c = typeof x === "string" ? x.localeCompare(y) : x - y;
+      return (sort.asc ? c : -c) || a.id.localeCompare(b.id);
+    });
+  }
+  // a header press: the same column flips the order, a third press goes back to the status page's order
+  t.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest("button[data-col]");
+    if (!b) return;
+    const col = Number(b.dataset.col);
+    sort = sort.col !== col ? { col, asc: true } : sort.asc ? { col, asc: false } : { col: null, asc: true };
+    try { localStorage.setItem("whoami-sort", JSON.stringify(sort)); } catch {}
+    focusCol = col;
+    render();
+  });
+  // the screen is redrawn every second, so a keyboard user's header focus is put back each time
+  let focusCol = null;
+  t.addEventListener("focusin", (e) => { if (e.target.dataset && e.target.dataset.col) focusCol = Number(e.target.dataset.col); });
+  t.addEventListener("focusout", (e) => { if (!e.relatedTarget || !t.contains(e.relatedTarget)) setTimeout(() => { if (!t.contains(document.activeElement)) focusCol = null; }); });
+
   function table() {
     const wide = columns() >= 62;
+    if (!wide && sort.col === 4) sort = { col: null, asc: true };
     const tone = { up: "ok", slow: "warn", down: "bad", unknown: "d" };
-    const rows = data.services.map((s) => ({
+    const rows = sorted(data.services).map((s) => ({
       cells: [s.id, "● " + s.status, s.status === "unknown" || !s.ms ? "-" : s.ms + " ms", s.uptime90 == null ? "-" : s.uptime90.toFixed(1) + "%"]
         .concat(wide ? [s.since ? ago(Date.now() - s.since) : "-"] : []),
       tone: tone[s.status] || "d",
@@ -69,9 +104,13 @@ const SCRIPT = String.raw`
     const bar = '<span class="d">│</span>';
     const row = (cells, cls) =>
       bar + cells.map((c, i) => " " + (cls[i] ? '<span class="' + cls[i] + '">' : "") + esc(pad(c, w[i], right[i])) + (cls[i] ? "</span>" : "") + " ").join(bar) + bar + "\n";
+    const header = bar + head.map((h, i) =>
+      '<button class="hd' + (sort.col === i ? " on" : "") + '" data-col="' + i + '" aria-label="sort by ' + h.toLowerCase() + '">' +
+      // the arrow takes the cell's trailing space, so sorting never widens or shifts a column
+      " " + esc(pad(h, w[i], false)) + (sort.col === i ? (sort.asc ? "▲" : "▼") : " ") + "</button>").join(bar) + bar + "\n";
     // its own block with terminal line height, so the box-drawing lines join up, sized by its width in cells
     const width = w.reduce((a, n) => a + n + 3, 1);
-    let out = '<span class="tb" style="--n:' + width + '">' + line("┌", "┬", "┐") + row(head, head.map(() => "hd")) + line("├", "┼", "┤");
+    let out = '<span class="tb" style="--n:' + width + '">' + line("┌", "┬", "┐") + header + line("├", "┼", "┤");
     for (const r of rows) out += row(r.cells, ["", r.tone, "", "", ""]);
     out += line("└", "┴", "┘") + "</span>";
     const counts = { up: 0, slow: 0, down: 0, unknown: 0 };
@@ -97,8 +136,9 @@ const SCRIPT = String.raw`
     } else if (!error) out += "\nconnecting...\n";
     if (error) out += '<span class="bad">status: ' + esc(error) + "</span>\n";
     out += '\n<span class="' + (live ? "ok" : "d") + '">●</span><span class="d"> ' + (live ? "live" : "paused") +
-      "  ·  updated " + (fetchedAt ? ago(now - fetchedAt) + " ago" : "-") + "</span>" + cursor;
+      "  ·  updated " + (fetchedAt ? ago(now - fetchedAt) + " ago" : "-") + (data ? "  ·  tap a header to sort" : "") + "</span>" + cursor;
     t.innerHTML = out;
+    if (focusCol !== null) t.querySelector('button[data-col="' + focusCol + '"]')?.focus({ preventScroll: true });
   }
 
   async function poll() {
@@ -158,6 +198,9 @@ const PAGE = `<!doctype html>
   }
   .p, .ok { color: var(--ok); } .h { color: var(--you); } .d { color: var(--dim); } .warn { color: var(--warn); } .bad { color: var(--bad); }
   .hd { font-weight: 700; }
+  button.hd { all: unset; font-weight: 700; white-space: pre; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button.hd:hover, button.hd.on { color: var(--you); }
+  button.hd:focus-visible { outline: 1px dashed var(--you); outline-offset: -1px; }
   /* shrinks to fit when a phone is a column or two short (a monospace cell is ~0.61em wide) */
   .tb { display: block; line-height: 1.18; font-size: min(1em, calc((100vw - 32px) / (var(--n) * 0.62))); }
   .cur { display: inline-block; width: .6em; height: 1.15em; vertical-align: -.2em; background: var(--ink); animation: b 1s steps(1) infinite; }
