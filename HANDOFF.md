@@ -40,6 +40,7 @@ Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
 | calorieflow.chakkritton.com | CalorieFlow (calories/water/weight, AI coach, Web Push, Apple Health via iOS Shortcut) | github.com/ChakkritGit/CalorieFlowWeb (**private**; `worker/` = AI Worker) | VPS (`apps`), own DB `calorieflow` in apps-db; AI = Cloudflare Worker `calorieflow-ai` |
 | docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, security watch, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
 | status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
+| whoami.chakkritton.com | Just for fun: a terminal that types `whoami` and answers `chakkrit-ton` (plain text for curl) | `deploy/whoami-worker/` | **Cloudflare Worker** `whoami` (static, no bindings); deploy `cd deploy/whoami-worker && npx -y wrangler@4.144.0 deploy` |
 | health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/rust-services/runtime` | VPS |
 | nginx. / portainer.chakkritton.com | Nginx Proxy Manager / Portainer admin | images | VPS |
 

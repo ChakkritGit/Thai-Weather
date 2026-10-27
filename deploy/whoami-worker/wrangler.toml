@@ -1,0 +1,7 @@
+# whoami.chakkritton.com: a terminal that answers `whoami`. Static, no bindings, no secrets.
+# Deploy: npx -y wrangler@4.144.0 deploy   (from this directory)
+name = "whoami"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+routes = [{ pattern = "whoami.chakkritton.com", custom_domain = true }]
