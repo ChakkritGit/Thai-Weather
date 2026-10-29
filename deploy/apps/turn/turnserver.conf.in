@@ -37,7 +37,6 @@ stale-nonce=600
 
 no-tls
 no-dtls
-no-cli
 no-rfc5780
 no-stun-backward-compatibility
 response-origin-only-with-rfc5780

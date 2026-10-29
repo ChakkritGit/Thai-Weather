@@ -263,7 +263,7 @@ const SERVICES = {
   'apps/expenses': ['nextdotjs', 'Spent/Cost'], 'apps/reminders': ['bun', 'Spent/Cost'],
   'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
   'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
-  'apps/calorieflow': ['nextdotjs', 'CalorieFlow'],
+  'apps/calorieflow': ['nextdotjs', 'CalorieFlow'], 'apps/turn': ['webrtc', 'CalorieFlow'],
   'apps/db': ['postgresql', tx('ฐานข้อมูล')], 'apps/rest': ['postgresql', tx('ฐานข้อมูล')], 'apps/dbgw': ['bun', tx('ฐานข้อมูล')], 'apps/database': ['rust', tx('ฐานข้อมูล')],
   'apps/health': ['bun', tx('ระบบส่วนกลาง')], 'apps/status': ['bun', tx('ระบบส่วนกลาง')], 'apps/analytics': ['bun', tx('ระบบส่วนกลาง')], 'apps/backup': ['bun', tx('ระบบส่วนกลาง')], 'apps/chat': ['bun', tx('ระบบส่วนกลาง')],
   'server/nginx-proxy-manager': ['nginxproxymanager', tx('จัดการเซิร์ฟเวอร์')], 'server/portainer': ['portainer', tx('จัดการเซิร์ฟเวอร์')],
