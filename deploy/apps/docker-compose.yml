@@ -8,6 +8,7 @@
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
 #     sync       Rust       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
 #   calorieflow  Next.js   calorieflow.chakkritton.com       (repo CalorieFlowWeb; its AI is the calorieflow-ai Worker)
+#   turn         coturn    <VPS IP>:3478                     (STUN/TURN for CalorieFlow calls; turn/setup.sh)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
 #   web, api, verify, weather-web-api        thai-weather.chakkritton.com (this repo; ../weather.yml)
@@ -113,6 +114,25 @@ services:
     env_file: ${ENVS:-/opt/apps/env}/drive-music.env
     volumes:
       - drive-music-cache:/app/.next/cache
+
+  turn:
+    # STUN/TURN for CalorieFlow's voice and video calls (WebRTC). Host network so its relay ports are real ones;
+    # ufw opens 3478 udp+tcp and 49160-49250/udp. turn/setup.sh writes its config (with the shared secret the
+    # app signs short-lived credentials with) into $ENVS; nothing secret is in git.
+    image: coturn/coturn:4.18.0-alpine@sha256:c29135c08565810d37053f384584392b7c24b69570fc81a721b878d6fe63e04e
+    container_name: apps-turn
+    restart: unless-stopped
+    network_mode: host
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ${ENVS:-/opt/apps/env}/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    read_only: true
+    tmpfs:
+      - /var/tmp:uid=65534,gid=65533
+      - /var/lib/coturn:uid=65534,gid=65533
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    pids_limit: 128
 
   calorieflow:
     <<: *next

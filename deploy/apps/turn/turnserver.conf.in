@@ -1,0 +1,47 @@
+# coturn for CalorieFlow calls. setup.sh fills @PUBLIC_IP@ and @SECRET@ and writes the result to
+# $ENVS/turnserver.conf (mode 0400, owned by the container's user); this template holds no secret.
+listening-ip=@PUBLIC_IP@
+relay-ip=@PUBLIC_IP@
+listening-port=3478
+min-port=49160
+max-port=49250
+
+# time-limited credentials made by the app (HMAC of "<expiry>:<user>" with this secret)
+use-auth-secret
+static-auth-secret=@SECRET@
+realm=calorieflow.chakkritton.com
+fingerprint
+
+# UDP relays only, nothing on the VPS's private networks or loopback
+no-tcp-relay
+no-multicast-peers
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.0.0.0-192.0.0.255
+denied-peer-ip=192.0.2.0-192.0.2.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=198.18.0.0-198.19.255.255
+denied-peer-ip=198.51.100.0-198.51.100.255
+denied-peer-ip=203.0.113.0-203.0.113.255
+denied-peer-ip=224.0.0.0-255.255.255.255
+
+# limits: sessions per user and in all, and bandwidth per session (bytes/s, about 4 Mbit/s)
+user-quota=12
+total-quota=120
+max-bps=500000
+stale-nonce=600
+
+no-tls
+no-dtls
+no-cli
+no-rfc5780
+no-stun-backward-compatibility
+response-origin-only-with-rfc5780
+no-software-attribute
+log-file=stdout
+simple-log
+pidfile=/var/tmp/turnserver.pid
