@@ -288,6 +288,18 @@ QR picture from the album), group chats, photos and videos.
   so no push while the app is open). Friend links are `/f/<code>`.
 - NPM `client_max_body_size` for the host raised 10m → 70m (`deploy/apps/npm-hosts.py`).
 
+
+### CalorieFlow calls and TURN (2026-10-29, Claude)
+
+- Voice/video calls are WebRTC peer to peer (CalorieFlow schema 12: `calls`, `call_signals`; `src/lib/calls.ts`,
+  `src/components/chat/call.tsx`). The app signs 12-hour TURN credentials with `TURN_SECRET` (in
+  `/opt/apps/env/calorieflow.env`, with `TURN_URLS`); without them it falls back to a public STUN server.
+- TURN is the `turn` service in `deploy/apps` (coturn 4.18.0-alpine by digest, host network, UDP relays only,
+  private/loopback peers denied, quotas, ~4 Mbit/s per session). Provision once on the VPS, then restart CalorieFlow:
+  `cd /opt/thai-weather/deploy/apps && sudo sh turn/setup.sh && docker compose up -d turn && ../rollout.sh calorieflow`.
+  setup.sh opens ufw 3478/udp, 3478/tcp and 49160-49250/udp; the config with the secret is `/opt/apps/env/turnserver.conf`
+  (0400, uid 65534). Owner approved opening these ports on 2026-10-29.
+
 ### CalorieFlow on the VPS (2026-10-25, Claude)
 Owner: bring the CalorieFlow web app over with a new layout (reference images), accounts with data on the
 server, an LLM coach like Scrolly (daily analysis + notifications), Web Push, Apple Health if possible.
