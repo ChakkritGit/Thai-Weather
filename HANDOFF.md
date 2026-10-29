@@ -124,7 +124,7 @@ Python numerical worker and separate Python verification container retained. See
   two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
 - Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
 - CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET — a Web OAuth client in project `calorieflow-bb756`, set 2026-10-25);
+  GOOGLE_CLIENT_SECRET — a Web OAuth client in project `calorieflow-bb756`, set 2026-10-25; DATA_KEY — see below);
   `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow.env) and
   HEALTH_TOKEN (= the status Worker's CALORIEFLOW_HEALTH_TOKEN; the value is kept nowhere else — to rotate,
   generate one and pipe it into both).
@@ -287,6 +287,11 @@ QR picture from the album), group chats, photos and videos.
 - Live updates: Postgres `LISTEN/NOTIFY` on `cf_chat` → SSE `/api/chat/stream` (25 s heartbeat; presence row,
   so no push while the app is open). Friend links are `/f/<code>`.
 - NPM `client_max_body_size` for the host raised 10m → 70m (`deploy/apps/npm-hosts.py`).
+- **Encrypted at rest** (2026-10-29, schema 23, `src/lib/vault.ts`): message text and notes, notes, story captions
+  and all chat/story files are AES-256-GCM sealed under `DATA_KEY` (32 bytes, base64) in
+  `/opt/apps/env/calorieflow.env`; copy in the Mac Keychain as "calorieflow DATA_KEY" (account `calorieflow`).
+  **Losing the key loses every chat**, and the nightly dumps are useless without it; never rotate it by hand
+  (there is no re-encrypt tool yet). Rows have `enc`; unsealed rows are sealed by `sealBacklog` (scheduler).
 
 
 ### CalorieFlow calls and TURN (2026-10-29, Claude)
