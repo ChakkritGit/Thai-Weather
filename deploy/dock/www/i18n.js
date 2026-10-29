@@ -808,6 +808,7 @@ const JA = {
 };
 // Database manager labels, kept together so additions to its view can be translated in both languages.
 Object.assign(EN, {
+  "ข้อมูลทั้งหมดในตารางนี้ถูกซ่อนเพื่อความปลอดภัย": "All data in this table is hidden for security",
   "ดูและจัดการตาราง PostgreSQL": "Browse and manage PostgreSQL tables",
   "คำสั่ง SQL": "SQL query",
   "รองรับคำสั่งตารางเดียวและคอลัมน์ที่อนุญาตเท่านั้น คำสั่งอ่านเป็นค่าเริ่มต้น": "Only single-table queries and allowed columns are supported. Queries are read-only by default.",
@@ -863,6 +864,7 @@ Object.assign(EN, {
   "บันทึก": "Save",
 });
 Object.assign(JA, {
+  "ข้อมูลทั้งหมดในตารางนี้ถูกซ่อนเพื่อความปลอดภัย": "セキュリティのため、このテーブルのデータはすべて非表示です",
   "ดูและจัดการตาราง PostgreSQL": "PostgreSQLのテーブルを表示・管理",
   "คำสั่ง SQL": "SQLクエリ",
   "รองรับคำสั่งตารางเดียวและคอลัมน์ที่อนุญาตเท่านั้น คำสั่งอ่านเป็นค่าเริ่มต้น": "1つのテーブルと許可された列のみを操作できます。初期設定は読み取り専用です。",

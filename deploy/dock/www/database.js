@@ -119,6 +119,10 @@ export async function databaseView(token, { h, tx, api, shell, topBar, tabs, han
       h('button', { type: 'submit', class: 'btn primary' }, tx('รันคำสั่ง')));
     if (!sqlResult) return form;
     const cols = sqlResult.columns || [];
+    if (cols.length && cols.every((col) => col.secret)) {
+      return h('section', { class: 'db-section' }, form, h('h3', { class: 'group-title' }, tx('ผลลัพธ์ SQL')),
+        small(tx('ข้อมูลทั้งหมดในตารางนี้ถูกซ่อนเพื่อความปลอดภัย')));
+    }
     const data = sqlResult.rows || [];
     const header = h('tr', {}, cols.map((c) => h('th', { scope: 'col' }, c.name)));
     const records = data.map((row) => h('tr', {}, cols.map((c) => h('td', {}, c.secret
@@ -134,12 +138,16 @@ export async function databaseView(token, { h, tx, api, shell, topBar, tabs, han
       button(tx('ตารางทั้งหมด'), () => { ++sequence; busy = false; table = null; page = null; editor = null; message = ''; render(); }, { class: 'db-link' }),
       h('h2', { class: 'db-table-title db-mono' }, `${table.schema}.${table.name}`));
     if (!page) return h('section', { class: 'db-section' }, heading);
+    const cols = page.columns || [];
+    if (cols.length && cols.every((col) => col.secret)) {
+      return h('section', { class: 'db-section' }, heading,
+        small(tx('ข้อมูลทั้งหมดในตารางนี้ถูกซ่อนเพื่อความปลอดภัย')));
+    }
     const input = h('input', { class: 'field', type: 'search', value: search, placeholder: tx('ค้นหาในตาราง'), 'aria-label': tx('ค้นหาในตาราง') });
     const searchForm = h('form', { class: 'db-search', onsubmit: async (event) => {
       event.preventDefault(); search = input.value; offset = 0; editor = null; await loadRows();
     } }, input, h('button', { class: 'btn', type: 'submit' }, tx('ค้นหา')));
     const editInfo = page.editable === false ? small(tx('ตารางนี้ไม่มีคีย์ที่ใช้แก้ไขแถวได้ จึงดูข้อมูลได้อย่างเดียว')) : null;
-    const cols = page.columns || [];
     const rows = page.rows || [];
     const canWrite = page.editable !== false;
     const header = h('tr', {}, cols.map((col) => h('th', { scope: 'col', 'aria-sort': sort === col.name ? (direction === 'asc' ? 'ascending' : 'descending') : undefined }, col.secret ? col.name : h('button', {
