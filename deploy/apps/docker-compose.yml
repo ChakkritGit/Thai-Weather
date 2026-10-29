@@ -132,6 +132,8 @@ services:
       - /var/lib/coturn:uid=65534,gid=65533
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
+    # the image's turnserver binary carries this file capability; without it in the bounding set exec fails (EPERM)
+    cap_add: [NET_BIND_SERVICE]
     pids_limit: 128
 
   calorieflow:
