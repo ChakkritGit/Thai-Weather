@@ -68,8 +68,8 @@ HOSTS = [
     (["expenses.chakkritton.com"], "apps-expenses", 3000, proxied("/data/", "apps-dbgw:8791", "the app's data API (database gateway → PostgREST / reminders)")),
     (["whiteboard.chakkritton.com"], "apps-whiteboard", 3000, ws("/rooms/", "apps-rooms:8787", "Yjs rooms (was the whiteboard-rooms Worker)")),
     (["drive-music.chakkritton.com"], "apps-drive-music", 3000, ws("/parties/", "apps-sync:8788", "Party Play sync (was the drive-music-sync Worker)")),
-    # .wgd imports are up to 8 MB (nginx's default body limit is 1 MB); /ai/* never gets here (a Worker route)
-    (["calorieflow.chakkritton.com"], "apps-calorieflow", 3000, "client_max_body_size 10m;\n"),
+    # chat videos are up to 60 MB (the app checks; Cloudflare allows 100 MB); /ai/* never gets here (a Worker route)
+    (["calorieflow.chakkritton.com"], "apps-calorieflow", 3000, "client_max_body_size 70m;\n"),
     (["health.chakkritton.com"], "apps-health", 8789, ""),  # the status Worker's view inside the VPS
 ]
 

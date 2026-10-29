@@ -37,7 +37,7 @@ Updated 2026-10-29 (Bangkok) by Codex, for the next agent. Read this file and
 | expenses.chakkritton.com | Spent/Cost (bills, plans, push reminders) | github.com/ChakkritGit/Spent-Cost | VPS (`apps`); **login = Supabase Auth** (only thing left on Supabase) |
 | whiteboard.chakkritton.com | Whiteboard (Yjs rooms) | github.com/ChakkritGit/Whiteboard | VPS (`apps`) |
 | drive-music.chakkritton.com | Drive Music (Google Drive player, Party Play sync) | github.com/ChakkritGit/Drive-Music-Web | VPS (`apps`) |
-| calorieflow.chakkritton.com | CalorieFlow (calories/water/weight, AI coach, Web Push, Apple Health via iOS Shortcut) | github.com/ChakkritGit/CalorieFlowWeb (**private**; `worker/` = AI Worker) | VPS (`apps`), own DB `calorieflow` in apps-db; AI = Cloudflare Worker `calorieflow-ai` |
+| calorieflow.chakkritton.com | CalorieFlow (calories/water/weight, AI coach, chat with friends and groups, Web Push, Apple Health via iOS Shortcut) | github.com/ChakkritGit/CalorieFlowWeb (**private**; `worker/` = AI Worker) | VPS (`apps`), own DB `calorieflow` in apps-db; AI = Cloudflare Worker `calorieflow-ai` |
 | docker.chakkritton.com | **Dock** — owner's server dashboard (containers, metrics, security watch, web stats, backups, chat + web push) | `deploy/dock/`, `deploy/apps/services`, `deploy/apps/rust-services` | VPS |
 | status.chakkritton.com | Status page | `deploy/apps/services/src/status/` + `deploy/status-worker/wrangler.toml` | **Cloudflare Worker** `status` (cron */5, KV) — off the VPS on purpose |
 | whoami.chakkritton.com | Just for fun: a terminal that types `whoami` (answers `chakkrit-ton`; plain text for curl), then `status --watch`: the status JSON as a live box table, polled every 15 s | `deploy/whoami-worker/` | **Cloudflare Worker** `whoami` (service binding `STATUS` → the status Worker, proxied at `/status.json`); deploy `cd deploy/whoami-worker && npx -y wrangler@4.144.0 deploy` |
@@ -275,6 +275,18 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   regenerates it and creates the two networks. See `deploy/apps/database/README.md`
   for test and deployment details. `tests/database_contract.py` uses isolated Docker
   fixtures and never connects to the real databases or sends notifications.
+
+### CalorieFlow chat (2026-10-29, Claude)
+Owner: the Coach tab becomes a chat list (AI coach pinned first), friends by QR code or link (scan, or pick a
+QR picture from the album), group chats, photos and videos.
+- Schema migration 8 (`friends`, `chats`, `chat_members`, `messages`, `chat_media`, `chat_presence`,
+  `users.friend_code`, `users.notify_chat`). Photos and videos live **in the `calorieflow` database**
+  (`chat_media.data`, storage external, served by byte range) so no new volume was needed; this makes the DB
+  and its nightly dump grow with use. Limits: photo 10 MB (resized to 2048 px in the browser), video 60 MB,
+  600 MB per person per day, groups of 50.
+- Live updates: Postgres `LISTEN/NOTIFY` on `cf_chat` → SSE `/api/chat/stream` (25 s heartbeat; presence row,
+  so no push while the app is open). Friend links are `/f/<code>`.
+- NPM `client_max_body_size` for the host raised 10m → 70m (`deploy/apps/npm-hosts.py`).
 
 ### CalorieFlow on the VPS (2026-10-25, Claude)
 Owner: bring the CalorieFlow web app over with a new layout (reference images), accounts with data on the
