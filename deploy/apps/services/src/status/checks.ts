@@ -15,6 +15,7 @@ export const CHECKS: { id: CheckId; group: 'server' | 'thaiweather' | 'portfolio
   { id: 'musicsync', group: 'drivemusic', name: 'Party Play sync' },
   { id: 'musicauth', group: 'drivemusic', name: 'ล็อกอิน Google ของ Drive Music' },
   { id: 'calorieflow', group: 'calorieflow', name: 'CalorieFlow' },
+  { id: 'calorieflowapi', group: 'calorieflow', name: 'CalorieFlow API' },
   { id: 'calorieflowai', group: 'calorieflow', name: 'โค้ช AI ของ CalorieFlow', hourly: true },
 ]
 
@@ -114,6 +115,8 @@ export async function runChecks(env: Env, scheduledTime: number): Promise<Result
     ),
     // ok only with the database answering and the reminder scheduler's heartbeat under 5 minutes old
     httpCheck('calorieflow', 'https://calorieflow.chakkritton.com/api/health', {}, jsonOk, 1),
+    // the Rust API (web and native app): 204 only with its database answering
+    httpCheck('calorieflowapi', 'https://calorieflow.chakkritton.com/api/v1/healthz', {}, async (r) => r.status === 204, 1),
     ...(hourly
       ? [httpCheck('calorieflowai', 'https://calorieflow.chakkritton.com/ai/health?ai=1', { headers: { 'x-health-token': env.CALORIEFLOW_HEALTH_TOKEN } }, jsonOk)]
       : []),

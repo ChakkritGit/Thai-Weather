@@ -315,6 +315,13 @@ server, an LLM coach like Scrolly (daily analysis + notifications), Web Push, Ap
   The iOS app repo CalorieFlowIOS is untouched. The old Firebase-hosted version stays up so people can export
   `.wgd` and import it (Settings → ข้อมูล).
 - Sign-in: passkeys (@simplewebauthn 14, discoverable credentials), DB sessions (cookie `cf_session`).
+- **Rust API** (2026-10-29): `api/` in the same repo, service `calorieflow-api` (Axum + tokio-postgres, scratch
+  image, health check `/calorieflow-api --healthcheck`), `/api/v1/` on calorieflow.chakkritton.com through NPM
+  (`npm-hosts.py`) and `http://apps-calorieflow-api:8080` inside the apps network. Bearer tokens are rows in the
+  web's `sessions` table: the web passes its `cf_session` token, the native app (repo CalorieFlow-Native) gets
+  `cfa_…` tokens by `/app/connect` (PKCE, one-time `app_codes`). `autodeploy.sh` builds and rolls it out before
+  the web app whenever `api/` changed. Env `/opt/apps/env/calorieflow-api.env` (DATABASE_URL, DATA_KEY; never
+  print). Status check `calorieflowapi`.
 - Data: database `calorieflow` (role `calorieflow`, created by `db/init.sh` on fresh clusters when
   `CALORIEFLOW_PASSWORD` is in db.env); the app migrates its own schema on start (`src/lib/schema.ts`,
   advisory lock). Nightly dump + backup bundle include it.

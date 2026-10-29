@@ -30,6 +30,7 @@ function world(opts: { vps: boolean; relayed: unknown[] }) {
     if (url === env.HEALTH_URL) return Response.json({ at: Date.now(), containers: [{ name: 'apps-db', state: 'running', health: 'healthy' }], checks: [{ id: 'rooms', ok: true, ms: 1 }, { id: 'musicsync', ok: true, ms: 1 }, { id: 'reminders', ok: true, ms: 1 }] })
     if (url.includes('/api/auth/providers')) return Response.json({ google: {} })
     if (url.endsWith('.com/')) return new Response('<html>')
+    if (url.endsWith('/api/v1/healthz')) return new Response(null, { status: 204 })
     return Response.json({ ok: true })
   }) as never
 }
@@ -52,17 +53,17 @@ test('a VPS that stops answering: one e-mail for every down alert, then "back up
   await tick(env, store, T + 5 * 60_000, mail, () => T + 5 * 60_000)
   assert.equal(mails.length, 0) // one failure is not "down" yet
   const down = await tick(env, store, T + 10 * 60_000, mail, () => T + 10 * 60_000)
-  assert.equal(down.alerts.length, 13) // every check goes through the VPS
+  assert.equal(down.alerts.length, 14) // every check goes through the VPS
   assert.equal(mails.length, 1)
-  assert.match(mails[0].subject, /^เซิร์ฟเวอร์และ container ล่ม และอีก 12 รายการ$/)
+  assert.match(mails[0].subject, /^เซิร์ฟเวอร์และ container ล่ม และอีก 13 รายการ$/)
   assert.match(mails[0].html, /ดูหน้าสถานะ/)
 
   world({ vps: true, relayed })
   const back = await tick(env, store, T + 30 * 60_000, mail, () => T + 30 * 60_000)
   assert.equal(back.undelivered.length, 0)
-  assert.equal(relayed.length, 13)
+  assert.equal(relayed.length, 14)
   assert.equal(mails.length, 1)
-  assert.equal((await load(store)).incidents.length, 13)
+  assert.equal((await load(store)).incidents.length, 14)
 })
 
 test('the e-mail escapes what it shows and keeps a plain-text part', () => {

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build one Next app or the native Rust service images.
-#   ./build.sh portfolio|expenses|whiteboard|drive-music|calorieflow|rust|backup|db
+#   ./build.sh portfolio|expenses|whiteboard|drive-music|calorieflow|calorieflow-api|rust|backup|db
 # Not `docker compose build`: Compose's bake path refuses to read the secret file without an extra grant.
 # The app's env file is mounted only during `next build` (NEXT_PUBLIC_* are inlined) and never lands in a layer.
 set -eu
@@ -14,6 +14,9 @@ case "$name" in
   backup)
     docker buildx build --load -t apps-backup:local -f backup.Dockerfile \
       --build-context runtime=docker-image://apps-rust:local . ;;
+  calorieflow-api)
+    # CalorieFlow's Rust API lives in the CalorieFlowWeb repo (api/), next to the web app that uses it
+    docker buildx build --load -t apps-calorieflow-api:local "$REPOS/calorieflow/api" ;;
   db)
     docker buildx build --load -t apps-db:local db ;;
   portfolio|expenses|whiteboard|drive-music|calorieflow)

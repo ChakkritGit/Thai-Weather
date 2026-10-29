@@ -8,6 +8,7 @@
 | `rooms` | Rust/Yrs, Yjs relay | whiteboard.chakkritton.com/rooms/ | Worker `whiteboard-rooms` |
 | `drive-music` | Next.js (repo Drive-Music-Web) | drive-music.chakkritton.com | Vercel `drive-music` |
 | `calorieflow` | Next.js (repo CalorieFlowWeb), own database + passkeys, in-process push scheduler | calorieflow.chakkritton.com | Firebase Hosting (IndexedDB only) |
+| `calorieflow-api` | Rust (CalorieFlowWeb `api/`): JSON API on the same database, for the native app and the web app | calorieflow.chakkritton.com/api/v1/ | (new) |
 | `sync` | Rust, Party Play protocol 2 (native state machine, SQLite storage) | drive-music.chakkritton.com/parties/ | Worker `drive-music-sync` |
 | `health` | Rust: every container's Docker health (host snapshot every 30 s) + the internal checks, for the status Worker; relays its alerts to Dock | health.chakkritton.com (needs `x-probe-secret`) | – |
 | `analytics` | Rust, page views + Web Vitals | every site's `/_a`, read in Dock ("สถิติเว็บ") | Vercel Analytics + Speed Insights |

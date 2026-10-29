@@ -61,6 +61,18 @@ location ^~ {path} {{
 """
 
 
+# the native app's API (the web app reaches it inside the apps network); bodies up to the web's own limit
+CALORIEFLOW_API = """# CalorieFlow API (Rust, repo CalorieFlowWeb api/)
+location ^~ /api/v1/ {
+  set $calorieflow_api apps-calorieflow-api:8080;
+  proxy_pass http://$calorieflow_api;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  client_max_body_size 10m;
+}
+"""
+
+
 PORTFOLIO_PROBES = (Path(__file__).resolve().parents[1] / "hardening" / "npm-portfolio-probes.conf").read_text()
 
 HOSTS = [
@@ -69,7 +81,7 @@ HOSTS = [
     (["whiteboard.chakkritton.com"], "apps-whiteboard", 3000, ws("/rooms/", "apps-rooms:8787", "Yjs rooms (was the whiteboard-rooms Worker)")),
     (["drive-music.chakkritton.com"], "apps-drive-music", 3000, ws("/parties/", "apps-sync:8788", "Party Play sync (was the drive-music-sync Worker)")),
     # chat videos are up to 60 MB (the app checks; Cloudflare allows 100 MB); /ai/* never gets here (a Worker route)
-    (["calorieflow.chakkritton.com"], "apps-calorieflow", 3000, "client_max_body_size 70m;\n"),
+    (["calorieflow.chakkritton.com"], "apps-calorieflow", 3000, "client_max_body_size 70m;\n" + CALORIEFLOW_API),
     (["health.chakkritton.com"], "apps-health", 8789, ""),  # the status Worker's view inside the VPS
 ]
 

@@ -8,6 +8,7 @@
 #   drive-music  Next.js   drive-music.chakkritton.com       (repo Drive-Music-Web)
 #     sync       Rust       drive-music.chakkritton.com/parties/ (Party Play, was the drive-music-sync Worker)
 #   calorieflow  Next.js   calorieflow.chakkritton.com       (repo CalorieFlowWeb; its AI is the calorieflow-ai Worker)
+#     calorieflow-api  Rust  calorieflow.chakkritton.com/api/v1/ (same repo, api/: the native app's API; the web uses it too)
 #   turn         coturn    <VPS IP>:3478                     (STUN/TURN for CalorieFlow calls; turn/setup.sh)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
@@ -151,6 +152,25 @@ services:
     env_file: ${ENVS:-/opt/apps/env}/calorieflow.env
     volumes:
       - calorieflow-cache:/app/.next/cache
+
+  # CalorieFlow's Rust API (repo CalorieFlowWeb, api/): /api/v1/ for the native app through NPM, and the web app's
+  # data and actions over the apps network. Same database and role as the web app. Rolled out like the web apps
+  # (no container_name; the health check is in the image).
+  calorieflow-api:
+    image: apps-calorieflow-api:local
+    restart: unless-stopped
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    pids_limit: 128
+    pull_policy: never
+    networks:
+      proxy:
+        aliases: [apps-calorieflow-api]
+      apps:
+        aliases: [apps-calorieflow-api]
+    env_file: ${ENVS:-/opt/apps/env}/calorieflow-api.env
 
   # Native Rust WebSocket services.
   rooms:

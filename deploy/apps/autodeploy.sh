@@ -29,6 +29,17 @@ for app in portfolio expenses whiteboard drive-music calorieflow; do
   if [ "$old" = "$new" ] && [ "$force" != "$app" ]; then continue; fi
   echo "== $app ${old%"${old#???????}"} → ${new%"${new#???????}"}"
   git -C "$dir" reset -q --hard origin/main
+  # CalorieFlow's API (api/ in the same repo) goes first: the web app's new code may need its new endpoints
+  if [ "$app" = calorieflow ] && { [ "$force" = "$app" ] || ! git -C "$dir" diff --quiet "$old" "$new" -- api; }; then
+    echo "== build calorieflow-api"
+    if ./build.sh calorieflow-api && ../rollout.sh calorieflow-api; then
+      echo "== calorieflow-api deployed"
+    else
+      echo "!! calorieflow-api failed; rolling the checkout back to ${old%"${old#???????}"}"
+      git -C "$dir" reset -q --hard "$old"
+      continue
+    fi
+  fi
   if deploy "$app" "$app"; then
     echo "== $app deployed"
   else
