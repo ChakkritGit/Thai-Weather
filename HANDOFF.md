@@ -299,6 +299,8 @@ QR picture from the album), group chats, photos and videos.
   `cd /opt/thai-weather/deploy/apps && sudo sh turn/setup.sh && docker compose up -d turn && ../rollout.sh calorieflow`.
   setup.sh opens ufw 3478/udp, 3478/tcp and 49160-49250/udp; the config with the secret is `/opt/apps/env/turnserver.conf`
   (0400, uid 65534). Owner approved opening these ports on 2026-10-29.
+- GIF search uses GIPHY (Tenor's API closed 2026-06-30) and stays hidden until `GIPHY_KEY` is in
+  `/opt/apps/env/calorieflow.env` (then `../rollout.sh calorieflow`). The key never reaches the browser.
 
 ### CalorieFlow on the VPS (2026-10-25, Claude)
 Owner: bring the CalorieFlow web app over with a new layout (reference images), accounts with data on the
