@@ -571,3 +571,57 @@ html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 .dd-item:hover, .dd-item:focus-visible { background: var(--bg); }
 .dd-item .tick { width: 16px; height: 16px; visibility: hidden; }
 .dd-item[aria-checked='true'] .tick { visibility: visible; }
+
+/* PostgreSQL browser: keep wide tables scrollable within the card on small screens. */
+.db-page { display: grid; gap: 14px; }
+.db-field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.db-select, .db-mode { appearance: auto; color: var(--text); }
+.db-links, .db-toolbar, .db-pages, .db-edit-actions { display: flex; align-items: center; gap: 10px; }
+.db-links { flex-wrap: wrap; justify-content: space-between; }
+.db-link { display: inline-flex; align-items: center; min-height: 40px; padding: 0; border: 0; background: transparent; color: var(--text); font-weight: 600; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.db-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.db-notice { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 13px; }
+.db-section { display: grid; min-width: 0; gap: 12px; }
+.db-section .group-title { margin: 0 4px; }
+.db-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.db-chevron { color: var(--faint); font-size: 24px; line-height: 1; }
+.db-table-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
+.db-table-title { margin: 0; font-size: 17px; font-weight: 650; }
+.db-search { display: flex; gap: 8px; min-width: 0; }
+.db-search .field { min-width: 0; }
+.db-search .btn { flex: none; }
+.db-toolbar { justify-content: space-between; }
+.db-count { color: var(--muted); font-size: 13px; }
+.db-toolbar .btn { flex: none; }
+.db-table-wrap { max-width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); -webkit-overflow-scrolling: touch; }
+.db-table { border-collapse: collapse; width: 100%; text-align: left; font-size: 13px; }
+.db-table th, .db-table td { max-width: 240px; min-width: 100px; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.db-table th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.db-table tr:last-child td { border-bottom: 0; }
+.db-sort { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.db-value { display: block; max-width: 220px; max-height: 6.5em; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; }
+.db-hidden { color: var(--muted); font-style: italic; white-space: nowrap; }
+.db-row-actions { white-space: nowrap; }
+.db-row-actions .btn { min-height: 36px; padding: 0 10px; font-size: 12px; }
+.db-row-actions .btn + .btn { margin-left: 6px; }
+.db-pages { justify-content: space-between; color: var(--muted); font-size: 13px; }
+.db-pages .btn { flex: none; }
+.db-editor { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); scroll-margin-top: 16px; }
+.db-editor h3 { margin: 0; font-size: 16px; }
+.db-edit-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, auto); align-items: center; gap: 6px 10px; }
+.db-edit-field label { min-width: 0; }
+.db-edit-field strong, .db-type { display: block; }
+.db-type { margin-top: 2px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.db-input { grid-column: 1 / -1; min-height: 68px; padding: 10px 12px; resize: vertical; }
+.db-input:disabled { opacity: .5; }
+.db-mode { min-width: 0; }
+.db-page input, .db-page select, .db-page textarea { font-size: 16px; }
+.db-audit-info { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.db-sql-input { min-height: 120px; padding: 10px 12px; resize: vertical; }
+.db-sql-write { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.db-sql-write input { width: 20px; height: 20px; flex: none; }
+.db-sql-help { font-size: 13px; color: var(--muted); }
+.db-sql-help summary { cursor: pointer; color: var(--text); }
+.db-sql-help pre { max-width: 100%; overflow: auto; padding: 10px; border-radius: 8px; background: var(--code-bg); }
+.db-edit-actions .btn { flex: 1; }
+@media (max-width: 350px) { .db-edit-field { grid-template-columns: 1fr; } .db-input { grid-column: auto; } }

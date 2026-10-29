@@ -4,6 +4,8 @@ mod chat;
 mod chat_report;
 mod checks;
 mod client;
+mod database;
+mod database_sql;
 mod dbgw;
 mod health;
 mod media;
@@ -31,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "reminders" => 8792,
         "portfolio-api" => 8800,
         "weather-web-api" => 8801,
+        "database" => 8802,
         _ => return Err("unknown service".into()),
     };
     let port = util::env("PORT", &default_port.to_string()).parse()?;
@@ -68,6 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         "portfolio-api" => util::serve(port, portfolio_api::router()).await,
         "weather-web-api" => util::serve(port, weather_web::router()).await,
+        "database" => util::serve(port, database::router()?).await,
         _ => unreachable!(),
     }
 }

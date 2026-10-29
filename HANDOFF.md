@@ -1,6 +1,6 @@
 # HANDOFF
 
-Updated 2026-10-20 (Bangkok) by Codex, for the next agent. Read this file and
+Updated 2026-10-29 (Bangkok) by Codex, for the next agent. Read this file and
 `AGENTS.md` before touching anything. Older notes: `docs/` (DEPLOYMENT, ARCHITECTURE, VERIFICATION, …) and
 `deploy/README.md`, `deploy/apps/README.md` — where they disagree with this file, this file is newer.
 
@@ -249,7 +249,32 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 (MapLibre) is `dynamic(..., { ssr: false })` inside `views/MapPage.tsx` — keep it that way, and keep
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
-## 9. Recent changes (2026-10-14 → 25)
+## 9. Recent changes (2026-10-14 → 29)
+
+### Dock PostgreSQL manager (2026-10-29, Codex)
+
+- Dock → More → Database browses the four Postgres databases and their table metadata.
+  It supports paging, search, sorting, confirmed row insert/edit/delete, an edit history,
+  and a link to the existing encrypted server backup. Table counts are estimates.
+- SQL is a deliberately limited, parsed subset: SELECT * with optional ORDER BY/LIMIT,
+  plus single-row INSERT, UPDATE and DELETE with literal values and complete primary
+  keys. It is translated to the same guarded operations; arbitrary SQL never reaches
+  PostgreSQL. Writes require a one-use enablement and confirmation.
+- `deploy/apps/database/policy.json` explicitly lists reviewed columns. New columns,
+  unknown types, JSON/binary and credential-related fields are hidden until reviewed;
+  the UI cannot search, sort or write hidden columns. Postgres table locks protect the
+  schema check and row versions include relation/table OIDs and xmin. The durable
+  audit volume records attempts, changed column names and outcomes, but no values.
+- Internal service `apps-database` joins only the two internal networks
+  `dock-database` (Dock ↔ manager) and `database-postgres` (manager ↔ apps-db).
+  Dock uses its existing Portainer authentication and does not forward its bearer
+  token to the manager. No additional public port or Cloudflare setting is needed.
+- Provision/rotation: `sh deploy/apps/database/setup.sh` generates a mode-0600
+  `database.env` containing only POSTGRES_PASSWORD from the existing db.env; rerun
+  and recreate the database manager when the password changes. The restore script
+  regenerates it and creates the two networks. See `deploy/apps/database/README.md`
+  for test and deployment details. `tests/database_contract.py` uses isolated Docker
+  fixtures and never connects to the real databases or sends notifications.
 
 ### CalorieFlow on the VPS (2026-10-25, Claude)
 Owner: bring the CalorieFlow web app over with a new layout (reference images), accounts with data on the

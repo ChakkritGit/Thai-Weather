@@ -73,6 +73,7 @@ services:
     networks:
       - proxy
       - dock
+      - dock-database
 
   # Rust host/container/proxy history and the security watch, built from apps/rust-services.
   # Read-only host views, no Docker socket or capabilities; reachable only from `dock` behind
@@ -124,6 +125,9 @@ networks:
     external: true
   dock:
     name: dock-internal   # internal: no internet access, only dock <-> dock-metrics
+    external: true
+  dock-database:
+    name: dock-database
     external: true
 
 volumes:

@@ -1,0 +1,33 @@
+{
+  "postgres": {"public": {}},
+  "expenses": {
+    "public": {
+      "entries": ["id", "user_id", "plan_id", "name", "amount", "category", "due_date", "paid_at", "created_at"],
+      "heartbeats": ["name", "at"],
+      "plans": ["id", "user_id", "name", "amount", "category", "day_of_month", "total_amount", "active", "created_at", "paid_before"],
+      "profiles": ["id", "created_at"],
+      "reminder_deliveries": ["reminder_day", "user_id", "state", "claim_id", "attempts", "lease_until", "updated_at"],
+      "reminder_retry_config": ["singleton", "start_day"]
+    }
+  },
+  "portfolio": {
+    "public": {
+      "Post": ["id", "slug", "locale", "translationKey", "title", "summary", "coverImage", "tags", "status", "readingMinutes", "featured", "publishedAt", "createdAt", "updatedAt", "views"],
+      "Program": ["id", "sortOrder", "visible", "url", "icon", "stack", "updatedAt"],
+      "Project": ["id", "slug", "locale", "translationKey", "title", "summary", "coverImage", "role", "stack", "year", "liveUrl", "repoUrl", "tags", "status", "featured", "sortOrder", "publishedAt", "createdAt", "updatedAt", "views"],
+      "Setting": ["key", "updatedAt"],
+      "Tag": ["id", "name", "createdAt"]
+    }
+  },
+  "calorieflow": {
+    "public": {
+      "days": ["user_id", "day", "water_ml", "weight_kg"],
+      "foods": ["id", "user_id", "day", "meal", "name", "kcal", "carbs_g", "protein_g", "fat_g", "eaten_at"],
+      "health_days": ["user_id", "day", "steps", "active_kcal", "resting_kcal", "exercise_min", "sleep_min", "updated_at", "resting_hr", "hrv_ms"],
+      "insights": ["user_id", "day", "text", "created_at"],
+      "schema_version": ["version"],
+      "usage": ["user_id", "day", "kind", "count"],
+      "users": ["id", "name", "gender", "age", "height_cm", "weight_kg", "target_kg", "activity", "goal", "manual_tdee", "water_goal", "notify_daily", "notify_meal", "notify_water", "onboarded", "created_at", "locale", "theme", "skin", "avatar_at", "lock_after"]
+    }
+  }
+}

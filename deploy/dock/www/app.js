@@ -4,6 +4,7 @@ import { chart } from './charts.js';
 import { BRANDS } from './brands.js';
 import { roll } from './roll.js';
 import { LANG, LANGS, LOCALE, THEMES, setLang, setTheme, theme, tx } from './i18n.js';
+import { databaseView } from './database.js';
 
 const TOKEN_KEY = 'dock.jwt';
 const LIST_REFRESH_MS = 10_000;
@@ -263,7 +264,7 @@ const SERVICES = {
   'apps/whiteboard': ['nextdotjs', 'Whiteboard'], 'apps/rooms': ['bun', 'Whiteboard'],
   'apps/drive-music': ['nextdotjs', 'Drive Music'], 'apps/sync': ['bun', 'Drive Music'],
   'apps/calorieflow': ['nextdotjs', 'CalorieFlow'],
-  'apps/db': ['postgresql', tx('ฐานข้อมูล')], 'apps/rest': ['postgresql', tx('ฐานข้อมูล')], 'apps/dbgw': ['bun', tx('ฐานข้อมูล')],
+  'apps/db': ['postgresql', tx('ฐานข้อมูล')], 'apps/rest': ['postgresql', tx('ฐานข้อมูล')], 'apps/dbgw': ['bun', tx('ฐานข้อมูล')], 'apps/database': ['rust', tx('ฐานข้อมูล')],
   'apps/health': ['bun', tx('ระบบส่วนกลาง')], 'apps/status': ['bun', tx('ระบบส่วนกลาง')], 'apps/analytics': ['bun', tx('ระบบส่วนกลาง')], 'apps/backup': ['bun', tx('ระบบส่วนกลาง')], 'apps/chat': ['bun', tx('ระบบส่วนกลาง')],
   'server/nginx-proxy-manager': ['nginxproxymanager', tx('จัดการเซิร์ฟเวอร์')], 'server/portainer': ['portainer', tx('จัดการเซิร์ฟเวอร์')],
   'server/dock': ['nginx', tx('จัดการเซิร์ฟเวอร์')], 'server/dock-metrics': ['bun', tx('จัดการเซิร์ฟเวอร์')],
@@ -1541,6 +1542,7 @@ function moreView() {
     h('div', { class: 'list' },
       item('#/security', 'shield', tx('ความปลอดภัย'), tx('การเข้าเครื่อง ไฟล์สำคัญ พอร์ต บอทที่สแกนเว็บ และช่องโหว่ใน image')),
       item('#/chat', 'chat', tx('แชท'), tx('สรุปรายเดือนจากระบบ และถาม–ตอบ'), badge()),
+      item('#/database', 'disk', tx('ฐานข้อมูล'), tx('ดูและจัดการตาราง PostgreSQL')),
       item('#/backup', 'archive', tx('สำรองข้อมูล'), tx('ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
       item('#/display', 'contrast', tx('การแสดงผล'), displaySummary())),
     tabs('#/more'));
@@ -1829,6 +1831,7 @@ async function route() {
     else if (hash === '#/volumes') await volumesView(token);
     else if (hash === '#/web') await webView(token);
     else if (hash === '#/backup') await backupView(token);
+    else if (hash === '#/database') await databaseView(token, { h, tx, api, shell, topBar, tabs, handleError, fmtBytes, isCurrent: (t) => t === viewToken });
     else if (hash === '#/display') displayView();
     else if (hash === '#/more') moreView();
     else if (hash === '#/chat') await chatView(token);

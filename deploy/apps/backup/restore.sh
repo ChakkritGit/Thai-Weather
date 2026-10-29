@@ -93,6 +93,10 @@ for f in "$P"/env/*.env; do
   esac
 done
 for f in "$P"/origin-ca/*; do [ -e "$f" ] && install -m 600 "$f" /root/origin-ca/; done
+# Keep the manager's separate, minimal credentials in step with the restored database.
+if [ -f /opt/thai-weather/deploy/apps/database/setup.sh ]; then
+  sh /opt/thai-weather/deploy/apps/database/setup.sh
+fi
 
 say "Stopping the stacks (volumes are kept until replaced)"
 APPS=/opt/thai-weather/deploy/apps
@@ -119,6 +123,8 @@ for v in thai-weather_npm-data thai-weather_npm-letsencrypt thai-weather_portain
 done
 docker network inspect proxy >/dev/null 2>&1 || docker network create proxy >/dev/null
 docker network inspect dock-internal >/dev/null 2>&1 || docker network create --internal dock-internal >/dev/null
+docker network inspect dock-database >/dev/null 2>&1 || docker network create --internal dock-database >/dev/null
+docker network inspect database-postgres >/dev/null 2>&1 || docker network create --internal database-postgres >/dev/null
 docker network inspect thai-weather-internal >/dev/null 2>&1 || docker network create thai-weather-internal >/dev/null
 
 if [ $BUILD = 1 ]; then

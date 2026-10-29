@@ -251,6 +251,28 @@ services:
       timeout: 5s
       retries: 3
 
+  # Dock's database manager has a private ingress network and a separate Postgres network.
+  # It must not listen on apps-internal or dock-internal, which contain other services.
+  database:
+    <<: *rust
+    container_name: apps-database
+    command: ["database"]
+    pull_policy: never
+    env_file: ${ENVS:-/opt/apps/env}/database.env
+    environment:
+      PORT: "8802"
+      POSTGRES_HOST: apps-db
+      DATABASE_AUDIT_PATH: /data/audit.sqlite
+    volumes:
+      - database-audit:/data
+      - ./database:/config:ro
+    networks: [dock-database, database-postgres]
+    healthcheck:
+      test: ["CMD", "/apps-runtime", "database", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   # ---- the apps' own database (moved from Supabase; login stays on Supabase Auth) --------------------
   db:
     # postgres:17.11-alpine3.24 (pinned by digest) with su-exec in place of gosu: db/Dockerfile, build.sh db
@@ -266,7 +288,7 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./db/init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
-    networks: [apps]
+    networks: [apps, database-postgres]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 10s
@@ -386,6 +408,12 @@ networks:
   dock:
     external: true
     name: dock-internal
+  dock-database:
+    external: true
+    name: dock-database
+  database-postgres:
+    external: true
+    name: database-postgres
 
 volumes:
   portfolio-cache:
@@ -398,3 +426,4 @@ volumes:
   analytics-data:
   db-data:
   media-data:
+  database-audit:
