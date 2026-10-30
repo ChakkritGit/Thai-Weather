@@ -113,10 +113,11 @@ export async function runChecks(env: Env, scheduledTime: number): Promise<Result
     httpCheck('musicauth', 'https://drive-music.chakkritton.com/api/auth/providers', {}, async (r) =>
       r.ok && 'google' in ((await r.json().catch(() => ({}))) as object), 1,
     ),
-    // ok only with the database answering and the reminder scheduler's heartbeat under 5 minutes old
-    httpCheck('calorieflow', 'https://calorieflow.chakkritton.com/api/health', {}, jsonOk, 1),
-    // the Rust API (web and native app): 204 only with its database answering
-    httpCheck('calorieflowapi', 'https://calorieflow.chakkritton.com/api/v1/healthz', {}, async (r) => r.status === 204, 1),
+    // the web app (Next): its sign-in page renders
+    httpCheck('calorieflow', 'https://calorieflow.chakkritton.com/login', {}, async (r) => r.status === 200, 1),
+    // the Rust API (all of /api/): ok only with the database answering and the reminder scheduler's heartbeat under
+    // 5 minutes old
+    httpCheck('calorieflowapi', 'https://calorieflow.chakkritton.com/api/health', {}, jsonOk, 1),
     ...(hourly
       ? [httpCheck('calorieflowai', 'https://calorieflow.chakkritton.com/ai/health?ai=1', { headers: { 'x-health-token': env.CALORIEFLOW_HEALTH_TOKEN } }, jsonOk)]
       : []),

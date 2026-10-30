@@ -141,8 +141,7 @@ services:
     <<: *next
     image: apps-calorieflow:local
     # no container_name: ../rollout.sh runs the new and the old side by side; NPM reaches either by this alias.
-    # Talks to apps-db itself (its own database and role); runs its reminder/analysis scheduler in-process,
-    # with claims in the database so the two containers of a rollout never push twice.
+    # Pages only: no database; reads and writes through calorieflow-api over the apps network.
     networks:
       proxy:
         aliases: [apps-calorieflow]
@@ -153,9 +152,10 @@ services:
     volumes:
       - calorieflow-cache:/app/.next/cache
 
-  # CalorieFlow's Rust API (repo CalorieFlowWeb, api/): /api/v1/ for the native app through NPM, and the web app's
-  # data and actions over the apps network. Same database and role as the web app. Rolled out like the web apps
-  # (no container_name; the health check is in the image).
+  # CalorieFlow's Rust API (repo CalorieFlowWeb, api/): all of /api/ through NPM (web and native app: sign-in,
+  # chat and its live stream, calls, uploads, Apple Health sync), the web's pages over the apps network, and the
+  # reminder/daily-insight scheduler (claims in the database, so the two containers of a rollout never push twice).
+  # Rolled out like the web apps (no container_name; the health check is in the image).
   calorieflow-api:
     image: apps-calorieflow-api:local
     restart: unless-stopped

@@ -123,9 +123,11 @@ Python numerical worker and separate Python verification container retained. See
   for nginx.chakkritton.com, portainer.chakkritton.com, docker.chakkritton.com (user `admin` for the last
   two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
 - Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
-- CalorieFlow: `calorieflow.env` (DATABASE_URL, AUTH_SECRET, ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET — a Web OAuth client in project `calorieflow-bb756`, set 2026-10-25; DATA_KEY — see below);
-  `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow.env) and
+- CalorieFlow (since 2026-10-30 the Rust API holds the secrets): `calorieflow-api.env` (DATABASE_URL, DATA_KEY — see
+  below, APP_ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — a Web OAuth client in project
+  `calorieflow-bb756`, set 2026-10-25, TURN_SECRET, TURN_URLS, GIPHY_KEY); the web's `calorieflow.env` keeps only
+  API_URL, ORIGIN, AUTH_SECRET (the app-connect cookie), GOOGLE_CLIENT_ID and VAPID_PUBLIC_KEY (both public).
+  `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow-api.env) and
   HEALTH_TOKEN (= the status Worker's CALORIEFLOW_HEALTH_TOKEN; the value is kept nowhere else — to rotate,
   generate one and pipe it into both).
 - Google Picker API key for Drive Music is commented out in `drive-music.env` (see §7).
@@ -226,8 +228,7 @@ integration cases and is not a complete backend check. Test sockets need local s
   purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
-- CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app), importing the old version's
-  `.wgd` export; after 2026-10-25 evening: the PIN lock, skins (incl. Halloween), the Health page animations,
+- CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app); after 2026-10-25 evening: the PIN lock, skins (incl. Halloween), the Health page animations,
   photo estimates on real meals, and the Thai date format (Buddhist year) under Bun.
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
@@ -287,43 +288,48 @@ QR picture from the album), group chats, photos and videos.
 - Live updates: Postgres `LISTEN/NOTIFY` on `cf_chat` → SSE `/api/chat/stream` (25 s heartbeat; presence row,
   so no push while the app is open). Friend links are `/f/<code>`.
 - NPM `client_max_body_size` for the host raised 10m → 70m (`deploy/apps/npm-hosts.py`).
-- **Encrypted at rest** (2026-10-29, schema 23, `src/lib/vault.ts`): message text and notes, notes, story captions
+- **Encrypted at rest** (2026-10-29, schema 23, `api/src/vault.rs`): message text and notes, notes, story captions
   and all chat/story files are AES-256-GCM sealed under `DATA_KEY` (32 bytes, base64) in
-  `/opt/apps/env/calorieflow.env`; copy in the Mac Keychain as "calorieflow DATA_KEY" (account `calorieflow`).
+  `/opt/apps/env/calorieflow-api.env`; copy in the Mac Keychain as "calorieflow DATA_KEY" (account `calorieflow`).
   **Losing the key loses every chat**, and the nightly dumps are useless without it; never rotate it by hand
-  (there is no re-encrypt tool yet). Rows have `enc`; unsealed rows are sealed by `sealBacklog` (scheduler).
+  (there is no re-encrypt tool yet). Rows have `enc`; every row is sealed (the backlog sealer was retired 2026-10-30
+  with 0 unsealed rows left).
 
 
 ### CalorieFlow calls and TURN (2026-10-29, Claude)
 
-- Voice/video calls are WebRTC peer to peer (CalorieFlow schema 12: `calls`, `call_signals`; `src/lib/calls.ts`,
-  `src/components/chat/call.tsx`). The app signs 12-hour TURN credentials with `TURN_SECRET` (in
-  `/opt/apps/env/calorieflow.env`, with `TURN_URLS`); without them it falls back to a public STUN server.
+- Voice/video calls are WebRTC peer to peer (CalorieFlow schema 12: `calls`, `call_signals`; `api/src/calls.rs`,
+  `src/components/chat/call.tsx`). The API signs 12-hour TURN credentials with `TURN_SECRET` (in
+  `/opt/apps/env/calorieflow-api.env`, with `TURN_URLS`); without them it falls back to a public STUN server.
 - TURN is the `turn` service in `deploy/apps` (coturn 4.18.0-alpine by digest, host network, UDP relays only,
   private/loopback peers denied, quotas, ~4 Mbit/s per session). Provision once on the VPS, then restart CalorieFlow:
-  `cd /opt/thai-weather/deploy/apps && sudo sh turn/setup.sh && docker compose up -d turn && ../rollout.sh calorieflow`.
+  `cd /opt/thai-weather/deploy/apps && sudo sh turn/setup.sh && docker compose up -d turn && ../rollout.sh calorieflow-api`.
   setup.sh opens ufw 3478/udp, 3478/tcp and 49160-49250/udp; the config with the secret is `/opt/apps/env/turnserver.conf`
   (0400, uid 65534). Owner approved opening these ports on 2026-10-29.
 - GIF search uses GIPHY (Tenor's API closed 2026-06-30) and stays hidden until `GIPHY_KEY` is in
-  `/opt/apps/env/calorieflow.env` (then `../rollout.sh calorieflow`). The key never reaches the browser.
+  `/opt/apps/env/calorieflow-api.env` (then `../rollout.sh calorieflow-api`). The key never reaches the browser.
 
 ### CalorieFlow on the VPS (2026-10-25, Claude)
 Owner: bring the CalorieFlow web app over with a new layout (reference images), accounts with data on the
 server, an LLM coach like Scrolly (daily analysis + notifications), Web Push, Apple Health if possible.
 - Repo **CalorieFlowWeb** rewritten (Vite + IndexedDB → Next 16.4.1 on Bun) and made **private**; deploy key
   `/root/.ssh/github-deploy/calorieflow`; in `autodeploy.sh`, `build.sh`, rollout like the other Next apps.
-  The iOS app repo CalorieFlowIOS is untouched. The old Firebase-hosted version stays up so people can export
-  `.wgd` and import it (Settings → ข้อมูล).
-- Sign-in: passkeys (@simplewebauthn 14, discoverable credentials), DB sessions (cookie `cf_session`).
+  The iOS app repo CalorieFlowIOS is untouched. The `.wgd` export/import of the old version was removed
+  2026-10-30 (owner's request).
+- Sign-in: passkeys (ES256, discoverable, user verification required; `api/src/webauthn.rs` since 2026-10-30),
+  Google (`api/src/signin.rs`), DB sessions (cookie `cf_session`).
 - **Rust API** (2026-10-29): `api/` in the same repo, service `calorieflow-api` (Axum + tokio-postgres, scratch
-  image, health check `/calorieflow-api --healthcheck`), `/api/v1/` on calorieflow.chakkritton.com through NPM
-  (`npm-hosts.py`) and `http://apps-calorieflow-api:8080` inside the apps network. Bearer tokens are rows in the
+  image, health check `/calorieflow-api --healthcheck`). Since 2026-10-30 it owns **all of `/api/`** on
+  calorieflow.chakkritton.com through NPM (`npm-hosts.py`: unbuffered for the chat's SSE stream, 70m bodies,
+  X-Real-IP set there because the API rate-limits by it); the Next app has no database and reads through the API
+  (`src/lib/api.ts`: `api()` for `/api/v1`, `legacy()` for the older `/api` paths) and `http://apps-calorieflow-api:8080` inside the apps network. Bearer tokens are rows in the
   web's `sessions` table: the web passes its `cf_session` token, the native app (repo CalorieFlow-Native) gets
   `cfa_…` tokens by `/app/connect` (PKCE, one-time `app_codes`). `autodeploy.sh` builds and rolls it out before
-  the web app whenever `api/` changed. Env `/opt/apps/env/calorieflow-api.env` (DATABASE_URL, DATA_KEY; never
-  print). Status check `calorieflowapi`.
+  the web app whenever `api/` changed. Env `/opt/apps/env/calorieflow-api.env` (see §4; never print). Its
+  scheduler (reminders, the 20:30 daily insight, story expiry) runs in-process (`api/src/jobs.rs`). Status checks
+  `calorieflow` (the sign-in page) and `calorieflowapi` (`/api/health`: database + scheduler heartbeat).
 - Data: database `calorieflow` (role `calorieflow`, created by `db/init.sh` on fresh clusters when
-  `CALORIEFLOW_PASSWORD` is in db.env); the app migrates its own schema on start (`src/lib/schema.ts`,
+  `CALORIEFLOW_PASSWORD` is in db.env); the API migrates the schema on start (`api/src/schema.rs`,
   advisory lock). Nightly dump + backup bundle include it.
 - AI: Worker `calorieflow-ai` (Workers AI qwen3-30b, route `calorieflow.chakkritton.com/ai/*`, rate limit
   namespace 1002), deploy `cd worker && npx -y wrangler@4.144.0 deploy`. Workers AI streams number tokens as

@@ -61,14 +61,20 @@ location ^~ {path} {{
 """
 
 
-# the native app's API (the web app reaches it inside the apps network); bodies up to the web's own limit
+# CalorieFlow's API owns all of /api/ (web and native app): uploads up to the web's limit, the chat's live stream
+# (server-sent events: unbuffered, held open), and the client's address set here, as the API trusts X-Real-IP
 CALORIEFLOW_API = """# CalorieFlow API (Rust, repo CalorieFlowWeb api/)
-location ^~ /api/v1/ {
+location ^~ /api/ {
   set $calorieflow_api apps-calorieflow-api:8080;
   proxy_pass http://$calorieflow_api;
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
   proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
   proxy_set_header X-Forwarded-For $remote_addr;
-  client_max_body_size 10m;
+  proxy_buffering off;
+  proxy_read_timeout 1h;
+  client_max_body_size 70m;
 }
 """
 
