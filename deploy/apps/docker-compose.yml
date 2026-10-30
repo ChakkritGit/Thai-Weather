@@ -120,7 +120,9 @@ services:
     # STUN/TURN for CalorieFlow's voice and video calls (WebRTC). Host network so its relay ports are real ones;
     # ufw opens 3478 udp+tcp and 49160-49250/udp. turn/setup.sh writes its config (with the shared secret the
     # app signs short-lived credentials with) into $ENVS; nothing secret is in git.
-    image: coturn/coturn:4.18.0-alpine@sha256:c29135c08565810d37053f384584392b7c24b69570fc81a721b878d6fe63e04e
+    # coturn 4.18.0-alpine (pinned by digest) with Alpine's security fixes: turn/Dockerfile, build.sh turn
+    image: apps-turn:local
+    pull_policy: never
     container_name: apps-turn
     restart: unless-stopped
     network_mode: host

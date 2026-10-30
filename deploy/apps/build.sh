@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build one Next app or the native Rust service images.
-#   ./build.sh portfolio|expenses|whiteboard|drive-music|calorieflow|calorieflow-api|rust|backup|db
+#   ./build.sh portfolio|expenses|whiteboard|drive-music|calorieflow|calorieflow-api|rust|backup|db|turn
 # Not `docker compose build`: Compose's bake path refuses to read the secret file without an extra grant.
 # The app's env file is mounted only during `next build` (NEXT_PUBLIC_* are inlined) and never lands in a layer.
 set -eu
@@ -19,6 +19,8 @@ case "$name" in
     docker buildx build --load -t apps-calorieflow-api:local "$REPOS/calorieflow/api" ;;
   db)
     docker buildx build --load -t apps-db:local db ;;
+  turn)
+    docker buildx build --load -t apps-turn:local turn ;;
   portfolio|expenses|whiteboard|drive-music|calorieflow)
     # `next build` pre-renders the ISR pages (portfolio: home, blog, projects, topics, sitemap, feed) and needs
     # the database for that, so the build runs on the host network with the internal names pointed at the

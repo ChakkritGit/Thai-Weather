@@ -301,9 +301,10 @@ QR picture from the album), group chats, photos and videos.
 - Voice/video calls are WebRTC peer to peer (CalorieFlow schema 12: `calls`, `call_signals`; `api/src/calls.rs`,
   `src/components/chat/call.tsx`). The API signs 12-hour TURN credentials with `TURN_SECRET` (in
   `/opt/apps/env/calorieflow-api.env`, with `TURN_URLS`); without them it falls back to a public STUN server.
-- TURN is the `turn` service in `deploy/apps` (coturn 4.18.0-alpine by digest, host network, UDP relays only,
+- TURN is the `turn` service in `deploy/apps` (`apps-turn:local`: coturn 4.18.0-alpine by digest plus `apk upgrade`,
+  `turn/Dockerfile`, `build.sh turn`; host network, UDP relays only,
   private/loopback peers denied, quotas, ~4 Mbit/s per session). Provision once on the VPS, then restart CalorieFlow:
-  `cd /opt/thai-weather/deploy/apps && sudo sh turn/setup.sh && docker compose up -d turn && ../rollout.sh calorieflow-api`.
+  `cd /opt/thai-weather/deploy/apps && sudo sh turn/setup.sh && ./build.sh turn && docker compose up -d turn && ../rollout.sh calorieflow-api`.
   setup.sh opens ufw 3478/udp, 3478/tcp and 49160-49250/udp; the config with the secret is `/opt/apps/env/turnserver.conf`
   (0400, uid 65534). Owner approved opening these ports on 2026-10-29.
 - GIF search uses GIPHY (Tenor's API closed 2026-06-30) and stays hidden until `GIPHY_KEY` is in

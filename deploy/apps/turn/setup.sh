@@ -1,7 +1,7 @@
 #!/bin/sh
 # Provision coturn for CalorieFlow calls (run as root on the VPS, from deploy/apps): makes the shared secret once,
 # writes $ENVS/turnserver.conf from the template, gives CalorieFlow TURN_SECRET and TURN_URLS, and opens the
-# ports in ufw. Prints no secret. Then: docker compose up -d turn && ../rollout.sh calorieflow
+# ports in ufw. Prints no secret. Then: ./build.sh turn && docker compose up -d turn && ../rollout.sh calorieflow-api
 set -eu
 ENVS=${ENVS:-/opt/apps/env}
 here=$(cd "$(dirname "$0")" && pwd)
