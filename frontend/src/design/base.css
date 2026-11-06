@@ -1316,7 +1316,9 @@ button {
 }
 .day-card .temps { font-size: var(--font-size-lg); font-variant-numeric: tabular-nums; }
 
-.prose { display: grid; gap: var(--space-3); max-width: 75ch; }
+/* the lines keep a readable measure; the card itself fills its place like its neighbours */
+.prose { display: grid; gap: var(--space-3); }
+.prose > * { max-width: 75ch; }
 .prose ul, .prose ol { margin: 0; padding-left: 1.3em; display: grid; gap: var(--space-1); }
 .prose code {
   font-family: var(--font-family-mono);

@@ -231,12 +231,13 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .meter-fill.warn { background: var(--warning); }
 .meter-fill.bad { background: var(--critical); }
 
-.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 12px; }
+/* cards keep their own height: one opening a table must not stretch the one beside it */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 12px; align-items: start; }
 @media (min-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .grid-3 { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 620px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1000px) { .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.mini-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.mini-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
 @media (min-width: 620px) { .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .card { min-width: 0; padding: 14px 14px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
@@ -527,7 +528,7 @@ html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 @media (prefers-reduced-motion: reduce) { .bone { animation: none; } }
 
 /* security: category cards (overview and its own page), banner, event rows */
-.sec-cats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
+.sec-cats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 12px; align-items: start; }
 @media (min-width: 620px) { .sec-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1080px) { .sec-cats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .sec-cats[hidden], .sec-title[hidden] { display: none; }
