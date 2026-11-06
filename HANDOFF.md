@@ -125,7 +125,7 @@ Python numerical worker and separate Python verification container retained. See
 - Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
 - CalorieFlow (since 2026-10-30 the Rust API holds the secrets): `calorieflow-api.env` (DATABASE_URL, DATA_KEY — see
   below, APP_ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — a Web OAuth client in project
-  `calorieflow-bb756`, set 2026-10-25, TURN_SECRET, TURN_URLS, GIPHY_KEY); the web's `calorieflow.env` keeps only
+  `calorieflow-bb756`, set 2026-10-25, TURN_SECRET, TURN_URLS, GIPHY_KEY, FEEDBACK_ADMINS — the owner's user id, who reads the problem reports); the web's `calorieflow.env` keeps only
   API_URL, ORIGIN, AUTH_SECRET (the app-connect cookie), GOOGLE_CLIENT_ID and VAPID_PUBLIC_KEY (both public).
   `CALORIEFLOW_PASSWORD` in `db.env`. Worker `calorieflow-ai` secrets: AI_SECRET (= calorieflow-api.env) and
   HEALTH_TOKEN (= the status Worker's CALORIEFLOW_HEALTH_TOKEN; the value is kept nowhere else — to rotate,
