@@ -13,8 +13,11 @@ LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weath
       org.opencontainers.image.description="Rust HTTP API with a private Python numerical worker" \
       com.chakkrit.stack="rust-python"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 THWX_DATA_DIR=/var/lib/thwx
-# Debian's security updates and a pip without its known CVEs (2026-10-25 image scan, owner's request)
-RUN apt-get update \
+# Debian's security updates and a pip without its known CVEs (2026-10-25 image scan, owner's request).
+# Bump DEBIAN_UPDATES when a scan reports a new Debian fix so the cached upgrade layer runs again
+# (2026-11-06: apt 3.0.4, CVE-2026-109518).
+ARG DEBIAN_UPDATES=2026-11-06
+RUN echo "Debian updates as of $DEBIAN_UPDATES" && apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/backend
