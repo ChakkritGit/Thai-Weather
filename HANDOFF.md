@@ -408,6 +408,9 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   2026-10-27, a major outside its dependents' range; NPM never globs user input) remain. Trivy without the scan's
   `--skip-files` also lists pip's vendored certifi/msgpack/urllib3/setuptools: that is why the nightly scan skips
   those SBOMs.
+- 2026-11-06 (75b3a9f, deployed): Dock's `.grid`, `.sec-cats` and `.mini-grid` use `align-items: start`, so a card
+  opening a table (memory per container) no longer stretches its neighbour (CPU). Weather site: `.prose` cards fill
+  their row; only their children keep the 75ch measure ("ปัญหาที่พบในเขตร้อน" on the method page).
 
 ### Dock security watch (2026-10-24, Claude)
 Owner asked for security monitoring in Dock, grouped into categories on the overview. `dock-metrics`
