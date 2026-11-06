@@ -398,6 +398,16 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
 - Rescan afterwards: 13 of 14 images have **no fixable findings** (was 312 fixable, 23 critical, in 10 images).
   Left: Portainer 2.45.3 (newest LTS) bundles containerd 2.2.5, docker/cli 28.5.1, buildkit 0.25.1, go-archive
   0.1.0 with 5 fixable HIGH; wait for a Portainer LTS that updates them (nightly scan will show it).
+- 2026-11-06 (owner: "มีอีกแล้ว อัปเดทแก้ที"): the weather API image had apt/libapt-pkg 3.0.3 (CVE-2026-109518,
+  HIGH, fixed in 3.0.4) because the cached `apt-get upgrade` layer was from 10-25. `backend/Dockerfile` now has
+  `ARG DEBIAN_UPDATES=<date>`: bump it to rerun Debian's upgrade. api and verify recreated with the refresher idle
+  and the run 3.3 h old (same run `20261105T2300Z-open-meteo` afterwards). Nine Rust services (chat, dbgw, health,
+  media, portfolio-api, reminders, rooms, sync, weather-web-api) still ran a deleted apps-rust image ("image
+  เดิมถูกลบไปแล้ว"); recreated on the current one (no code change for them since). Rescan: only Portainer (still
+  2.45.3, newest) and NPM's minimatch 10.2.6 (MEDIUM, glob-pattern DoS; the fix is only in 11.x, 11.0.1 of
+  2026-10-27, a major outside its dependents' range; NPM never globs user input) remain. Trivy without the scan's
+  `--skip-files` also lists pip's vendored certifi/msgpack/urllib3/setuptools: that is why the nightly scan skips
+  those SBOMs.
 
 ### Dock security watch (2026-10-24, Claude)
 Owner asked for security monitoring in Dock, grouped into categories on the overview. `dock-metrics`
