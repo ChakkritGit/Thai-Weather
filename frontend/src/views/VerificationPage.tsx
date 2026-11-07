@@ -267,6 +267,51 @@ function useWidth(fallback: number) {
   return [ref, w] as const;
 }
 
+/**
+ * Reading a chart's values: hover with a mouse, or touch and slide sideways with a finger (vertical swipes still
+ * scroll the page), and arrow keys when it has focus. The point nearest the pointer across is read out; a touch keeps
+ * it after the finger lifts until a tap elsewhere. `at` is each point's x in the SVG's own units (its width is W).
+ */
+function useScrub(count: number, at: (i: number) => number, W: number, fig: React.RefObject<HTMLElement | null>) {
+  const svg = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  useEffect(() => {
+    if (hover === null) return;
+    const away = (e: PointerEvent) => {
+      if (!fig.current?.contains(e.target as Node)) setHover(null);
+    };
+    window.addEventListener('pointerdown', away);
+    return () => window.removeEventListener('pointerdown', away);
+  }, [hover, fig]);
+  const move = (e: React.PointerEvent) => {
+    const r = svg.current?.getBoundingClientRect();
+    if (!r || !count) return;
+    const px = ((e.clientX - r.left) / r.width) * W;
+    let best = 0;
+    for (let i = 1; i < count; i++) if (Math.abs(at(i) - px) < Math.abs(at(best) - px)) best = i;
+    setHover(best);
+  };
+  const props = {
+    ref: svg,
+    tabIndex: 0,
+    style: { touchAction: 'pan-y' } as const,
+    onPointerDown: move,
+    onPointerMove: move,
+    onPointerLeave: (e: React.PointerEvent) => e.pointerType === 'mouse' && setHover(null),
+    onBlur: () => setHover(null),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      const now = hover ?? -1;
+      const next = e.key === 'ArrowRight' ? Math.min(count - 1, now + 1) : e.key === 'ArrowLeft' ? Math.max(0, now < 0 ? 0 : now - 1) : e.key === 'Escape' ? null : undefined;
+      if (next === undefined) return;
+      e.preventDefault();
+      setHover(next);
+    },
+  };
+  /** the readout's place: beside the point, on its left past 60% of the width */
+  const tipStyle = (x: number) => ({ left: `${(x / W) * 100}%`, transform: `translateX(${x > W * 0.6 ? '-105%' : '10px'})`, top: 4 });
+  return { hover, props, tipStyle };
+}
+
 function BiasChart({ rows, name, th }: { rows: Row[]; name: (s: string) => string; th: boolean }) {
   const [ref, W] = useWidth(640);
   const H = 240, L = 52, R = 12, T = 12, B = 44;
@@ -275,9 +320,11 @@ function BiasChart({ rows, name, th }: { rows: Row[]; name: (s: string) => strin
   const x = (i: number) => L + ((W - L - R) * (i + 0.5)) / rows.length;
   const y = (v: number) => T + ((H - T - B) * (lim - v)) / (2 * lim);
   const ticks = [-lim, -lim / 2, 0, lim / 2, lim];
+  const { hover, props, tipStyle } = useScrub(rows.length, x, W, ref);
+  const hr = hover === null ? null : rows[hover];
   return (
-    <figure className="verify-chart" ref={ref}>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="bias by hour">
+    <figure className="verify-chart chart" ref={ref}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={th ? 'คลาดเคลื่อนตามเวลา' : 'bias by hour'} {...props}>
         {ticks.map((v) => (
           <g key={v}>
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--color-chart-axis)' : 'var(--color-chart-grid)'} />
@@ -304,7 +351,27 @@ function BiasChart({ rows, name, th }: { rows: Row[]; name: (s: string) => strin
             ))}
           </g>
         ))}
+        {hover !== null && (
+          <g aria-hidden="true">
+            <line className="cross" x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} />
+            {(['gfs_raw', 'fine'] as const).map((s) => (
+              <circle key={s} className={s === 'fine' ? 'dot--fine' : 'dot--coarse'} cx={x(hover)} cy={y(rows[hover].metrics[s]?.bias ?? 0)} r={6} />
+            ))}
+          </g>
+        )}
+        <rect x={L} y={T} width={W - L - R} height={H - T - B} fill="transparent" />
       </svg>
+      {hr && hover !== null && (
+        <div className="chart-tip" style={tipStyle(x(hover))}>
+          <div className="when">{th ? `${hr.label.slice(0, 2)}:00 น.` : `${hr.label.slice(0, 2)}:00`}</div>
+          {(['fine', 'gfs_raw'] as const).map((s) => (
+            <div className="row" key={s}>
+              <i style={{ background: s === 'fine' ? 'var(--color-chart-fine)' : 'var(--color-chart-coarse)' }} />
+              {name(s)}: <b>{signed(hr.metrics[s]?.bias)}</b> °C
+            </div>
+          ))}
+        </div>
+      )}
       <figcaption className="verify-legend">
         {(['fine', 'gfs_raw'] as const).map((s) => (
           <span key={s} data-source={s}>
@@ -324,9 +391,11 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
   const maxN = Math.max(...bins.map((b) => b.n), 1);
   const minN = Math.min(...bins.map((b) => b.n));
   const dot = (n: number) => 3 + 5 * Math.sqrt(n / maxN);
+  const { hover, props, tipStyle } = useScrub(bins.length, (i) => x(bins[i].forecast), W, ref);
+  const hb = hover === null ? null : bins[hover];
   return (
-    <figure className="verify-chart" ref={ref}>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={th ? 'ความน่าเชื่อถือของโอกาสฝน' : 'chance of rain reliability'}>
+    <figure className="verify-chart chart" ref={ref}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={th ? 'ความน่าเชื่อถือของโอกาสฝน' : 'chance of rain reliability'} {...props}>
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
             <line x1={x(0)} x2={x(100)} y1={y(v)} y2={y(v)} stroke="var(--color-chart-grid)" />
@@ -343,7 +412,22 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
             <title>{`${b.bin}%: ${th ? 'พยากรณ์' : 'forecast'} ${b.forecast.toFixed(0)}% · ${th ? 'ตกจริง' : 'observed'} ${b.observed.toFixed(1)}% · ${b.n.toLocaleString()} ${th ? 'ชม.' : 'h'}`}</title>
           </circle>
         ))}
+        {hb && (
+          <g aria-hidden="true">
+            <line className="cross" x1={x(hb.forecast)} x2={x(hb.forecast)} y1={T} y2={H - B} />
+            <circle cx={x(hb.forecast)} cy={y(hb.observed)} r={dot(hb.n) + 3} fill="none" stroke="var(--color-chart-fine)" strokeWidth={2} />
+          </g>
+        )}
+        <rect x={L} y={T} width={W - L - R} height={H - T - B} fill="transparent" />
       </svg>
+      {hb && (
+        <div className="chart-tip" style={tipStyle(x(hb.forecast))}>
+          <div className="when">{th ? `พยากรณ์ช่วง ${hb.bin}%` : `Forecast ${hb.bin}%`}</div>
+          <div className="row">{th ? 'โอกาสฝนเฉลี่ย' : 'Average chance'}: <b>{hb.forecast.toFixed(0)}%</b></div>
+          <div className="row">{th ? 'ฝนตกจริง' : 'Rained'}: <b>{hb.observed.toFixed(1)}%</b></div>
+          <div className="row">{th ? 'จำนวน' : 'Hours'}: <b>{hb.n.toLocaleString()}</b> {th ? 'ชม.' : 'h'}</div>
+        </div>
+      )}
       <figcaption className="verify-legend verify-size-legend">
         <span>{th ? 'ขนาดจุด = จำนวนชั่วโมงที่พยากรณ์ช่วงนั้น' : 'Dot size = hours forecast in that range'}</span>
         {[minN, maxN].map((n) => (
