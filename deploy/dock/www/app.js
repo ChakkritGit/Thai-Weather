@@ -864,6 +864,78 @@ const pctTone = (p) => (p >= 90 ? 'bad' : p >= 75 ? 'warn' : '');
 const card = (title, sub, ...children) =>
   h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { class: 'card-title' }, title), sub ? h('span', { class: 'card-sub' }, sub) : null), ...children);
 
+/**
+ * The overview's contents: a sticky list on the left of a wide screen (hidden on narrow ones, where the page is one
+ * column anyway). Each entry scrolls to its heading; `groups` sets the app groups under "Containers". The entry
+ * whose section is at the top of the screen is marked; the scroll listener goes with the page.
+ */
+function tocNav(sections) {
+  const list = h('ol', { class: 'toc-list' });
+  const el = h('nav', { class: 'toc', 'aria-label': tx('สารบัญ') }, h('p', { class: 'toc-title' }, tx('สารบัญ')), list);
+  let entries = [];
+  const go = (target) => {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
+  const item = (label, target, sub) => {
+    const b = h('button', { type: 'button', class: `toc-link${sub ? ' toc-sub' : ''}`, onclick: () => go(target) }, label);
+    return { li: h('li', {}, b), b, target };
+  };
+  let placed = false;
+  let groupItems = [];
+  let groupKey = '';
+  const draw = () => {
+    entries = [];
+    const lis = [];
+    for (const [label, target, shown] of sections) {
+      if (shown && !shown()) continue;
+      const it = item(label, target, false);
+      entries.push(it);
+      lis.push(it.li);
+      if (target === sections[sections.length - 1][1] && groupItems.length) {
+        const sub = h('ol', { class: 'toc-list' }, groupItems.map((g) => g.li));
+        it.li.append(sub);
+        entries.push(...groupItems);
+      }
+    }
+    list.replaceChildren(...lis);
+    mark();
+  };
+  const mark = () => {
+    // drawn before the page is on screen; once on it and then gone (another page), the listener goes too
+    if (!el.isConnected) return placed && document.removeEventListener('scroll', onScroll, true);
+    placed = true;
+    // the last heading above a third of the screen is the one being read
+    const line = innerHeight / 3;
+    let on = null;
+    for (const e of entries) if (e.target.isConnected && !e.target.closest('[hidden]') && e.target.getBoundingClientRect().top <= line) on = e;
+    on ??= entries[0];
+    for (const e of entries) {
+      if (e === on) e.b.setAttribute('aria-current', 'true');
+      else e.b.removeAttribute('aria-current');
+    }
+  };
+  let raf = 0;
+  const onScroll = () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; mark(); });
+  };
+  // captured on the document: whichever box scrolls (the window, or a scrolling shell)
+  document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+  draw();
+  return {
+    el,
+    refresh: draw,
+    groups(list2) {
+      const key = list2.map(([g]) => g).join('\n');
+      if (key === groupKey) return mark();
+      groupKey = key;
+      groupItems = list2.map(([g, target]) => item(g, target, true));
+      draw();
+    },
+  };
+}
+
 async function overviewView(token) {
   const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': tx('ช่วงเวลา') },
     RANGES.map(([r, label]) => h('button', {
@@ -886,13 +958,22 @@ async function overviewView(token) {
   const ctrGrid = h('div', { class: 'ctr-groups' }, skelRows(4, { icon: true, side: 'dot' }));
   const groupGrids = new Map(); // group → { section, grid }
   const ctrMem = h('div', { class: 'grid' });
+  const ngTitle = h('h2', { class: 'section-title' }, tx('ทราฟฟิกเว็บ (Nginx Proxy Manager)'));
+  const ctrTitle = h('h2', { class: 'section-title' }, tx('คอนเทนเนอร์'));
+  const filters = h('div', { class: 'filters' }, seg, live);
   const body = h('div', { class: 'overview' },
-    h('div', { class: 'filters' }, seg, live),
-    hostLine, hostTiles, secTitle, secBox, chartsGrid,
-    h('h2', { class: 'section-title' }, tx('ทราฟฟิกเว็บ (Nginx Proxy Manager)')), ngTiles, ngGrid, ngTables,
-    h('h2', { class: 'section-title' }, tx('คอนเทนเนอร์')), ctrMem, ctrGrid);
-  shell(topBar(tx('ภาพรวม'), { onRefresh: () => load() }), body, tabs('#/'));
-  app.querySelector('.shell').classList.add('wide');
+    filters, hostLine, hostTiles, secTitle, secBox, chartsGrid,
+    ngTitle, ngTiles, ngGrid, ngTables,
+    ctrTitle, ctrMem, ctrGrid);
+  // the contents on the left (wide screens): a jump to each section and each app group, the one in view marked
+  const toc = tocNav([
+    [tx('เซิร์ฟเวอร์'), filters],
+    [tx('ความปลอดภัย'), secTitle, () => !secTitle.hidden],
+    [tx('ทราฟฟิกเว็บ'), ngTitle],
+    [tx('คอนเทนเนอร์'), ctrTitle],
+  ]);
+  shell(topBar(tx('ภาพรวม'), { onRefresh: () => load() }), h('div', { class: 'with-toc' }, toc.el, body), tabs('#/'));
+  app.querySelector('.shell').classList.add('wide', 'has-toc');
 
   const C = {}; // chart handles, created on first data
   const ctrCards = new Map();
@@ -910,6 +991,7 @@ async function overviewView(token) {
       secTitle.hidden = false;
       secBox.hidden = false;
       patchChildren(secBox, secCards(s));
+      toc.refresh();
     });
     const T = { times, step };
 
@@ -1060,6 +1142,7 @@ async function overviewView(token) {
       const n = ids.filter((id) => serviceOf(names.get(id).c).group === g).length;
       groupGrids.get(g).section.querySelector('.group-count').textContent = `${n}`;
     }
+    toc.groups(order.map((g) => [g, groupGrids.get(g).section]));
     ids.forEach((id, i) => {
       const { name, c } = names.get(id);
       const d = mx.containers[id];
