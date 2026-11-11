@@ -75,6 +75,8 @@ services:
         THWX_API_URL: http://api:8000
     # no container_name: rollout.sh runs the new and the old side by side; NPM reaches either by the alias
     restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       SITE_URL: ${SITE_URL:-https://thai-weather.chakkritton.com}
       THWX_API_URL: http://api:8000
