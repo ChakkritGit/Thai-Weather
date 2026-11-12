@@ -166,21 +166,59 @@ html[lang='ja'] .tabs a { padding-inline: 0; }
 html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .tabs a[aria-current='page'] { color: var(--text); }
 
-/* Glisse's glass pane (glass.js) in the three bars: once it is there the bar drops its own backdrop-filter, which would
-   cut the pane off from the page behind. With no pane (script missing or failed) the bars keep their look above/below. */
-.tabs:has(> .glass-mount > .lg-glass),
+/* Glisse's Liquid Glass (glass.js). Everything below applies only once it has mounted; before that, and if it never does,
+   the plain bar, pickers and checkbox above and below stay as they are. Its tokens take Dock's colours. */
+:root {
+  --lg-foreground: var(--text); --lg-muted: var(--muted); --lg-on: var(--accent);
+  --glass-tint: color-mix(in srgb, var(--bg) 42%, transparent); --glass-blur: 6px;
+}
+
+/* bottom nav: a floating TabBar. The plain bar keeps its box (the chat composer sits on it) but is neither drawn nor focusable. */
+.tabs[data-glass] { visibility: hidden; }
+.dock-nav { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
+.dock-nav .lg-tab-bar { pointer-events: auto; --lg-tab-width: min(94px, calc((100vw - 28px) / var(--lg-tabs))); --lg-tab-height: 50px; --lg-glass: transparent; --lg-blur: 0px; }
+.dock-nav .lg-tab, .dock-nav .lg-tab-copy { font-size: 11px; font-weight: 600; }
+.dock-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; white-space: nowrap; }
+.dock-tab svg { width: 22px; height: 22px; }
+/* blur and tint come from here, not from Glisse's lens filter: they hold even if that filter is dropped */
+.dock-nav .lg-tab-bar::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5); backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  box-shadow: inset 0 0 0 0.5px var(--lg-edge), 0 6px 20px rgb(0 0 0 / 0.14);
+}
+
+/* chat header and composer: the bar drops its own backdrop-filter, which would cut Glisse's pane off from the page behind;
+   blur and tint move to ::before for the same reason as above, the pane adds the rim light and (on a phone) the lens */
 .chat-compose:has(> .glass-mount > .lg-glass),
 .shell.chat > .top:has(> .glass-mount > .lg-glass) {
   isolation: isolate;
   background: none;
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
-.glass-mount > .lg-glass {
-  --lg-glass: color-mix(in srgb, var(--bg) 72%, transparent);
-  --lg-blur: 14px;
-  box-shadow: none;
+.chat-compose:has(> .glass-mount > .lg-glass)::before,
+.shell.chat > .top:has(> .glass-mount > .lg-glass)::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5); backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
 }
-@media (prefers-reduced-transparency: reduce) { .glass-mount > .lg-glass { --lg-glass: var(--bg); } }
+.glass-mount > .lg-glass { --lg-glass: transparent; --lg-blur: 0px; box-shadow: none; }
+/* a lens across a whole desktop bar bends nothing you can see */
+@media (min-width: 900px) { .glass-mount > .lg-glass { -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media (prefers-reduced-transparency: reduce) {
+  .dock-nav .lg-tab-bar::before,
+  .chat-compose:has(> .glass-mount > .lg-glass)::before,
+  .shell.chat > .top:has(> .glass-mount > .lg-glass)::before { background: var(--bg); }
+}
+
+/* range pickers and the log switch */
+.glass-seg { display: inline-flex; max-width: 100%; }
+.glass-seg.scroll { overflow-x: auto; scrollbar-width: none; }
+.glass-seg.scroll::-webkit-scrollbar { display: none; }
+.glass-seg .lg-tab-bar { flex: none; --lg-glass: color-mix(in srgb, var(--surface) 45%, transparent); --lg-blur: var(--glass-blur); }
+.glass-seg.scroll .lg-tab-bar { touch-action: pan-x pan-y; }
+.glass-seg .lg-tab, .glass-seg .lg-tab-copy { font-size: 14px; font-weight: 600; }
+.glass-switch { display: inline-flex; }
 
 /* login */
 .login { min-height: 100dvh; display: grid; place-items: center; padding: 24px var(--gutter); }
