@@ -252,6 +252,22 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 29)
 
+### Container check and hardening (2026-11-12, Claude)
+
+- **Checked, sound**: SSH is key-only (fail2ban on, 22 rate-limited); ufw denies all but 22/80/443 and TURN; the
+  origin does not answer 443 from outside Cloudflare; NPM's admin listens on 127.0.0.1 only; env files are 600
+  root; no security updates pending (17 ordinary ones: Docker Engine, containerd, kernel meta packages); nightly
+  backups ran; every site sends HSTS, nosniff and a frame policy.
+- **Changed**: `dock` drops all capabilities but CHOWN, SETGID, SETUID, NET_BIND_SERVICE (what nginx's root
+  master needs) with no-new-privileges; the weather `web` drops all with no-new-privileges (rolled out, healthy).
+  The set was tried on a throwaway nginx first.
+- **Left as it is, on purpose**: the weather `api` and `verify` still run on Docker's default capability set.
+  Do not add `cap_drop`/`security_opt` to them in passing: a changed definition recreates the api on the next
+  `docker compose up`, and it runs a forecast on startup (THWX_RUN_ON_STARTUP). Bundle it with a planned restart.
+- **Open, the owner's call**: Portainer holds the Docker socket and its login page is public (as are NPM's and
+  Dock's): Cloudflare Access in front is the fix. No container has a memory limit. CalorieFlow and Drive Music
+  send no Content-Security-Policy.
+
 ### Dock PostgreSQL manager (2026-10-29, Codex)
 
 - Dock → More → Database browses the four Postgres databases and their table metadata.

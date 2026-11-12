@@ -29,3 +29,4 @@ frontend/public/maplibre/
 
 # Rust build output
 target/
+.claude/memory/
