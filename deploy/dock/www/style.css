@@ -166,6 +166,22 @@ html[lang='ja'] .tabs a { padding-inline: 0; }
 html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .tabs a[aria-current='page'] { color: var(--text); }
 
+/* Glisse's glass pane (glass.js) in the three bars: once it is there the bar drops its own backdrop-filter, which would
+   cut the pane off from the page behind. With no pane (script missing or failed) the bars keep their look above/below. */
+.tabs:has(> .glass-mount > .lg-glass),
+.chat-compose:has(> .glass-mount > .lg-glass),
+.shell.chat > .top:has(> .glass-mount > .lg-glass) {
+  isolation: isolate;
+  background: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.glass-mount > .lg-glass {
+  --lg-glass: color-mix(in srgb, var(--bg) 72%, transparent);
+  --lg-blur: 14px;
+  box-shadow: none;
+}
+@media (prefers-reduced-transparency: reduce) { .glass-mount > .lg-glass { --lg-glass: var(--bg); } }
+
 /* login */
 .login { min-height: 100dvh; display: grid; place-items: center; padding: 24px var(--gutter); }
 .login form { width: 100%; max-width: 340px; display: grid; gap: 12px; }

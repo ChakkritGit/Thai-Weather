@@ -1,0 +1,22 @@
+{
+  "name": "dock-glass",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Glisse Liquid Glass under Dock's translucent bars, built into one module for the static site.",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "glisse": "0.4.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "vite": "8.3.5"
+  },
+  "overrides": {
+    "rolldown": "1.2.15",
+    "@rolldown/pluginutils": "1.0.1"
+  }
+}
