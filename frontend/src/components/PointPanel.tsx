@@ -7,6 +7,7 @@ import { compass, fmtDay, fmtKm, fmtNum, fmtStep } from '../lib/format';
 import { radarRainChance, rainClassPhrase } from '../lib/nowcastText';
 import { useNowcast } from '../lib/useNowcast';
 import { useT } from '../i18n';
+import { GlassTabs } from './GlassControls';
 import { Icon } from './Icon';
 import { FooterBody } from './Shell';
 import { NowcastCard } from './NowcastCard';
@@ -232,14 +233,16 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
       <section className="panel-section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <h3>{t('next48Comparison')}</h3>
-          <div className="segmented" role="group">
-            <button type="button" aria-pressed={view === 'chart'} onClick={() => setView('chart')}>
-              {t('chart')}
-            </button>
-            <button type="button" aria-pressed={view === 'table'} onClick={() => setView('table')}>
-              {t('table')}
-            </button>
-          </div>
+          <GlassTabs
+            label={t('next48Comparison')}
+            tabWidth={72}
+            value={view}
+            onValueChange={(v) => setView(v as 'chart' | 'table')}
+            items={[
+              { value: 'chart', label: t('chart') },
+              { value: 'table', label: t('table') },
+            ]}
+          />
         </div>
         <ChartLegend fine={labels.fine} coarse={labels.comparison} />
         {view === 'chart' ? (

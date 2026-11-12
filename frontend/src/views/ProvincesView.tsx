@@ -8,6 +8,7 @@ import { categorise } from '../lib/color';
 import { fmtDay, fmtKm, fmtNum } from '../lib/format';
 import { paths } from '../lib/paths';
 import { useT } from '../i18n';
+import { GlassTabs } from '../components/GlassControls';
 import { Icon } from '../components/Icon';
 import { coverageNote, isPartialDay } from '../lib/alertText';
 import { AlertBadge } from '../components/SeverityBadge';
@@ -54,13 +55,13 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
               </option>
             ))}
           </select>
-          <div className="segmented" role="group" aria-label={t('daily')}>
-            {run.days.map((d, i) => (
-              <button key={d.date} type="button" aria-pressed={i === day} onClick={() => setDay(i)}>
-                {fmtDay(d.date, lang)}
-              </button>
-            ))}
-          </div>
+          <GlassTabs
+            label={t('daily')}
+            tabWidth={96}
+            value={String(day)}
+            onValueChange={(v) => setDay(Number(v))}
+            items={run.days.map((d, i) => ({ value: String(i), label: fmtDay(d.date, lang) }))}
+          />
         </div>
 
         {note && (

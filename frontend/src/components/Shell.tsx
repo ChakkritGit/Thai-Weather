@@ -7,6 +7,7 @@ import { LangProvider, useT, type DictKey, type Lang } from '../i18n';
 import { ThemeProvider, useTheme, type Theme } from '../lib/theme';
 import { fmtDateTime } from '../lib/format';
 import { paths } from '../lib/paths';
+import { GlassTabs } from './GlassControls';
 import { Icon, type IconName } from './Icon';
 import { ErrorState, StateMessage } from './States';
 
@@ -121,29 +122,34 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
   const { t } = useT();
   const active = useActive();
   const pathname = usePathname() ?? '/';
+  const items = NAV.map((n) => ({
+    value: n.href,
+    href: n.href,
+    label: (
+      <span className="tab-label">
+        <Icon name={n.icon} />
+        <span className="label">{t(n.key)}</span>
+        {n.href === paths.alerts && alertCount > 0 && <span className="count">{alertCount}</span>}
+      </span>
+    ),
+  }));
   return (
-    <nav className="bottom-nav" aria-label="main">
-      {NAV.map((n) => (
-        <Link
-          key={n.href}
-          href={n.href}
-          aria-current={active(n.href) ? 'page' : undefined}
-          data-tab-bounce
-          onClick={(e) => {
-            if (pathname === n.href) {
-              e.preventDefault();
-              toTop(true);
-            } else toTop(false);
-          }}
-        >
-          <span className="tab-icon" data-tab-icon>
-            <Icon name={n.icon} />
-          </span>
-          <span className="label">{t(n.key)}</span>
-          {n.href === paths.alerts && alertCount > 0 && <span className="count">{alertCount}</span>}
-        </Link>
-      ))}
-    </nav>
+    <div className="bottom-nav">
+      <GlassTabs
+        label="main"
+        items={items}
+        value={NAV.find((n) => active(n.href))?.href ?? null}
+        // capture: Next's Link navigates in its own onClick, so the same-tab case has to cancel it first
+        onClickCapture={(e) => {
+          const href = (e.target as HTMLElement).closest('a')?.getAttribute('href');
+          if (!href) return;
+          if (pathname === href) {
+            e.preventDefault();
+            toTop(true);
+          } else toTop(false);
+        }}
+      />
+    </div>
   );
 }
 

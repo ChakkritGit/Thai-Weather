@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { Switch } from 'glisse';
 import '@/design/push.css';
 import { api } from '../lib/api';
 import { anyAlert, DEFAULT_PREFS, quietLabel, roundCoord, type PushPrefs } from '../lib/push';
@@ -167,24 +168,24 @@ export function PushControl({ lat, lon, push }: { lat: number; lon: number; push
       </label>
       <fieldset className="push-toggles">
         <label className="push-check">
-          <input type="checkbox" checked={prefs.storm} onChange={(e) => set({ storm: e.target.checked })} /> {t('pushStorm')}
+          <Switch checked={prefs.storm} aria-label={t('pushStorm')} onCheckedChange={(on) => set({ storm: on })} /> {t('pushStorm')}
         </label>
         <label className="push-check">
-          <input type="checkbox" checked={prefs.heavy_rain} onChange={(e) => set({ heavy_rain: e.target.checked })} /> {t('pushHeavy')}
+          <Switch checked={prefs.heavy_rain} aria-label={t('pushHeavy')} onCheckedChange={(on) => set({ heavy_rain: on })} /> {t('pushHeavy')}
         </label>
         <label className="push-check">
-          <input type="checkbox" checked={prefs.cyclone} onChange={(e) => set({ cyclone: e.target.checked })} /> {t('pushCyclone')}
+          <Switch checked={prefs.cyclone} aria-label={t('pushCyclone')} onCheckedChange={(on) => set({ cyclone: on })} /> {t('pushCyclone')}
         </label>
         <label className="push-check">
-          <input type="checkbox" checked={prefs.heat} onChange={(e) => set({ heat: e.target.checked })} /> {t('pushHeat')}
+          <Switch checked={prefs.heat} aria-label={t('pushHeat')} onCheckedChange={(on) => set({ heat: on })} /> {t('pushHeat')}
         </label>
       </fieldset>
       <div className="push-field">
         <label className="push-check">
-          <input
-            type="checkbox"
+          <Switch
             checked={quietOn}
-            onChange={(e) => set(e.target.checked ? { quiet_start: 22, quiet_end: 6 } : { quiet_start: 0, quiet_end: 0 })}
+            aria-label={t('pushQuiet')}
+            onCheckedChange={(on) => set(on ? { quiet_start: 22, quiet_end: 6 } : { quiet_start: 0, quiet_end: 0 })}
           />{' '}
           {t('pushQuiet')}
           {quietOn && <span className="subtle"> ({quietLabel(prefs)})</span>}

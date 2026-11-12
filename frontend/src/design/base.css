@@ -240,45 +240,32 @@ button {
 
 @media (max-width: 860px) {
   .nav { display: none; }
-  /* a real grid row (not position:fixed) so nothing hides behind it */
+  /* a real grid row (not position:fixed) so nothing hides behind it; Glisse's tab bar sits in it */
   .bottom-nav {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    display: flex;
+    padding: 2px calc(6px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left));
     background: var(--color-bg-surface);
     border-top: 1px solid var(--color-border-subtle);
     z-index: var(--zIndex-header);
   }
-  .bottom-nav a {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    min-height: 56px;
-    padding: 6px 2px;
+  /* four tabs fill the row: the row's 6px sides and the bar's own 4px padding come off the width */
+  .bottom-nav .lg-tab-bar {
+    --lg-tab-height: 44px;
+    --lg-tab-width: calc((100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 4);
+  }
+  .bottom-nav .lg-tab,
+  .bottom-nav .lg-tab-copy {
     font-size: var(--font-size-2xs);
     line-height: 1.2;
-    color: var(--color-fg-muted);
-    text-decoration: none;
     white-space: nowrap;
     -webkit-tap-highlight-color: transparent;
   }
-  .bottom-nav a span.label { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .bottom-nav a svg { width: 22px; height: 22px; }
-  .bottom-nav a .tab-icon { display: inline-grid; place-items: center; }
-  .bottom-nav a[aria-current='page'] { color: var(--color-accent-default); font-weight: var(--font-weight-semibold); }
-  .bottom-nav a[aria-current='page']::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 28%;
-    right: 28%;
-    height: 2px;
-    border-radius: 0 0 var(--radius-full) var(--radius-full);
-    background: var(--color-accent-default);
-  }
+  /* the magnified copy under the lens is not positioned by Glisse; the badge needs it */
+  .bottom-nav .lg-tab-copy { position: relative; }
+  .bottom-nav .tab-label { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; }
+  .bottom-nav .label { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .bottom-nav svg { width: 22px; height: 22px; }
+  .bottom-nav .lg-tab-tint { color: var(--color-accent-fg); font-weight: var(--font-weight-semibold); }
   .bottom-nav .count {
     position: absolute;
     top: 6px;
@@ -380,12 +367,31 @@ button {
   backdrop-filter: none;
 }
 .glass > .lg-glass {
-  --lg-glass: var(--color-bg-glass);
-  --lg-blur: 14px;
+  --lg-glass: var(--pane-tint);
+  --lg-blur: 5px;
   box-shadow: none;
 }
 @media (prefers-reduced-transparency: reduce) {
   .glass > .lg-glass { --lg-glass: var(--color-bg-surface); }
+}
+/* Glisse's own controls (components/GlassControls.tsx, Switch) in the site's colours; a plain :root rule outranks
+   its :where() tokens. --pane-tint is the clear tint of the panes over the map. */
+:root {
+  --lg-foreground: var(--color-fg-default);
+  --lg-muted: var(--color-fg-muted);
+  --lg-on: var(--color-accent-default);
+  --pane-tint: color-mix(in srgb, var(--color-bg-surface) 45%, transparent);
+}
+/* light text on a pale map needs more tint than dark text does: the muted captions fall below legible at 45% */
+:root[data-theme='dark'] { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 60%, transparent); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 60%, transparent); }
+}
+/* fit-content: as a grid item the bar would stretch, out of step with its fixed-width tabs and the lens */
+.lg-tab-bar {
+  width: fit-content;
+  --lg-glass: color-mix(in srgb, var(--color-bg-subtle) 70%, transparent);
+  --lg-blur: 5px;
 }
 
 .btn {
@@ -746,8 +752,8 @@ button {
   backdrop-filter: none;
 }
 .map-tools .btn > .lg-glass {
-  --lg-glass: var(--color-bg-glass);
-  --lg-blur: 12px;
+  --lg-glass: var(--pane-tint);
+  --lg-blur: 5px;
   box-shadow: none;
 }
 .map-tools .btn:hover { background: var(--color-bg-surface); }

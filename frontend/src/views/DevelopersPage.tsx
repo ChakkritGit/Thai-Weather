@@ -2,6 +2,7 @@
 
 import { type ReactNode, useState } from 'react';
 import { useT } from '../i18n';
+import { GlassTabs } from '../components/GlassControls';
 
 const ORIGIN = 'https://thai-weather.chakkritton.com';
 const BASE = `${ORIGIN}/api/v1`;
@@ -210,13 +211,13 @@ export function DevelopersPage() {
 
         <section className="card card-pad" style={{ display: 'grid', gap: 12 }}>
           <h2>{th ? 'เริ่มใช้งาน' : 'Quick start'}</h2>
-          <div className="segmented" role="group" aria-label={th ? 'ภาษา' : 'Language'}>
-            {(['curl', 'js', 'python'] as const).map((k) => (
-              <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)}>
-                {k === 'js' ? 'JavaScript' : k === 'python' ? 'Python' : 'curl'}
-              </button>
-            ))}
-          </div>
+          <GlassTabs
+            label={th ? 'ภาษา' : 'Language'}
+            tabWidth={96}
+            value={tab}
+            onValueChange={(v) => setTab(v as keyof typeof SNIPPETS)}
+            items={(['curl', 'js', 'python'] as const).map((k) => ({ value: k, label: k === 'js' ? 'JavaScript' : k === 'python' ? 'Python' : 'curl' }))}
+          />
           <Code text={SNIPPETS[tab]} lang={lang} />
         </section>
 

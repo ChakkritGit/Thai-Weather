@@ -8,6 +8,7 @@ import { fmtDay } from '../lib/format';
 import { paths } from '../lib/paths';
 import { categories, type CategoryLevel } from '../lib/color';
 import { useT } from '../i18n';
+import { GlassTabs } from '../components/GlassControls';
 import { Icon } from '../components/Icon';
 import { AlertBadge, TierChip } from '../components/SeverityBadge';
 import { PushSettings } from '../components/PushSettings';
@@ -66,15 +67,20 @@ export function AlertsPage({
         </header>
         <div className="toolbar">
           <span className="muted" style={{ fontSize: 'var(--font-size-sm)' }}>{t('minSeverity')}:</span>
-          <div className="segmented" role="group" aria-label={t('minSeverity')}>
-            {([1, 2, 3] as const).map((s) => (
-              <button key={s} type="button" aria-pressed={minSev === s} onClick={() => setMinSev(s)}>
+          <GlassTabs
+            label={t('minSeverity')}
+            tabWidth={96}
+            value={String(minSev)}
+            onValueChange={(v) => setMinSev(Number(v))}
+            items={([1, 2, 3] as const).map((s) => ({
+              value: String(s),
+              label: (
                 <span className="badge" data-sev={s} style={{ minHeight: 18, padding: '0 6px' }}>
                   {tierInfo(s, lang).name}
                 </span>
-              </button>
-            ))}
-          </div>
+              ),
+            }))}
+          />
         </div>
 
         {withAlerts.map(({ day, entries }) => {

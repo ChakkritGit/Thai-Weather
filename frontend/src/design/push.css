@@ -26,7 +26,6 @@
 .push-input:focus-visible, .push-select:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 1px; }
 .push-toggles { display: grid; gap: var(--space-1); border: 0; padding: 0; margin: 0; }
 .push-check { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; cursor: pointer; }
-.push-check input { width: 18px; height: 18px; accent-color: var(--color-accent-default); }
 .push-quiet { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .push-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .push-note { margin: 0; font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-fg-subtle); }
