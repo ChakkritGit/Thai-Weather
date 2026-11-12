@@ -53,23 +53,7 @@ export function installPwaChrome(): () => void {
     window.addEventListener('focusin', lift, true);
   }
 
-  // a bottom-nav icon squishes and springs back when pressed (links marked data-tab-bounce)
-  // animate the HTML wrapper ([data-tab-icon]), not the svg: an svg transform runs on the main thread and froze
-  // (no bounce at all) while the next page was mounting; an HTML element's transform runs on the compositor
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const bounce = (e: PointerEvent) => {
-    const tab = (e.target as HTMLElement | null)?.closest?.('[data-tab-bounce]');
-    const glyph = tab?.querySelector('[data-tab-icon]') ?? tab?.querySelector('svg');
-    if (!glyph || reduced.matches) return;
-    glyph.animate(
-      [{ transform: 'scale(1)' }, { transform: 'scale(0.75)', offset: 0.25 }, { transform: 'scale(1.12)', offset: 0.6 }, { transform: 'scale(1)' }],
-      { duration: 450, easing: 'ease-out' },
-    );
-  };
-  window.addEventListener('pointerdown', bounce, { passive: true });
-
   return () => {
-    window.removeEventListener('pointerdown', bounce);
     observer.disconnect();
     window.clearTimeout(timer);
     window.removeEventListener('resize', schedule);
