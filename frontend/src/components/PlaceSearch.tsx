@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { api, type Place } from '../lib/api';
 import { useT } from '../i18n';
+import { GlassPane } from './GlassPane';
 import { Icon } from './Icon';
 
 /** A keyboard-accessible combobox; requests are debounced and old results never replace a new query. */
@@ -85,6 +86,7 @@ export function PlaceSearch({ onSelect }: { onSelect: (place: Place) => void }) 
         e.preventDefault();
         if (open && places.length) select(places[active >= 0 ? active : 0]);
       }}>
+        <GlassPane />
         <Icon name="search" />
         <input ref={input} type="search" role="combobox" aria-label={label} placeholder={label}
           aria-autocomplete="list" aria-expanded={open} aria-controls={open ? `${id}-list` : undefined}

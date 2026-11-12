@@ -12,6 +12,7 @@ import { decodeFrame, frameIndex, loadAirForecast } from '../lib/pmField';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
+import { GlassPane } from '../components/GlassPane';
 import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
 import { LocateCta, type LocateStatus } from '../components/LocateCta';
@@ -568,12 +569,14 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             <style>{`.map-canvas--top{clip-path:inset(0 ${(1 - split) * 100}% 0 0)}`}</style>
             <div className="compare-slot compare-slot--left" style={{ left: 8, width: `max(96px, calc(${split * 100}% - 20px))` }}>
               <div className="compare-tag glass">
+                <GlassPane />
                 {t('compareLeft')} · {fmtKm(run.coarse_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
                 {!narrow && <small>{run.model}</small>}
               </div>
             </div>
             <div className="compare-slot" style={{ left: `min(calc(${split * 100}% + 12px), calc(100% - 104px))`, right: 8 }}>
               <div className="compare-tag glass">
+                <GlassPane />
                 {t('compareRight')} · {fmtKm(run.fine_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
                 {!narrow && <small>{lang === 'th' ? 'ภูมิประเทศ + ฟิสิกส์เขตร้อน' : 'terrain + tropical physics'}</small>}
               </div>
@@ -623,6 +626,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             title={t('radar')}
             onClick={() => setRadarOn((r) => !r)}
           >
+            <GlassPane />
             <Icon name="radar" />
             <span className="btn-label">{t('radar')}</span>
           </button>
@@ -634,6 +638,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             title={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
             onClick={() => setAirOn((on) => !on)}
           >
+            <GlassPane />
             <Icon name="air" />
             <span className="btn-label">PM2.5</span>
           </button>
@@ -645,6 +650,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             title={compareLabel}
             onClick={() => setCompare((c) => !c)}
           >
+            <GlassPane />
             <Icon name="split" />
             <span className="btn-label">{compareLabel}</span>
           </button>
@@ -657,6 +663,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             title={gridLabel}
             onClick={toggleGrid}
           >
+            <GlassPane />
             <Icon name="grid" />
             <span className="btn-label">{gridLabel}</span>
           </button>
@@ -664,6 +671,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
         {loading && (
           <div className="map-loading glass" role="status">
+            <GlassPane />
             <span className="spinner" /> {t('loading')}
           </div>
         )}
@@ -726,23 +734,26 @@ const AIR_LEVELS: [string, string, string, string][] = [
 function AirLegend({ lang, count, forecast }: { lang: 'th' | 'en'; count: number | null; forecast: boolean }) {
   const th = lang === 'th';
   return (
-    <div
-      className="air-legend glass"
-      role="note"
-      title={th ? 'PM2.5 ตอนนี้ (µg/m³) จากสถานี Air4Thai กรมควบคุมมลพิษ · ซูมเข้าเพื่อดูตัวเลข' : 'PM2.5 now (µg/m³), Air4Thai stations (Pollution Control Department) · zoom in for numbers'}
-    >
-      <b>PM2.5</b>
-      {AIR_LEVELS.map(([c, t, e, full]) => (
-        <span key={c} title={th ? full : e}>
-          <i style={{ background: c }} /> {th ? t : e}
+    <div className="air-legend-glass glass">
+      <GlassPane />
+      <div
+        className="air-legend"
+        role="note"
+        title={th ? 'PM2.5 ตอนนี้ (µg/m³) จากสถานี Air4Thai กรมควบคุมมลพิษ · ซูมเข้าเพื่อดูตัวเลข' : 'PM2.5 now (µg/m³), Air4Thai stations (Pollution Control Department) · zoom in for numbers'}
+      >
+        <b>PM2.5</b>
+        {AIR_LEVELS.map(([c, t, e, full]) => (
+          <span key={c} title={th ? full : e}>
+            <i style={{ background: c }} /> {th ? t : e}
+          </span>
+        ))}
+        <span className="subtle">
+          {count === null ? '…' : th ? `จุด = วัดจริง ${count} สถานี` : `dots = ${count} stations`}
+          {forecast ? (th ? ' · สี = พยากรณ์ FMI SILAM ~22 กม. ปรับตามค่าสถานี' : ' · shading = FMI SILAM forecast (~22 km) adjusted to the stations') : ''}
         </span>
-      ))}
-      <span className="subtle">
-        {count === null ? '…' : th ? `จุด = วัดจริง ${count} สถานี` : `dots = ${count} stations`}
-        {forecast ? (th ? ' · สี = พยากรณ์ FMI SILAM ~22 กม. ปรับตามค่าสถานี' : ' · shading = FMI SILAM forecast (~22 km) adjusted to the stations') : ''}
-      </span>
-      {/* the weather legend (and its credits) is hidden while the PM2.5 forecast has the map */}
-      {forecast && <MapCredit lang={lang} />}
+        {/* the weather legend (and its credits) is hidden while the PM2.5 forecast has the map */}
+        {forecast && <MapCredit lang={lang} />}
+      </div>
     </div>
   );
 }

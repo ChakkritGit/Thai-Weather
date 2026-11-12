@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import 'glisse/styles.css';
 import '@/design/fonts.css';
 import '@/design/generated/tokens.css';
 import '@/design/base.css';

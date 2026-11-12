@@ -4,6 +4,7 @@ import { cssGradient, radarScale } from '../lib/color';
 import { fmtHour } from '../lib/format';
 import type { RadarState } from '../lib/useRadar';
 import { useT } from '../i18n';
+import { GlassPane } from './GlassPane';
 import { Icon } from './Icon';
 import { ScrubRange } from './ScrubRange';
 
@@ -35,6 +36,7 @@ export function RadarControl({
   if (!frame) {
     return (
       <div className="radar-strip glass" role="status">
+        <GlassPane />
         {head(<span className="muted">{radar.status === 'loading' ? t('loading') : t('radarOff')}</span>)}
       </div>
     );
@@ -44,6 +46,7 @@ export function RadarControl({
   const time = `${fmtHour(frame.frameTime, lang)}${th ? ' น.' : ''}`;
   return (
     <div className="radar-strip glass" role="group" aria-label={t('radar')} data-active={active ? undefined : 'false'}>
+      <GlassPane />
       <div className="radar-strip-row">
         {head(
           <b aria-live="polite">

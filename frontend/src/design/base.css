@@ -371,6 +371,22 @@ button {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }
+/* Glisse's Liquid Glass is the host's first child (components/GlassPane.tsx), z -1 inside the host's own stacking context.
+   The host keeps border, radius, shadow and text but gives up background and backdrop-filter: its own would cut the pane off from the map. */
+.glass:has(> .lg-glass) {
+  isolation: isolate;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.glass > .lg-glass {
+  --lg-glass: var(--color-bg-glass);
+  --lg-blur: 14px;
+  box-shadow: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass > .lg-glass { --lg-glass: var(--color-bg-surface); }
+}
 
 .btn {
   display: inline-flex;
@@ -661,6 +677,7 @@ button {
   z-index: var(--zIndex-popover);
 }
 .place-search-field {
+  position: relative;
   display: flex;
   align-items: center;
   height: 44px;
@@ -721,8 +738,25 @@ button {
   box-shadow: var(--shadow-sm);
   border-color: var(--color-border-subtle);
 }
+.map-tools .btn:has(> .lg-glass) {
+  position: relative;
+  isolation: isolate;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.map-tools .btn > .lg-glass {
+  --lg-glass: var(--color-bg-glass);
+  --lg-blur: 12px;
+  box-shadow: none;
+}
 .map-tools .btn:hover { background: var(--color-bg-surface); }
 .map-tools .btn[aria-pressed='true'] { background: var(--color-bg-surface); }
+/* hovered and pressed are the opaque surface today: the pane takes that tint, the host's own background sits under it */
+.map-tools .btn:is(:hover, [aria-pressed='true']) > .lg-glass { --lg-glass: var(--color-bg-surface); }
+@media (prefers-reduced-transparency: reduce) {
+  .map-tools .btn > .lg-glass { --lg-glass: var(--color-bg-surface); }
+}
 .map-tools .btn--icon { width: 40px; min-height: 40px; padding: 0; }
 .map-tools .btn--icon svg { width: var(--size-iconMd); height: var(--size-iconMd); }
 
@@ -739,6 +773,7 @@ button {
 .map-bottom > * { pointer-events: auto; }
 
 .legend {
+  position: relative;
   justify-self: start;
   padding: var(--space-2) var(--space-3);
   width: min(100%, 360px);
@@ -785,6 +820,7 @@ button {
 }
 
 .timeline {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -938,6 +974,7 @@ button {
 }
 .compare-slot--left { justify-content: safe flex-end; }
 .compare-tag {
+  position: relative;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1418,6 +1455,7 @@ button {
 
 /* ---------------------------------------------------------- radar strip (bottom stack, one line) */
 .radar-strip {
+  position: relative;
   justify-self: start;
   width: min(100%, 460px);
   padding: var(--space-1) var(--space-3) 6px;
@@ -1664,6 +1702,11 @@ button {
 }
 .aq-marker[data-level='5'] { color: #fff; }
 .aq-marker:focus-visible { outline: 2px solid var(--color-accent-default); outline-offset: 1px; }
+.air-legend-glass {
+  position: relative;
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
 .air-legend {
   display: flex;
   flex-wrap: nowrap;

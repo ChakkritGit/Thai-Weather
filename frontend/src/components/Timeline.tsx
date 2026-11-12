@@ -3,6 +3,7 @@
 import type { RunMeta } from '../lib/api';
 import { fmtDay, fmtStep, nearestStep, thaiDate, thaiHour } from '../lib/format';
 import { useT } from '../i18n';
+import { GlassPane } from './GlassPane';
 import { Icon } from './Icon';
 import { ScrubRange } from './ScrubRange';
 
@@ -27,6 +28,7 @@ export function Timeline({ run, daily, index, nowIndex, onChange, playing, onPla
   if (daily) {
     return (
       <div className="timeline glass">
+        <GlassPane />
         <Icon name="drop" style={{ width: 20, height: 20, margin: '0 8px' }} />
         <div className="day-tabs" role="radiogroup" aria-label={t('daily')}>
           {run.days.map((d, i) => (
@@ -46,6 +48,7 @@ export function Timeline({ run, daily, index, nowIndex, onChange, playing, onPla
   const dayStarts = midnights.length && midnights[0] / Math.max(1, run.times.length - 1) < 0.12 ? midnights : [0, ...midnights];
   return (
     <div className="timeline glass">
+      <GlassPane />
       <button
         type="button"
         className="timeline-play"

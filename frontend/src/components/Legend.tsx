@@ -3,6 +3,7 @@
 import type { LayerMeta } from '../lib/api';
 import { categories, hexToRgb, scales } from '../lib/color';
 import { useT } from '../i18n';
+import { GlassPane } from './GlassPane';
 
 const CATEGORY_FOR_SCALE: Record<string, string> = { heatIndex: 'heatIndex' };
 
@@ -26,6 +27,7 @@ export function Legend({ layer }: { layer: LayerMeta }) {
     const levels = categories[cat].levels;
     return (
       <div className="legend glass" aria-label={`${pick(layer)} legend`}>
+        <GlassPane />
         <div className="legend-title">
           <span>{pick(layer)}</span>
           <span className="muted">{layer.unit}</span>
@@ -58,6 +60,7 @@ export function Legend({ layer }: { layer: LayerMeta }) {
   const tickEvery = n > 9 ? 2 : 1;
   return (
     <div className="legend glass" aria-label={`${pick(layer)} legend`}>
+      <GlassPane />
       <div className="legend-title">
         <span>{pick(layer)}</span>
         <span className="muted">{layer.unit}</span>
