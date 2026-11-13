@@ -90,3 +90,48 @@ def test_load_rejects_broken_files(tmp_path):
     tbmod.save(tmp_path, tbmod.TempBias("t", 30, 5, [tbmod.StationBias("X", 13.0, 100.0, None, [9.0] * 24, [1] * 24)]))
     assert tbmod.load(tmp_path).stations == []  # |bias| > MAX_ABS is a broken fit, not a bias
     assert tbmod.load(tmp_path / "nowhere").empty
+
+
+def test_the_background_fills_in_away_from_the_stations_only_when_on():
+    grid = Grid(13.0, 15.0, 100.0, 101.5, 0.02, 0.02)
+    elev = np.zeros(grid.shape, dtype=np.float32)
+    st = tbmod.StationBias("VTBD", 13.91, 100.6, 0.0, [-1.0] * 24, [30] * 24)
+    off = tbmod.fields(tbmod.TempBias("t", 30, 100, [st]), grid, elev)
+    on = tbmod.fields(tbmod.TempBias("t", 30, 100, [st], background=True), grid, elev)
+    far = grid.index(14.9, 101.4)
+    assert abs(off[6][far]) < 0.01  # stations only: nothing >100 km away
+    assert 0.95 < on[6][far] <= 1.0  # background: the cold bias is warmed up there too
+    iy, ix = grid.index(13.91, 100.6)
+    assert abs(on[6, iy, ix] - 1.0) < 0.01  # at the station both agree on its own bias
+
+
+def test_the_background_is_switched_on_only_when_it_helps_the_hold_out(tmp_path):
+    conn = db.connect(tmp_path / "v.db")
+    for sid, lat, lon in (("VTBD", 13.91, 100.6), ("VTCC", 18.77, 98.96), ("VTSP", 7.88, 98.31)):
+        db.upsert_station(conn, sid, sid, lat, lon, 5.0, "iem")
+    db.set_meta(conn, holdout.META_KEY, "VTSP")
+    now = datetime(2026, 11, 1, tzinfo=UTC)
+    rows, obs = [], []
+    for d in range(1, 44):
+        valid = (now - timedelta(days=d)).replace(hour=23, minute=0, second=0, microsecond=0)
+        conn.execute(
+            "INSERT INTO runs (run_id, run_time, collected_at, n_stations, baseline_ok) VALUES (?,?,?,?,?)",
+            (f"r{d}", db.fmt_time(valid - timedelta(hours=24)), db.fmt_time(valid), 3, 0),
+        )
+        for sid in ("VTBD", "VTCC", "VTSP"):  # everyone runs 1 °C cold, the far hold-out too
+            rows.append((f"r{d}", "fine", sid, db.fmt_time(valid), 24, 24.0, 0.0, 0.0))
+            obs.append((sid, db.fmt_time(valid), 25.0))
+    conn.executemany(
+        "INSERT INTO forecasts (run_id, source, station, valid, lead_h, t2m, rain, pop) VALUES (?,?,?,?,?,?,?,?)", rows
+    )
+    conn.executemany("INSERT INTO obs (station, valid, t2m) VALUES (?,?,?)", obs)
+    conn.commit()
+    c = fitmod.check_background(conn, now)
+    assert c["mae_without"] == 1.0 and c["mae_with"] < 0.9
+    assert not c["active"]  # 14 pairs: far too few to switch anything on
+    fitmod.BG_MIN_PAIRS, saved = 10, fitmod.BG_MIN_PAIRS
+    try:
+        tb = fitmod.refit(conn, tmp_path, now)
+    finally:
+        fitmod.BG_MIN_PAIRS = saved
+    assert tb.background and tbmod.load(tmp_path).background
