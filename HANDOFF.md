@@ -266,7 +266,11 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   `docker compose up`, and it runs a forecast on startup (THWX_RUN_ON_STARTUP). Bundle it with a planned restart.
 - **Open, the owner's call**: Portainer holds the Docker socket and its login page is public (as are NPM's and
   Dock's): Cloudflare Access in front is the fix. No container has a memory limit. CalorieFlow and Drive Music
-  send no Content-Security-Policy.
+  send a baseline CSP since 2026-11-13 (`frame-ancestors 'none'; base-uri 'self'; object-src 'none'`); a full
+  script-src policy would need per-request nonces (every page dynamic), so it is not there.
+- **Spent/Cost tokens** (2026-11-13): dbgw accepts tokens signed with `DBGW_APP_JWT_SECRET` (iss `expenses`) and
+  re-signs them for PostgREST, so expenses.env's `DATA_JWT_SECRET` can differ from `PGRST_JWT_SECRET`. Its
+  `/site/health` checks only the database (Supabase Auth is no longer probed).
 
 ### Dock PostgreSQL manager (2026-10-29, Codex)
 
