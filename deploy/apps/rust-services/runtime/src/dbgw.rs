@@ -355,44 +355,23 @@ async fn handle(State(g): State<Arc<Gateway>>, request: Request) -> HttpResponse
         .body(Body::from_stream(upstream.bytes_stream()))
         .unwrap()
 }
-// The Spent/Cost public dependency probe; always read-only and independent of user sessions.
+// The Spent/Cost public dependency probe; always read-only and independent of user sessions. Sign-in is the app's own
+// (Google, then a local session), so the database is the only dependency; Supabase Auth is no longer probed.
 async fn site_health(State(g): State<Arc<Gateway>>) -> HttpResponse {
-    let cache = |status, v| {
-        let mut r = util::json(status, v);
-        r.headers_mut()
-            .insert("cache-control", "public, s-maxage=15".parse().unwrap());
-        r
-    };
-    if g.issuer.is_empty() || g.anon.is_empty() {
-        return cache(503, json!({"ok":false}));
-    }
-    async fn probe(request: reqwest::RequestBuilder) -> Value {
-        let now = Instant::now();
-        let ok = request
-            .timeout(Duration::from_secs(5))
-            .send()
-            .await
-            .is_ok_and(|r| r.status().as_u16() == 200);
-        json!({"ok":ok,"ms":(now.elapsed().as_secs_f64()*1000.0).round() as u64})
-    }
+    let now = Instant::now();
     // PostgREST's configured anon role matches a public request through the gateway.
-    let db = g.http.get(format!(
-        "{}/plans?select=id&limit=1",
-        g.rest.trim_end_matches('/')
-    ));
-    let (db, auth) = tokio::join!(
-        probe(db),
-        probe(
-            g.http
-                .get(format!("{}/health", g.issuer))
-                .header("apikey", &g.anon)
-        )
-    );
-    let ok = db["ok"] == true && auth["ok"] == true;
-    cache(
-        if ok { 200 } else { 503 },
-        json!({"ok":ok,"db":db,"auth":auth}),
-    )
+    let ok = g
+        .http
+        .get(format!("{}/plans?select=id&limit=1", g.rest.trim_end_matches('/')))
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .is_ok_and(|r| r.status().as_u16() == 200);
+    let db = json!({"ok":ok,"ms":(now.elapsed().as_secs_f64()*1000.0).round() as u64});
+    let mut r = util::json(if ok { 200 } else { 503 }, json!({"ok":ok,"db":db}));
+    r.headers_mut()
+        .insert("cache-control", "public, s-maxage=15".parse().unwrap());
+    r
 }
 pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
     let base = util::env("SUPABASE_URL", "")

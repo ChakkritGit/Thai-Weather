@@ -651,7 +651,7 @@ button {
   min-height: 0;
 }
 
-/* layer chips: one scrollable row, snap + edge fades show there is more */
+/* layer chips: one scrollable row with snap */
 .map-layers {
   position: absolute;
   top: 0;

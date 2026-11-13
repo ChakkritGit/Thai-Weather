@@ -12,6 +12,7 @@ For a location, prefer the JSON API over scraping pages: no key, @THWX_1@ reques
 - [Alerts / แจ้งเตือน](@THWX_8@@THWX_9@): heavy rain, thunderstorms, strong wind, heat, cold and frost by province and day
 - [Method / วิธีการ](@THWX_10@@THWX_11@): why 2 km matters in the tropics, the processing pipeline, verification and limitations
 - [Accuracy / พยากรณ์แม่นแค่ไหน](@THWX_12@@THWX_13@): hourly verification against station reports, and what the forecast learns from them
+- [Learned models / ผลการรัน MLP](@THWX_26@@THWX_27@): daily training runs of the rain and temperature neural networks, their scores against the current method, and whether each is in use
 - [Free API docs / API ฟรี](@THWX_14@@THWX_15@): endpoints, limits, examples and terms
 
 ## API

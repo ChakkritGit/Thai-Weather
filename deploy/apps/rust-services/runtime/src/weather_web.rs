@@ -513,7 +513,7 @@ fn text(body: String, rss: bool) -> Response {
 async fn llms(State(app): State<Arc<App>>) -> Response {
     let (meta, _) = app.data().await;
     let run = meta.as_deref().and_then(|m| m.run.as_ref());
-    let mut slots = vec![String::new(); 26];
+    let mut slots = vec![String::new(); 28];
     slots[0] = run
         .map(|r| {
             format!(
@@ -525,7 +525,7 @@ async fn llms(State(app): State<Arc<App>>) -> Response {
         .unwrap_or_default();
     slots[1] = "60".into();
     for slot in [
-        2, 4, 6, 8, 10, 12, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+        2, 4, 6, 8, 10, 12, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
     ] {
         slots[slot] = app.site.clone();
     }
@@ -537,6 +537,7 @@ async fn llms(State(app): State<Arc<App>>) -> Response {
         (11, "/method"),
         (13, "/verification"),
         (15, "/developers"),
+        (27, "/verification/mlp"),
     ] {
         slots[slot] = path.into();
     }
