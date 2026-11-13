@@ -278,6 +278,8 @@ button {
   .bottom-nav .label { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .bottom-nav svg { width: 22px; height: 22px; }
   .bottom-nav .lg-tab-tint { color: var(--color-accent-fg); font-weight: var(--font-weight-semibold); }
+  /* the tab you are on: a heavier stroke and a lightly filled body, as iOS fills its selected tab symbol */
+  .bottom-nav .lg-tab-tint svg { stroke-width: 2.25; fill: currentColor; fill-opacity: 0.18; }
   .bottom-nav .count {
     position: absolute;
     top: 6px;

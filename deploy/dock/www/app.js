@@ -366,7 +366,7 @@ async function stats(id) {
 const TABS = [
   ['#/', 'pulse', tx('ภาพรวม')],
   ['#/containers', 'box', tx('คอนเทนเนอร์')],
-  ['#/images', 'drive', tx('อิมเมจ')],
+  ['#/images', 'drive', tx('พื้นที่เก็บ')],
   ['#/web', 'chart', tx('สถิติเว็บ')],
   ['#/more', 'more', tx('เพิ่มเติม')],
 ];
@@ -389,7 +389,7 @@ function tabs(current) {
           window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         }
       },
-    }, h('span', { class: 'tab-ic', 'data-tab-icon': true }, icon(ic), href === '#/more' ? badge() : null), h('span', { class: 'tab-label' }, label))));
+    }, h('span', { class: 'tab-ic', 'data-tab-icon': true }, icon(ic, `i-${ic}`), href === '#/more' ? badge() : null), h('span', { class: 'tab-label' }, label))));
 }
 function topBar(title, { back, onRefresh, extra } = {}) {
   const refresh = onRefresh

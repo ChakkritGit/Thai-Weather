@@ -182,6 +182,12 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .dock-nav .lg-tab, .dock-nav .lg-tab-copy { font-size: 11px; font-weight: 600; }
 .dock-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; white-space: nowrap; }
 .dock-tab svg { width: 22px; height: 22px; }
+/* the tab you are on (Glisse's copy under the lens): a heavier stroke and a filled body, as iOS fills its selected tab
+   symbol; the pulse line is open, so it only gets the stroke, and the dots fill solid */
+.dock-nav .lg-tab-tint svg { stroke-width: 2.3; fill: currentColor; fill-opacity: 0.22; }
+.dock-nav .lg-tab-tint svg.i-pulse { fill: none; }
+.dock-nav .lg-tab-tint svg.i-more { fill-opacity: 1; }
+.dock-nav .lg-tab-tint .tab-label, .dock-nav .lg-tab-tint .dock-tab { font-weight: 700; }
 /* blur and tint come from here, not from Glisse's lens filter: they hold even if that filter is dropped */
 .dock-nav .lg-tab-bar::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
