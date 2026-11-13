@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Glass, Switch, TabBar } from 'glisse';
 
-const PANES = '.chat-compose, .shell.chat > .top'; // the translucent bars; the bottom nav is a TabBar instead
+const PANES = '.chat-row'; // the floating chat field; the bottom nav is a TabBar instead
 // inline: Glisse's own `.lg-glass { position: relative }` would win over a rule in style.css
 const PANE = { position: 'absolute', inset: 0, zIndex: -1, borderRadius: 'inherit', pointerEvents: 'none' };
 
