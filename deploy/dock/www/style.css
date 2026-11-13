@@ -210,7 +210,7 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .chat-row .icon-btn.send { border-radius: 50%; }
 .glass-mount > .lg-glass { --lg-glass: transparent; --lg-blur: 0px; box-shadow: none; }
 /* a lens across a wide pill bends nothing you can see */
-@media (min-width: 900px) { .glass-mount > .lg-glass { -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media (min-width: 900px) { .glass-mount > .lg-glass { background-image: none; -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-transparency: reduce) {
   .dock-nav .lg-tab-bar::before,
   .chat-row::before { background: var(--bg); }

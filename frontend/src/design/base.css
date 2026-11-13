@@ -383,6 +383,11 @@ button {
   --lg-blur: 5px;
   box-shadow: none;
 }
+/* on a desktop the panes are wide cards (legend, timeline, search): a lens across them bends only their edges, which
+   read as a darker rim (Chromium); they keep the plain blur. The round map buttons and layer chips keep the lens. */
+@media (min-width: 861px) {
+  .glass > .lg-glass { background-image: none; -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(1.5); backdrop-filter: blur(var(--lg-blur)) saturate(1.5); }
+}
 @media (prefers-reduced-transparency: reduce) {
   .glass > .lg-glass { --lg-glass: var(--color-bg-surface); }
 }
