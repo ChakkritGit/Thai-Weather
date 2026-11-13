@@ -28,6 +28,9 @@ struct Gateway {
     issuer: String,
     anon: String,
     secret: String,
+    /// Spent/Cost's own signing secret (DBGW_APP_JWT_SECRET): its tokens are checked here and re-signed for PostgREST,
+    /// so the app never holds PostgREST's secret. Empty: only PostgREST-signed tokens pass.
+    app_secret: String,
     http: reqwest::Client,
     keys: Mutex<Option<Keys>>,
     known: Mutex<HashSet<String>>,
@@ -37,6 +40,8 @@ enum Caller {
     Anon,
     Local(String),
     User(Value),
+    /// a Spent/Cost token: `role` authenticated (with `sub`) or service_role
+    App(Value),
 }
 fn times_ok(v: &Value) -> bool {
     let now = millis() as f64 / 1000.0;
@@ -90,6 +95,17 @@ impl Gateway {
             .is_some_and(|v| times_ok(&v.claims))
         {
             return Some(Caller::Local(token.into()));
+        }
+        if !self.app_secret.is_empty()
+            && let Ok(v) = decode::<Value>(
+                token,
+                &DecodingKey::from_secret(self.app_secret.as_bytes()),
+                &validation(Algorithm::HS256),
+            )
+        {
+            let c = v.claims;
+            let role_ok = c["role"] == "service_role" || (c["role"] == "authenticated" && c["sub"].is_string());
+            return (times_ok(&c) && c["iss"] == "expenses" && c["exp"].is_number() && role_ok).then_some(Caller::App(c));
         }
         if self.issuer.is_empty() {
             return None;
@@ -193,6 +209,19 @@ impl Gateway {
         match c {
             Caller::Anon => None,
             Caller::Local(t) => Some(t.clone()),
+            Caller::App(c) => {
+                let now = millis() / 1000;
+                let mut out = serde_json::Map::new();
+                for key in ["role", "sub", "aud", "iss"] {
+                    if let Some(v) = c.get(key) {
+                        out.insert(key.into(), v.clone());
+                    }
+                }
+                out.insert("iat".into(), json!(now));
+                // the app's tokens live a minute; never longer here
+                out.insert("exp".into(), json!(c["exp"].as_f64().unwrap_or(0.0).min((now + 120) as f64)));
+                self.sign(&Value::Object(out)).ok()
+            }
             Caller::User(c) => {
                 let now = millis() / 1000;
                 let mut out = serde_json::Map::new();
@@ -389,6 +418,7 @@ pub fn router() -> Result<Router, Box<dyn std::error::Error>> {
         },
         anon: util::env("SUPABASE_ANON_KEY", ""),
         secret: util::env("PGRST_JWT_SECRET", ""),
+        app_secret: util::env("DBGW_APP_JWT_SECRET", ""),
         http: reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
