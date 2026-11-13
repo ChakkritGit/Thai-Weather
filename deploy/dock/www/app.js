@@ -45,7 +45,8 @@ const ICONS = {
   out: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3',
   chev: 'M9 6l6 6-6 6',
   box: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8',
-  layers: 'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',
+  // the images & volumes tab: a drive, the storage both live on
+  drive: 'M22 12H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01M10 16h.01',
   disk: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
   ext: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   pulse: 'M3 12h4l3-8 4 16 3-8h4',
@@ -365,7 +366,7 @@ async function stats(id) {
 const TABS = [
   ['#/', 'pulse', tx('ภาพรวม')],
   ['#/containers', 'box', tx('คอนเทนเนอร์')],
-  ['#/images', 'layers', tx('อิมเมจ')],
+  ['#/images', 'drive', tx('อิมเมจ')],
   ['#/web', 'chart', tx('สถิติเว็บ')],
   ['#/more', 'more', tx('เพิ่มเติม')],
 ];
