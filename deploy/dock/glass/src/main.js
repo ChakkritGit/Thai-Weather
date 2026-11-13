@@ -120,6 +120,8 @@ function syncSeg(group, ok) {
     if (!ok()) return;
     const host = document.createElement('div');
     host.className = group.classList.contains('scroll') ? 'glass-seg scroll' : 'glass-seg';
+    // a picker wider than the screen scrolls: a finger's sideways drag must pan it, not drag the lens (a tap still picks)
+    if (group.classList.contains('scroll')) host.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') e.stopPropagation(); }, true);
     group.after(host);
     rec = { host, root: root(host), sig: '', buttons, undo: () => { group.hidden = false; host.remove(); } };
     mounted.set(group, rec);

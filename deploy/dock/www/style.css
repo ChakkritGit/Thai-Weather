@@ -273,7 +273,8 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .segmented { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
 .segmented button { min-height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; }
 .segmented button[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); }
-.segmented + .meta, .glass-seg + .segmented + .meta { margin-top: 10px; }
+/* the glass picker is mounted after the hidden plain one */
+.segmented + .meta, .segmented + .glass-seg + .meta { margin-top: 14px; }
 .live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .section-title { margin: 28px 2px 12px; font-size: 17px; font-weight: 650; }
 
