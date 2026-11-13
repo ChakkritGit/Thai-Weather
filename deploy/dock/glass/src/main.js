@@ -10,11 +10,6 @@ const PANES = '.chat-row'; // the floating chat field; the bottom nav is a TabBa
 const PANE = { position: 'absolute', inset: 0, zIndex: -1, borderRadius: 'inherit', pointerEvents: 'none' };
 
 const app = document.getElementById('app');
-// Safari bends a copy of the content marked data-glisse-backdrop, found among the glass's ancestors below <body>: the
-// nav and the page share this one (a trial on the overview, app.js marks its page)
-const stage = document.createElement('div');
-app.before(stage);
-stage.append(app);
 const mounted = new Map(); // plain element -> { root, host, undo }
 let nav = null; // the floating bottom nav: one instance for every page, so the lens glides between tabs
 let observer = null;
@@ -84,8 +79,8 @@ function syncNav(plain) {
   if (!nav) {
     const host = document.createElement('div');
     host.className = 'dock-nav';
-    stage.append(host);
-    nav = { host, root: root(host), plain: null, links: [], value: undefined, items: [], backdrop: null, key: 0, undo: () => { host.remove(); if (nav?.plain) delete nav.plain.dataset.glass; } };
+    document.body.append(host);
+    nav = { host, root: root(host), plain: null, links: [], value: undefined, items: [], undo: () => { host.remove(); if (nav?.plain) delete nav.plain.dataset.glass; } };
     // the plain link does the work (it scrolls to the top when you are on that page already)
     host.addEventListener('click', (e) => {
       const tab = e.target.closest?.('a.lg-tab');
@@ -97,9 +92,6 @@ function syncNav(plain) {
   nav.host.hidden = false;
   const links = [...plain.querySelectorAll(':scope > a')];
   const value = links.find((a) => a.getAttribute('aria-current') === 'page')?.getAttribute('href') ?? null;
-  // Glisse looks for a backdrop to copy once, as the bar mounts: a page that brings or drops one gets a fresh bar
-  const backdrop = app.querySelector('[data-glisse-backdrop]');
-  if (backdrop !== nav.backdrop) { nav.backdrop = backdrop; nav.key += 1; nav.value = undefined; }
   if (nav.plain === plain && nav.value === value) return;
   if (nav.plain !== plain) {
     if (nav.plain) delete nav.plain.dataset.glass;
@@ -108,7 +100,7 @@ function syncNav(plain) {
     nav.items = links.map((a) => ({ value: a.getAttribute('href'), href: a.getAttribute('href'), label: h(Clone, { nodes: [...a.childNodes] }) }));
   }
   nav.value = value;
-  draw(nav, h(TabBar, { key: nav.key, items: nav.items, value, 'aria-label': plain.getAttribute('aria-label') ?? undefined }));
+  draw(nav, h(TabBar, { items: nav.items, value, 'aria-label': plain.getAttribute('aria-label') ?? undefined }));
   if (!dead) plain.dataset.glass = ''; // style.css hides the plain bar but keeps its box: the chat composer sits on top of it
 }
 
