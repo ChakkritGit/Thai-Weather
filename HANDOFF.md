@@ -194,8 +194,7 @@ integration cases and is not a complete backend check. Test sockets need local s
 ### Needs the owner's decision
 - **Memory limits** were removed on the owner's instruction (2026-10-19). The rooms/sync services now cap
   themselves in code (2026-10-22: ~1 GB of Whiteboard documents in total), so container limits stay off.
-- **Admin UIs** nginx./portainer.chakkritton.com are public behind passwords only; Cloudflare Access in front
-  of them would add a second factor (a Cloudflare security setting: ask first).
+- **Admin UIs** nginx./portainer.chakkritton.com sit behind Cloudflare Access since 2026-11-13 (see Security).
 - **WRF 3 km**: not feasible on this VPS (full domain ~9–18 h per run even on the 14-core plan). Options: rent
   compute per run, a smaller nested domain, or ingest an existing high-resolution model.
 - **Drive Music** stays on `drive.readonly` (Google shows a warning at login unless the app passes
@@ -264,8 +263,11 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - **Left as it is, on purpose**: the weather `api` and `verify` still run on Docker's default capability set.
   Do not add `cap_drop`/`security_opt` to them in passing: a changed definition recreates the api on the next
   `docker compose up`, and it runs a forecast on startup (THWX_RUN_ON_STARTUP). Bundle it with a planned restart.
-- **Open, the owner's call**: Portainer holds the Docker socket and its login page is public (as are NPM's and
-  Dock's): Cloudflare Access in front is the fix. No container has a memory limit. CalorieFlow and Drive Music
+- **Cloudflare Access** (2026-11-13): Zero Trust org "Admin" (calm-wind-3dfb.cloudflareaccess.com), login by
+  e-mailed one-time PIN, reusable policy "Owner only" (the owner's address), apps "NPM admin" and "Portainer" on
+  nginx./portainer.chakkritton.com, 24 h sessions; their own passwords still follow. Nothing automated calls these
+  hosts. Dock (docker.) stays outside Access. Undo: delete the two apps in Zero Trust > Access > Applications.
+- **Open, the owner's call**: No container has a memory limit. CalorieFlow and Drive Music
   send a baseline CSP since 2026-11-13 (`frame-ancestors 'none'; base-uri 'self'; object-src 'none'`); a full
   script-src policy would need per-request nonces (every page dynamic), so it is not there.
 - **Spent/Cost tokens** (2026-11-13): dbgw accepts tokens signed with `DBGW_APP_JWT_SECRET` (iss `expenses`) and
