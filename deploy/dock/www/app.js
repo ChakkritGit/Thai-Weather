@@ -982,6 +982,8 @@ async function overviewView(token) {
     [tx('คอนเทนเนอร์'), ctrTitle],
   ]);
   shell(topBar(tx('ภาพรวม'), { onRefresh: () => load() }), h('div', { class: 'with-toc' }, toc.el, body), tabs('#/'));
+  // trial: Safari's nav glass bends a copy of this page (glass.js); Chromium bends the live page anyway
+  app.firstElementChild.setAttribute('data-glisse-backdrop', '');
   app.querySelector('.shell').classList.add('wide', 'has-toc');
 
   const C = {}; // chart handles, created on first data

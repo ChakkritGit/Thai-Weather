@@ -196,6 +196,10 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
   box-shadow: inset 0 0 0 0.5px var(--lg-edge), 0 6px 20px rgb(0 0 0 / 0.14);
 }
 
+/* Safari bends a copy of the page under the nav (glass.js, data-glisse-backdrop): the copy sits above the ::before
+   blur, so the pane blurs and tints it itself */
+.dock-nav .lg-tab-bar-glass[data-copy] { --lg-blur: var(--glass-blur); --lg-glass: var(--glass-tint); }
+
 /* chat field: a floating pill. Blur and tint come from its ::before, so they hold even if Glisse's lens filter is dropped
    (and the pill drops its own backdrop-filter, which would cut the pane off from the page behind); the pane adds the rim
    light and, on a phone, the lens */
