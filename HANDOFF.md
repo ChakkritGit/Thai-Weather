@@ -189,7 +189,12 @@ integration cases and is not a complete backend check. Test sockets need local s
   2,000 station rain hours + 30 days (the dry season slows this). Progress: thai-weather…/verification.
 - ~2026-10-23: recheck rain-occurrence frequency bias (was 4.7–5×) after the probability-matched-mean change
   (report section 6) and the chance-of-rain calibration (section 8).
-- ~mid-November: recheck the learned temperature bias (hold-out MAE in the report; baseline 1.31 °C).
+- 2026-11-13: learned temperature bias rechecked. Hold-out stations ran ~0.8 °C cold because the per-station
+  bias fades away from stations; a regional background (300 km Gaussian of the station biases, pulled to the
+  national mean; `app/downscale/tempbias.py`) now fills in there. `verify tempbias` switches it on daily only
+  while it cuts the hold-out MAE (fit on the 30 days before the last 14, scored on those 14; >= 2000 pairs,
+  >= 0.02 °C): first check 1.564 -> 1.354 °C, bias -0.73 -> -0.02. Result in `temp_bias.json`
+  (`background`, `background_check`) and the report's learning section. The MLP path, once active, replaces it.
 
 ### Needs the owner's decision
 - **Memory limits** were removed on the owner's instruction (2026-10-19). The rooms/sync services now cap
@@ -270,6 +275,9 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - **Open, the owner's call**: No container has a memory limit. CalorieFlow and Drive Music
   send a baseline CSP since 2026-11-13 (`frame-ancestors 'none'; base-uri 'self'; object-src 'none'`); a full
   script-src policy would need per-request nonces (every page dynamic), so it is not there.
+- **Host packages** (2026-11-13): glibc 2.39-0ubuntu8.12, snapd, distro-info installed with needrestart in
+  list mode; host services restarted, except docker/containerd (live-restore is off: restarting them restarts
+  all containers; do it in a window right after a forecast run, or with the next reboot) and dbus/logind.
 - **Spent/Cost tokens** (2026-11-13): dbgw accepts tokens signed with `DBGW_APP_JWT_SECRET` (iss `expenses`) and
   re-signs them for PostgREST, so expenses.env's `DATA_JWT_SECRET` can differ from `PGRST_JWT_SECRET`. Its
   `/site/health` checks only the database (Supabase Auth is no longer probed).
