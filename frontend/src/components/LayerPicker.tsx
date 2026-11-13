@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LayerId, LayerMeta } from '../lib/api';
 import { useT } from '../i18n';
 import type { IconName } from './Icon';
+import { GlassPane } from './GlassPane';
 
 export const PICKER: { id: LayerId; icon: IconName; th: string; en: string }[] = [
   { id: 'temp', icon: 'thermo', th: 'อุณหภูมิ', en: 'Temperature' },
@@ -70,6 +71,7 @@ export function LayerPicker({
     >
       {PICKER.filter((p) => available.has(p.id)).map((p) => (
         <button key={p.id} type="button" role="radio" aria-checked={value === p.id} className="chip" onClick={() => onChange(p.id)}>
+          <GlassPane />
           {lang === 'th' ? p.th : p.en}
         </button>
       ))}

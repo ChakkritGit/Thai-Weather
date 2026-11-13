@@ -646,8 +646,6 @@ button {
 
 /* layer chips: one scrollable row, snap + edge fades show there is more */
 .map-layers {
-  --fade-l: 0px;
-  --fade-r: 0px;
   position: absolute;
   top: 0;
   left: 0;
@@ -663,11 +661,7 @@ button {
   scrollbar-width: none;
   /* must stay hit-testable: iOS WebKit will not scroll a container with pointer-events: none */
   touch-action: pan-x;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
 }
-.map-layers[data-fade-start='true'] { --fade-l: 28px; }
-.map-layers[data-fade-end='true'] { --fade-r: 36px; }
 .map-layers > * { scroll-snap-align: start; flex: none; }
 .map-layers::-webkit-scrollbar { display: none; }
 .map-layers .chip {
@@ -685,6 +679,20 @@ button {
   color: var(--color-accent-fg);
   border-color: var(--color-accent-default);
   font-weight: var(--font-weight-semibold);
+}
+/* Glisse's glass under each chip (components/GlassPane.tsx); the row has no mask fade, a mask would cut the panes off
+   from the map behind */
+.map-layers .chip:has(> .lg-glass) {
+  position: relative;
+  isolation: isolate;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.map-layers .chip > .lg-glass { --lg-glass: var(--pane-tint); --lg-blur: 5px; box-shadow: none; }
+.map-layers .chip[aria-checked='true'] > .lg-glass { --lg-glass: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }
+@media (prefers-reduced-transparency: reduce) {
+  .map-layers .chip > .lg-glass { --lg-glass: var(--color-bg-surface); }
 }
 
 .place-search {
