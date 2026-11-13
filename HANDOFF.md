@@ -281,8 +281,9 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   origin in either app needs adding to its csp.ts. Playwright WebKit crashes opening a second tab while sw.js
   is active: test with one tab.
 - **Host packages** (2026-11-13): glibc 2.39-0ubuntu8.12, snapd, distro-info installed with needrestart in
-  list mode; host services restarted, except docker/containerd (live-restore is off: restarting them restarts
-  all containers; do it in a window right after a forecast run, or with the next reboot) and dbus/logind.
+  list mode; host services restarted, docker/containerd too (06:44Z, ~1m45s for all 28 containers; all came
+  back healthy, no forecast run: the api's startup waits until the latest run is due, scheduler.first_wait_s).
+  The health endpoint's `refresher.last_success` is empty after an api restart: judge run age by `run`.
 - **Spent/Cost tokens** (2026-11-13): dbgw accepts tokens signed with `DBGW_APP_JWT_SECRET` (iss `expenses`) and
   re-signs them for PostgREST, so expenses.env's `DATA_JWT_SECRET` can differ from `PGRST_JWT_SECRET`. Its
   `/site/health` checks only the database (Supabase Auth is no longer probed).
