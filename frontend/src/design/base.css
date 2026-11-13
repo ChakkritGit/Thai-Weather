@@ -1660,6 +1660,8 @@ button {
 .verify-legend i { display: inline-block; width: 12px; height: 4px; border-radius: 2px; }
 .verify-size-legend { align-items: center; }
 .verify-size-legend svg { display: block; }
+.verify-size-legend .verify-size-scale { gap: var(--space-3); white-space: nowrap; }
+.verify-size-arrow { margin-right: var(--space-3); color: var(--color-fg-muted); }
 .verify-chart { margin: 0; display: grid; gap: var(--space-2); }
 .verify-chart svg { display: block; max-width: 100%; overflow: visible; }
 .verify-axis { fill: var(--color-fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; }

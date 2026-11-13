@@ -438,14 +438,18 @@ function Reliability({ bins, th }: { bins: VerificationReport['pop']['reliabilit
       )}
       <figcaption className="verify-legend verify-size-legend">
         <span>{th ? 'ขนาดจุด = จำนวนชั่วโมงที่พยากรณ์ช่วงนั้น' : 'Dot size = hours forecast in that range'}</span>
-        {[minN, maxN].map((n) => (
-          <span key={n}>
-            <svg width={2 * dot(maxN) + 4} height={2 * dot(maxN) + 4} aria-hidden="true">
-              <circle cx={dot(maxN) + 2} cy={dot(maxN) + 2} r={dot(n)} fill="var(--color-chart-fine)" />
-            </svg>
-            {n.toLocaleString()} {th ? 'ชม.' : 'h'}
-          </span>
-        ))}
+        {/* the two samples read as one scale and wrap together */}
+        <span className="verify-size-scale">
+          {[minN, maxN].map((n, i) => (
+            <span key={n}>
+              {i > 0 && <span aria-hidden="true" className="verify-size-arrow">→</span>}
+              <svg width={2 * dot(maxN) + 4} height={2 * dot(maxN) + 4} aria-hidden="true">
+                <circle cx={dot(maxN) + 2} cy={dot(maxN) + 2} r={dot(n)} fill="var(--color-chart-fine)" />
+              </svg>
+              {n.toLocaleString()} {th ? 'ชม.' : 'h'}
+            </span>
+          ))}
+        </span>
       </figcaption>
     </figure>
   );
