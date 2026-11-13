@@ -52,6 +52,7 @@ BATCH = 256
 MAX_EPOCHS = 300
 PATIENCE = 20
 SEED = 7
+CURVE_SAMPLE = 20_000
 
 
 @dataclass
@@ -169,10 +170,17 @@ def train(
     hidden: tuple[int, ...] = HIDDEN,
     classify: bool = False,
     max_epochs: int | None = None,
+    history: dict | None = None,
 ):
     """Adam on minibatches. With ``val``: early stopping on the validation MAE (Brier score when
-    classifying), returns (params, best epoch count)."""
+    classifying), returns (params, best epoch count). ``history`` (with ``val``) collects the
+    per-epoch ``train`` and ``val`` loss in that same unit, for the learning curve."""
     rng = np.random.default_rng(SEED)
+    # a fixed slice of the training data is scored each epoch (own rng: training stays unchanged)
+    probe = np.random.default_rng(SEED + 1).permutation(len(y))[:CURVE_SAMPLE] if history is not None else None
+    loss_of = lambda p, a, b: float(  # noqa: E731
+        np.mean((predict(p, a, classify) - b) ** 2) if classify else np.mean(np.abs(predict(p, a, classify) - b))
+    )
     params = _init(x.shape[1], rng, hidden)
     m = [np.zeros_like(p) for p in params]
     v = [np.zeros_like(p) for p in params]
@@ -189,8 +197,10 @@ def train(
                 v[k] = 0.999 * v[k] + 0.001 * g[k] ** 2
                 p -= LR * (m[k] / (1 - 0.9**t)) / (np.sqrt(v[k] / (1 - 0.999**t)) + 1e-8)
         if val is not None:
-            pred = predict(params, val[0], classify)
-            loss = float(np.mean((pred - val[1]) ** 2) if classify else np.mean(np.abs(pred - val[1])))
+            loss = loss_of(params, val[0], val[1])
+            if history is not None:
+                history.setdefault("train", []).append(round(loss_of(params, x[probe], y[probe]), 5))
+                history.setdefault("val", []).append(round(loss, 5))
             if loss < best - 1e-5:
                 best, best_params, best_epoch, waited = loss, [p.copy() for p in params], epoch, 0
             else:
@@ -232,6 +242,7 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     if n < MIN_PAIRS or days < MIN_DAYS:
         status["reason"] = "waiting for data"
         tempmlp.save(data_root, status)
+        db.record_mlp_run(conn, "temp", status)
         log.info("mlp: waiting for data (%d/%d pairs, %d/%d days)", n, MIN_PAIRS, days, MIN_DAYS)
         return status
 
@@ -241,7 +252,11 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     norm = lambda a: (a - mean) / std  # noqa: E731
     val_cut = np.quantile(train_s.valid_day, 0.85)
     fit_m, val_m = train_s.valid_day < val_cut, train_s.valid_day >= val_cut
-    params, epochs = train(norm(train_s.x[fit_m]), train_s.y[fit_m], val=(norm(train_s.x[val_m]), train_s.y[val_m]))
+    hist: dict = {}
+    params, epochs = train(
+        norm(train_s.x[fit_m]), train_s.y[fit_m], val=(norm(train_s.x[val_m]), train_s.y[val_m]), history=hist
+    )
+    status["curve"] = {"metric": "mae", **hist, "best_epoch": epochs}
     params, _ = train(norm(train_s.x), train_s.y, epochs=max(epochs, 5))
 
     bias = _hourly_bias(train_s)
@@ -263,6 +278,7 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     if not passed:
         status["reason"] = "does not beat the hourly bias yet"
         tempmlp.save(data_root, status)
+        db.record_mlp_run(conn, "temp", status)
         log.info("mlp: not used (MAE raw %.3f, hourly %.3f, mlp %.3f)", mae_raw, mae_hourly, mae_mlp)
         return status
 
@@ -279,6 +295,7 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
         stations=[{k: info[s][k] for k in ("id", "lat", "lon", "elevation", "model_elevation")} for s in stations],
     )
     tempmlp.save(data_root, status)
+    db.record_mlp_run(conn, "temp", status)
     log.info("mlp: active (MAE raw %.3f, hourly %.3f, mlp %.3f, %d epochs)", mae_raw, mae_hourly, mae_mlp, epochs)
     return status
 
@@ -286,6 +303,6 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
 def load_status(data_root: Path) -> dict | None:
     try:
         d = json.loads(tempmlp.path(data_root).read_text(encoding="utf-8"))
-        return {k: v for k, v in d.items() if k not in ("weights", "mean", "std", "stations")}
+        return {k: v for k, v in d.items() if k not in ("weights", "mean", "std", "stations", "curve")}
     except (OSError, ValueError):
         return None

@@ -1761,3 +1761,21 @@ button {
 .panel-footer { margin: var(--space-4) calc(-1 * var(--space-4)) 0; border-radius: 0; }
 .panel-footer .site-footer-inner { grid-template-columns: minmax(0, 1fr); padding: var(--space-4); }
 .panel-footer nav { grid-column: 1; grid-row: auto; flex-wrap: wrap; }
+
+/* MLP page: status pills (text first; colour and marker shape only back it up) */
+.mlp-badge::before { content: ''; width: 8px; height: 8px; flex: none; box-sizing: border-box; border-radius: 50%; background: currentColor; }
+.mlp-badge--on { background: var(--color-status-success-bg); color: var(--color-status-success-fg); }
+.mlp-badge--off { background: var(--color-status-info-bg); color: var(--color-status-info-fg); }
+.mlp-badge--off::before { background: transparent; border: 2px solid currentColor; }
+.mlp-badge--wait { background: var(--color-severity-0-bg); color: var(--color-severity-0-fg); }
+.mlp-badge--wait::before { border-radius: 1px; height: 2px; }
+.mlp-head, .verify-section h3.mlp-h { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.mlp-block { display: grid; gap: var(--space-2); min-width: 0; padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle); }
+.mlp-block h3 { margin: 0; font-size: var(--font-size-md); }
+.mlp-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--space-4); }
+.mlp-table td, .mlp-table th { padding-inline: var(--space-2); }
+.mlp-table th:first-child, .mlp-table td:first-child { padding-left: 0; }
+.mlp-table .num { white-space: nowrap; }
+.mlp-run { display: grid; justify-items: start; gap: 2px; }
+.mlp-run small { font-size: var(--font-size-xs); }
+.verify-chart .verify-legend span { white-space: nowrap; }

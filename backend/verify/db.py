@@ -7,6 +7,7 @@ All times are UTC strings ``YYYY-MM-DDTHH:MM`` (sortable as text).
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,6 +33,11 @@ CREATE TABLE IF NOT EXISTS forecasts (
     PRIMARY KEY (run_id, source, station, valid)
 );
 CREATE INDEX IF NOT EXISTS forecasts_valid ON forecasts (valid);
+CREATE TABLE IF NOT EXISTS mlp_runs (
+    kind TEXT NOT NULL, fitted_at TEXT NOT NULL, active INTEGER NOT NULL, reason TEXT,
+    pairs INTEGER, days INTEGER, events INTEGER, metrics TEXT, curve TEXT,
+    PRIMARY KEY (kind, fitted_at)
+);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -100,6 +106,59 @@ def upsert_obs(conn: sqlite3.Connection, rows: list[tuple[str, str, float | None
         rows,
     )
     return len(rows)
+
+
+HISTORY_CAP = 365
+
+
+def record_mlp_run(conn: sqlite3.Connection, kind: str, status: dict, replace: bool = True) -> None:
+    """Append one daily refit of the 'temp' or 'rain' network (the curve only exists when it trained).
+    Backfilled rows pass ``replace=False`` so they never overwrite a real row."""
+    verb = "INSERT OR REPLACE" if replace else "INSERT OR IGNORE"
+    metrics, curve = status.get("metrics"), status.get("curve")
+    conn.execute(
+        f"{verb} INTO mlp_runs (kind, fitted_at, active, reason, pairs, days, events, metrics, curve) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (
+            kind,
+            status["fitted_at"],
+            1 if status.get("active") else 0,
+            status.get("reason"),
+            status.get("pairs"),
+            status.get("days"),
+            status.get("events"),
+            json.dumps(metrics) if metrics else None,
+            json.dumps(curve) if curve else None,
+        ),
+    )
+    conn.commit()
+
+
+def mlp_history(conn: sqlite3.Connection, kind: str, cap: int = HISTORY_CAP) -> dict:
+    """The newest ``cap`` runs, oldest first, and the learning curve of the latest run that trained."""
+    rows = conn.execute(
+        "SELECT fitted_at, active, reason, pairs, days, events, metrics FROM mlp_runs "
+        "WHERE kind=? ORDER BY fitted_at DESC LIMIT ?",
+        (kind, cap),
+    ).fetchall()
+    history = [
+        {
+            "fitted_at": r["fitted_at"],
+            "active": bool(r["active"]),
+            "reason": r["reason"],
+            "pairs": r["pairs"],
+            "days": r["days"],
+            "events": r["events"],
+            "metrics": json.loads(r["metrics"]) if r["metrics"] else None,
+        }
+        for r in reversed(rows)
+    ]
+    c = conn.execute(
+        "SELECT fitted_at, curve FROM mlp_runs WHERE kind=? AND curve IS NOT NULL ORDER BY fitted_at DESC LIMIT 1",
+        (kind,),
+    ).fetchone()
+    curve = {"fitted_at": c["fitted_at"], **json.loads(c["curve"])} if c else None
+    return {"history": history, "curve": curve}
 
 
 def get_meta(conn: sqlite3.Connection, key: str) -> str | None:

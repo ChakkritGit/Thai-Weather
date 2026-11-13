@@ -24,5 +24,6 @@ export const paths = {
   method: '/method',
   developers: '/developers',
   verification: '/verification',
+  verificationMlp: '/verification/mlp',
   design: '/design',
 };

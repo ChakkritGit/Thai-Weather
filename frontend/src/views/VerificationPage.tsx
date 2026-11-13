@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useT } from '../i18n';
+import { MlpBadge } from '../components/MlpBadge';
+import { paths } from '../lib/paths';
+import { mlpState, type MlpHistory } from '../lib/mlpRuns';
 
 type Metrics = { n: number; bias: number | null; mae: number | null; rmse: number | null };
 type Row = { label: string; n: number; metrics: Record<string, Metrics>; extra: Record<string, string> };
@@ -37,6 +41,7 @@ export interface VerificationReport {
       required_events: number; required_days: number; test_days: number;
       metrics: { test_hours: number; test_rain_hours: number; brier_raw: number; brier_logistic: number; brier_mlp: number; epochs: number } | null;
     } | null;
+    mlp?: { temp: MlpHistory; rain: MlpHistory } | null;
   };
 }
 
@@ -158,6 +163,9 @@ export function VerificationPage({ report }: { report: VerificationReport }) {
         <section className="card card-pad verify-section">
           <h2>{th ? 'สิ่งที่ระบบเรียนรู้จากสถานี' : 'What the forecast learns from the stations'}</h2>
           <Learning l={report.learning} th={th} date={date} />
+          <p className="verify-note">
+            <Link href={paths.verificationMlp}>{th ? 'ดูผลการเรียนรู้ MLP รายวัน: ฝนและอุณหภูมิ' : 'See the daily MLP results for rain and temperature'}</Link>
+          </p>
         </section>
 
         <section className="card card-pad verify-section">
@@ -254,7 +262,7 @@ function BarTable({ rows, name, th, first }: { rows: Row[]; name: (s: string) =>
 
 /** The chart's box width in CSS px, so the SVG is drawn at its real size: it fills the card while the
  * text stays 11 px instead of scaling with the drawing. */
-function useWidth(fallback: number) {
+export function useWidth(fallback: number) {
   const ref = useRef<HTMLElement>(null);
   const [w, setW] = useState(fallback);
   useEffect(() => {
@@ -272,7 +280,7 @@ function useWidth(fallback: number) {
  * scroll the page), and arrow keys when it has focus. The point nearest the pointer across is read out; a touch keeps
  * it after the finger lifts until a tap elsewhere. `at` is each point's x in the SVG's own units (its width is W).
  */
-function useScrub(count: number, at: (i: number) => number, W: number, fig: React.RefObject<HTMLElement | null>) {
+export function useScrub(count: number, at: (i: number) => number, W: number, fig: React.RefObject<HTMLElement | null>) {
   const svg = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   useEffect(() => {
@@ -462,7 +470,7 @@ function Learning({ l, th, date }: { l: VerificationReport['learning']; th: bool
         </p>
       </div>
       <div>
-        <h3>{th ? 'โอกาสฝน: โครงข่ายประสาทเทียม (MLP)' : 'Chance of rain: neural network (MLP)'}</h3>
+        <h3 className="mlp-h">{th ? 'โอกาสฝน: โครงข่ายประสาทเทียม (MLP)' : 'Chance of rain: neural network (MLP)'} <MlpBadge state={mlpState(r)} th={th} /></h3>
         {!r ? (
           <p className="muted">{th ? 'ยังไม่เริ่ม' : 'Not started'}</p>
         ) : r.active ? (
@@ -502,7 +510,7 @@ function Learning({ l, th, date }: { l: VerificationReport['learning']; th: bool
         </p>
       </div>
       <div>
-        <h3>{th ? 'อุณหภูมิ: โครงข่ายประสาทเทียม (MLP)' : 'Temperature: neural network (MLP)'}</h3>
+        <h3 className="mlp-h">{th ? 'อุณหภูมิ: โครงข่ายประสาทเทียม (MLP)' : 'Temperature: neural network (MLP)'} <MlpBadge state={mlpState(m)} th={th} /></h3>
         {!m ? (
           <p className="muted">{th ? 'ยังไม่เริ่ม' : 'Not started'}</p>
         ) : m.active ? (

@@ -62,6 +62,8 @@ def test_waits_for_enough_history(tmp_path):
     assert st["required_days"] == mlpmod.MIN_DAYS and st["days"] < mlpmod.MIN_DAYS
     assert tempmlp.load(tmp_path) is None
     assert mlpmod.load_status(tmp_path)["reason"] == "waiting for data"
+    rows = db.mlp_history(conn, "temp")["history"]
+    assert len(rows) == 1 and rows[0]["reason"] == "waiting for data" and rows[0]["metrics"] is None
 
 
 @pytest.fixture
@@ -80,6 +82,11 @@ def test_switches_itself_on_when_it_beats_the_hourly_bias(tmp_path, small_gate):
     assert m["mae_mlp"] < m["mae_hourly_bias"] - 0.05
     model = tempmlp.load(tmp_path)
     assert model is not None and len(model.stations) == 8
+    h = db.mlp_history(conn, "temp")
+    assert h["history"][-1]["active"] is True and h["history"][-1]["metrics"]["mae_mlp"] == m["mae_mlp"]
+    c = h["curve"]
+    assert c["metric"] == "mae" and len(c["train"]) == len(c["val"]) >= c["best_epoch"] == m["epochs"]
+    assert "curve" not in mlpmod.load_status(tmp_path)
     # applied on a grid: the correction at a station follows the gap to GFS
     grid = Grid(12.5, 16.0, 99.5, 102.0, 0.05, 0.05)
     elev = np.full(grid.shape, 25.0, dtype=np.float32)
@@ -99,6 +106,21 @@ def test_stays_off_when_there_is_nothing_to_learn(tmp_path, small_gate):
     st = mlpmod.refit(conn, tmp_path, now)
     assert st["active"] is False and st["reason"] == "does not beat the hourly bias yet"
     assert tempmlp.load(tmp_path) is None
+    last = db.mlp_history(conn, "temp")["history"][-1]
+    assert last["active"] is False and last["reason"] == st["reason"] and last["metrics"]["mae_raw"] > 0
+
+
+def test_history_is_capped_and_a_refit_in_the_same_minute_replaces_its_row(tmp_path):
+    conn = db.connect(tmp_path / "v.db")
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+    for i in range(db.HISTORY_CAP + 5):
+        at = (t0 + timedelta(days=i)).isoformat(timespec="minutes")
+        db.record_mlp_run(conn, "rain", {"fitted_at": at, "active": False, "reason": "waiting for data"})
+    db.record_mlp_run(conn, "rain", {"fitted_at": t0.isoformat(timespec="minutes"), "active": True})
+    h = db.mlp_history(conn, "rain")
+    assert len(h["history"]) == db.HISTORY_CAP and h["history"][0]["fitted_at"] > t0.isoformat()
+    assert h["curve"] is None
+    assert db.mlp_history(conn, "temp")["history"] == []
 
 
 def test_applied_corrections_of_both_kinds_are_added_back():

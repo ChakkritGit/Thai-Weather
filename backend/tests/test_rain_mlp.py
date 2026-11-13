@@ -51,6 +51,8 @@ def test_waits_for_two_thousand_rain_hours_and_writes_the_station_list(tmp_path)
     assert st["required_events"] == 2000 and 0 < st["events"] < 2000
     assert rainmlp.load(tmp_path) is None
     assert {s["id"] for s in rainmlp.load_stations(tmp_path)} == {f"S{i}" for i in range(6)}
+    row = db.mlp_history(conn, "rain")["history"][-1]
+    assert row["reason"] == "waiting for data" and row["events"] == st["events"] and row["active"] is False
 
 
 @pytest.fixture
@@ -67,6 +69,9 @@ def test_switches_itself_on_when_it_beats_the_logistic_calibration(tmp_path, sma
     m = st["metrics"]
     assert st["active"] is True, st
     assert m["brier_mlp"] < m["brier_logistic"] * 0.98
+    h = db.mlp_history(conn, "rain")
+    assert h["history"][-1]["active"] is True and h["curve"]["metric"] == "brier"
+    assert len(h["curve"]["train"]) == len(h["curve"]["val"]) >= m["epochs"]
     model = rainmlp.load(tmp_path)
 
     # the network learned the afternoon storms: same raw chance, very different probability
@@ -83,6 +88,8 @@ def test_stays_off_when_the_calibration_is_as_good(tmp_path, small_gate):
     conn, now = _db(tmp_path, days=30, hour_effect=False)
     st = rmod.refit(conn, tmp_path, now)
     assert st["active"] is False and st["reason"] == "does not beat the logistic calibration yet"
+    last = db.mlp_history(conn, "rain")["history"][-1]
+    assert last["active"] is False and last["metrics"]["brier_mlp"] == st["metrics"]["brier_mlp"]
 
 
 def test_refits_use_the_raw_values_a_run_recorded_and_skip_unrecoverable_ones(tmp_path):

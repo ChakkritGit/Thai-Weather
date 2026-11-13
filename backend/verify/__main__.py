@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -93,14 +94,18 @@ def run_score(conn, args: argparse.Namespace) -> str:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md, encoding="utf-8")
     # the same numbers as data for the site's /verification page, plus what the forecast has learned
-    data = {**score.to_json(report), "generated": until.isoformat(timespec="minutes"), "learning": learning_status()}
+    data = {
+        **score.to_json(report),
+        "generated": until.isoformat(timespec="minutes"),
+        "learning": learning_status(conn),
+    }
     tmp = out.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     tmp.replace(out.with_suffix(".json"))
     return md
 
 
-def learning_status() -> dict:
+def learning_status(conn=None) -> dict:
     root = Path(os.environ.get("THWX_DATA_DIR") or "var")
     from app.downscale import calibration as pop_cal
     from app.downscale import tempbias as tb
@@ -118,7 +123,72 @@ def learning_status() -> dict:
         "temp_bias": bias.record() if bias.stations else None,
         "temp_mlp": mlp_mod.load_status(root),
         "rain_mlp": rainmlp_mod.load_status(root),
+        # run history and the latest learning curve per network, for the site's MLP page
+        "mlp": {k: db.mlp_history(conn, k) for k in ("temp", "rain")} if conn is not None else None,
     }
+
+
+# Lines the trainers log; the status file only keeps the latest run, so older runs come from the log.
+_LOG_TS = r"(?P<ts>\d{4}-\d\d-\d\d \d\d:\d\d):\d\d[,.]\d+ \w+ verify\.(?P<kind>mlp|rainmlp): (?:mlp|rainmlp): "
+_NUM = r"(\d+(?:\.\d+)?)"
+_LOG_RES = [
+    (
+        re.compile(_LOG_TS + r"waiting for data \((?P<a>\d+)/\d+ (?P<unit>pairs|rain hours), (?P<days>\d+)/\d+ days\)"),
+        "wait",
+    ),
+    (re.compile(_LOG_TS + rf"not used \(MAE raw {_NUM}, hourly {_NUM}, mlp {_NUM}\)"), "temp_no"),
+    (re.compile(_LOG_TS + rf"active \(MAE raw {_NUM}, hourly {_NUM}, mlp {_NUM}, (\d+) epochs\)"), "temp_on"),
+    (re.compile(_LOG_TS + rf"not used \(Brier raw {_NUM}, logistic {_NUM}, mlp {_NUM}\)"), "rain_no"),
+    (re.compile(_LOG_TS + rf"active \(Brier raw {_NUM}, logistic {_NUM}, mlp {_NUM}, (\d+) epochs\)"), "rain_on"),
+]
+_REASON = {"temp": "does not beat the hourly bias yet", "rain": "does not beat the logistic calibration yet"}
+
+
+def parse_mlp_log_line(line: str) -> tuple[str, dict] | None:
+    """(kind, status) for one trainer log line, or None. Fields the line lacks stay None."""
+    for rx, what in _LOG_RES:
+        m = rx.search(line)
+        if not m:
+            continue
+        kind = "rain" if m["kind"] == "rainmlp" else "temp"
+        at = datetime.strptime(m["ts"], "%Y-%m-%d %H:%M").replace(tzinfo=UTC)  # log times are UTC
+        st = {
+            "fitted_at": at.isoformat(timespec="minutes"),
+            "active": what.endswith("_on"),
+            "reason": None,
+            "pairs": None,
+            "days": None,
+            "events": None,
+            "metrics": None,
+        }
+        if what == "wait":
+            st["reason"] = "waiting for data"
+            st["days"] = int(m["days"])
+            st["events" if m["unit"] == "rain hours" else "pairs"] = int(m["a"])
+            return kind, st
+        g = m.groups()[-4:] if what.endswith("_on") else m.groups()[-3:]
+        names = (
+            ("mae_raw", "mae_hourly_bias", "mae_mlp")
+            if kind == "temp"
+            else ("brier_raw", "brier_logistic", "brier_mlp")
+        )
+        st["metrics"] = {n: float(v) for n, v in zip(names, g, strict=False)}
+        if what.endswith("_on"):
+            st["metrics"]["epochs"] = int(g[3])
+        else:
+            st["reason"] = _REASON[kind]
+        return kind, st
+    return None
+
+
+def run_mlp_backfill(conn, lines) -> int:
+    """Insert the runs found in trainer log lines; rows already there are kept. Returns rows added."""
+    before = conn.total_changes
+    for line in lines:
+        parsed = parse_mlp_log_line(line)
+        if parsed:
+            db.record_mlp_run(conn, parsed[0], parsed[1], replace=False)
+    return conn.total_changes - before
 
 
 def run_calibrate(conn, args: argparse.Namespace):
@@ -207,6 +277,8 @@ def build_parser() -> argparse.ArgumentParser:
         "mlp", help="train the temperature neural network; it switches itself on once it beats the hourly bias"
     )
 
+    sub.add_parser("mlp-backfill", help="read trainer log lines on stdin and add the past runs to the MLP history")
+
     lp = sub.add_parser("loop", help="observe + push + collect (+ hourly score, daily calibrate) forever")
     lp.add_argument("--interval-min", type=float, default=15.0)
     lp.add_argument("--days", type=int, default=30, help="report window in days")
@@ -242,6 +314,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "mlp":
             st = run_mlp(conn, args)
             print(json.dumps({k: st.get(k) for k in ("active", "reason", "pairs", "days", "metrics")}))
+        elif args.cmd == "mlp-backfill":
+            print(f"{run_mlp_backfill(conn, sys.stdin)} MLP runs added")
         elif args.cmd == "tempbias":
             rec = run_tempbias(conn, args).record()
             print(f"{rec['pairs']} pairs, {rec['stations']} stations, mean |bias| {rec['mean_abs']:.2f} °C")

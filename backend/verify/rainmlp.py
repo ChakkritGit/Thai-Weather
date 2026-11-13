@@ -141,6 +141,7 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     if events < MIN_EVENTS or days < MIN_DAYS:
         status["reason"] = "waiting for data"
         rainmlp.save(data_root, status)
+        db.record_mlp_run(conn, "rain", status)
         log.info("rainmlp: waiting for data (%d/%d rain hours, %d/%d days)", events, MIN_EVENTS, days, MIN_DAYS)
         return status
 
@@ -150,9 +151,17 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     norm = lambda a: (a - mean) / std  # noqa: E731
     val_cut = np.quantile(day[tr], 0.85)
     fit_m, val_m = tr & (day < val_cut), tr & (day >= val_cut)
+    hist: dict = {}
     params, epochs = train(
-        norm(x[fit_m]), y[fit_m], val=(norm(x[val_m]), y[val_m]), hidden=HIDDEN, classify=True, max_epochs=MAX_EPOCHS
+        norm(x[fit_m]),
+        y[fit_m],
+        val=(norm(x[val_m]), y[val_m]),
+        hidden=HIDDEN,
+        classify=True,
+        max_epochs=MAX_EPOCHS,
+        history=hist,
     )
+    status["curve"] = {"metric": "brier", **hist, "best_epoch": epochs}
     params, _ = train(norm(x[tr]), y[tr], epochs=max(epochs, 5), hidden=HIDDEN, classify=True)
 
     logistic = calibration.calibrate(raw[tr], y[tr], fitted_at=status["fitted_at"], window_days=days)
@@ -170,6 +179,7 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     if b_mlp > min(b_raw, b_log) * (1 - MIN_GAIN_REL):
         status["reason"] = "does not beat the logistic calibration yet"
         rainmlp.save(data_root, status)
+        db.record_mlp_run(conn, "rain", status)
         log.info("rainmlp: not used (Brier raw %.4f, logistic %.4f, mlp %.4f)", b_raw, b_log, b_mlp)
         return status
 
@@ -177,6 +187,7 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
     params, _ = train((x - mean) / std, y, epochs=max(epochs, 5), hidden=HIDDEN, classify=True)
     status.update(active=True, reason=None, mean=mean.tolist(), std=std.tolist(), weights=[p.tolist() for p in params])
     rainmlp.save(data_root, status)
+    db.record_mlp_run(conn, "rain", status)
     log.info("rainmlp: active (Brier raw %.4f, logistic %.4f, mlp %.4f, %d epochs)", b_raw, b_log, b_mlp, epochs)
     return status
 
@@ -184,6 +195,6 @@ def refit(conn: sqlite3.Connection, data_root: Path, now: datetime | None = None
 def load_status(data_root: Path) -> dict | None:
     try:
         d = json.loads(rainmlp.path(data_root).read_text(encoding="utf-8"))
-        return {k: v for k, v in d.items() if k not in ("weights", "mean", "std")}
+        return {k: v for k, v in d.items() if k not in ("weights", "mean", "std", "curve")}
     except (OSError, ValueError):
         return None
