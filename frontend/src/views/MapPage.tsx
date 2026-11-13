@@ -186,7 +186,10 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     const stage = stageRef.current;
     if (!stage || !window.matchMedia(SHEET_MQ).matches) return 0;
     const h = stage.clientHeight;
-    const cover = peekRef.current ? SHEET_PEEK_PX : h * 0.62;
+    // the collapsed sheet sits above the floating nav pill, which covers the map too
+    const pill = document.querySelector('.bottom-nav .lg-tab-bar')?.getBoundingClientRect();
+    const room = pill ? Math.max(0, window.innerHeight - pill.top) : 0;
+    const cover = peekRef.current ? SHEET_PEEK_PX + room : h * 0.62;
     return Math.round((TOP_CONTROLS_PX - cover) / 2);
   }, []);
   // a point to fly to once the fine map exists and has loaded

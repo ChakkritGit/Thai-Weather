@@ -171,11 +171,13 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 :root {
   --lg-foreground: var(--text); --lg-muted: var(--muted); --lg-on: var(--accent);
   --glass-tint: color-mix(in srgb, var(--bg) 42%, transparent); --glass-blur: 6px;
+  /* the nav pill's gap to the screen edge: low in the home-indicator area, as iOS puts its own tab bar */
+  --nav-bottom: max(8px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
 /* bottom nav: a floating TabBar. The plain bar keeps its box (the chat composer sits on it) but is neither drawn nor focusable. */
 .tabs[data-glass] { visibility: hidden; }
-.dock-nav { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
+.dock-nav { position: fixed; left: 0; right: 0; bottom: var(--nav-bottom); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
 .dock-nav .lg-tab-bar { pointer-events: auto; --lg-tab-width: min(94px, calc((100vw - 28px) / var(--lg-tabs))); --lg-tab-height: 50px; --lg-glass: transparent; --lg-blur: 0px; }
 .dock-nav .lg-tab, .dock-nav .lg-tab-copy { font-size: 11px; font-weight: 600; }
 .dock-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; white-space: nowrap; }
@@ -238,7 +240,7 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .skeleton { height: 64px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); margin-bottom: 8px; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.55; } }
 .toast {
-  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 88px); transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(var(--nav-bottom) + 80px); transform: translateX(-50%);
   padding: 10px 16px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 14px; z-index: 10;
   max-width: calc(100% - 32px);
 }
@@ -433,8 +435,8 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .msg.pending { opacity: 0.7; }
 .msg.failed { outline: 2px solid var(--bad); outline-offset: 2px; }
 .chat-compose {
-  /* floats above the nav pill (8px + its 58px + a 10px gap) */
-  position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 4; padding: 0 var(--gutter);
+  /* floats above the nav pill (its 58px + a 10px gap) */
+  position: fixed; left: 0; right: 0; bottom: calc(var(--nav-bottom) + 68px); z-index: 4; padding: 0 var(--gutter);
 }
 .chat-compose > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 .chat-quick { display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }

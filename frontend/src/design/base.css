@@ -122,7 +122,7 @@ button {
 }
 /* The map page fills the screen and never scrolls. Not being inside a scroll container lets iOS
    honour the map's touch-action, so two-finger pinch zooms the map instead of the page. */
-.app-main:has(> .map-page) { overflow: hidden; }
+.app-main:has(.map-page) { overflow: hidden; }
 
 .header {
   /* nav centred on the page; the language/theme actions sit in the right column */
@@ -240,19 +240,31 @@ button {
 
 @media (max-width: 860px) {
   .nav { display: none; }
-  /* a real grid row (not position:fixed) so nothing hides behind it; Glisse's tab bar sits in it */
+  /* the nav floats over the page as a pill, low in the home-indicator area (as iOS puts its own tab bar);
+     --nav-room is what it covers, for the pages and the map's bottom controls to keep clear of */
+  :root {
+    --nav-bottom: max(8px, calc(env(safe-area-inset-bottom) - 14px));
+    --nav-room: calc(var(--nav-bottom) + 66px);
+  }
   .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--nav-bottom);
     display: flex;
-    padding: 2px calc(6px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left));
-    background: var(--color-bg-surface);
-    border-top: 1px solid var(--color-border-subtle);
+    justify-content: center;
+    pointer-events: none;
     z-index: var(--zIndex-header);
   }
-  /* four tabs fill the row: the row's 6px sides and the bar's own 4px padding come off the width */
   .bottom-nav .lg-tab-bar {
-    --lg-tab-height: 44px;
-    --lg-tab-width: calc((100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 4);
+    pointer-events: auto;
+    --lg-tab-height: 50px;
+    --lg-tab-width: min(88px, calc((100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 4));
+    --lg-glass: var(--pane-tint);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
   }
+  .app-main { padding-bottom: var(--nav-room); }
+  .app-main:has(.map-page) { padding-bottom: 0; }
   .bottom-nav .lg-tab,
   .bottom-nav .lg-tab-copy {
     font-size: var(--font-size-2xs);
@@ -1565,15 +1577,13 @@ button {
 /* a space between number and unit is a slot of its own: keep its width whatever the parent's white-space */
 .roll .roll-glyph { white-space: pre; }
 
-/* With the bottom navigation on screen it already clears the home indicator, so the map's bottom
-   controls must not add the safe-area inset again (that left an empty band above the navigation). */
+/* The map runs under the floating nav: its bottom controls and the sheet keep clear of the pill (which
+   already clears the home indicator, so the safe area is not added again). */
 @media (max-width: 860px) {
-  .map-bottom { bottom: var(--space-2); }
-  .map-page[data-sheet='peek'] .map-bottom { bottom: calc(96px + var(--space-2)); }
-  /* the sheet sits on the bottom navigation, which already clears the home indicator: its collapsed
-     height is 96 px, not 96 px + the safe area (that hid the bottom of the timeline under it) */
-  .map-sidebar { padding-bottom: 0; }
-  .map-sidebar[data-open='true'][data-peek='true'] { transform: translateY(calc(100% - 96px)); }
+  .map-bottom { bottom: calc(var(--nav-room) + var(--space-2)); }
+  .map-page[data-sheet='peek'] .map-bottom { bottom: calc(96px + var(--space-2) + var(--nav-room)); }
+  .map-sidebar { padding-bottom: var(--nav-room); }
+  .map-sidebar[data-open='true'][data-peek='true'] { transform: translateY(calc(100% - 96px - var(--nav-room))); }
 }
 
 /* ---------------------------------------------------------------- /developers (free API docs) */
