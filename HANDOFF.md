@@ -273,8 +273,13 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   nginx./portainer.chakkritton.com, 24 h sessions; their own passwords still follow. Nothing automated calls these
   hosts. Dock (docker.) stays outside Access. Undo: delete the two apps in Zero Trust > Access > Applications.
 - **Open, the owner's call**: No container has a memory limit. CalorieFlow and Drive Music
-  send a baseline CSP since 2026-11-13 (`frame-ancestors 'none'; base-uri 'self'; object-src 'none'`); a full
-  script-src policy would need per-request nonces (every page dynamic), so it is not there.
+  enforce a nonce CSP since 2026-11-13 (src/proxy.ts + src/lib/csp.ts in each repo): `script-src 'self'
+  'nonce-…' 'strict-dynamic'`, `style-src 'unsafe-inline'`, img https:, frame-ancestors/object none. CalorieFlow:
+  connect-src 'self' only, frame-src https: (chat link viewer), no form-action (calorieflow:// sign-in redirect).
+  Drive Music: connect-src *.googleapis.com, *.googleusercontent.com and the PartyKit host (build-time env);
+  every page is now dynamic, HTML sent `no-cache` so sw.js still caches the offline shell. A new external
+  origin in either app needs adding to its csp.ts. Playwright WebKit crashes opening a second tab while sw.js
+  is active: test with one tab.
 - **Host packages** (2026-11-13): glibc 2.39-0ubuntu8.12, snapd, distro-info installed with needrestart in
   list mode; host services restarted, except docker/containerd (live-restore is off: restarting them restarts
   all containers; do it in a window right after a forecast run, or with the next reboot) and dbus/logind.
