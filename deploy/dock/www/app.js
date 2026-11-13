@@ -366,7 +366,6 @@ const TABS = [
   ['#/', 'pulse', tx('ภาพรวม')],
   ['#/containers', 'box', tx('คอนเทนเนอร์')],
   ['#/images', 'layers', tx('อิมเมจ')],
-  ['#/volumes', 'disk', tx('วอลุ่ม')],
   ['#/web', 'chart', tx('สถิติเว็บ')],
   ['#/more', 'more', tx('เพิ่มเติม')],
 ];
@@ -772,6 +771,15 @@ function buildBaseOf(image, bases) {
   return bases.find((b) => (b.digest ? digests.has(b.digest) : image.RepoTags?.includes(b.ref)));
 }
 
+/** images and volumes share one page (and one nav tab); replace, not push: switching sides is not a step back */
+function storageSeg(current) {
+  return h('div', { class: 'segmented', role: 'group', 'aria-label': tx('ประเภท') },
+    [['#/images', tx('อิมเมจ')], ['#/volumes', tx('วอลุ่ม')]].map(([href, label]) => h('button', {
+      type: 'button', 'aria-pressed': href === current ? 'true' : 'false',
+      onclick: () => { if (location.hash !== href) location.replace(href); },
+    }, label)));
+}
+
 async function imagesView(token) {
   const body = h('div', {}, skelRows(8));
   const meta = h('p', { class: 'meta' }, bone('34%', 13, 'skel'));
@@ -800,7 +808,7 @@ async function imagesView(token) {
         })
       : h('p', { class: 'empty' }, tx('ไม่มีอิมเมจ'))));
   };
-  shell(topBar(tx('อิมเมจ'), { onRefresh: load }), meta, body, tabs('#/images'));
+  shell(topBar(tx('อิมเมจและวอลุ่ม'), { onRefresh: load }), storageSeg('#/images'), meta, body, tabs('#/images'));
   await load();
 }
 
@@ -824,7 +832,7 @@ async function volumesView(token) {
         })
       : h('p', { class: 'empty' }, tx('ไม่มีวอลุ่ม'))));
   };
-  shell(topBar(tx('วอลุ่ม'), { onRefresh: load }), meta, body, tabs('#/volumes'));
+  shell(topBar(tx('อิมเมจและวอลุ่ม'), { onRefresh: load }), storageSeg('#/volumes'), meta, body, tabs('#/images'));
   await load();
 }
 
