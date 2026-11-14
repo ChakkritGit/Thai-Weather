@@ -152,6 +152,10 @@ struct State {
     files_checked: f64,
     #[serde(default)]
     ports: BTreeSet<String>,
+    /// every public port seen listening so far: one that closes and opens again (a reboot, the proxy starting
+    /// after this collector) is not new
+    #[serde(default)]
+    ports_known: BTreeSet<String>,
     #[serde(default)]
     containers: BTreeMap<String, Seen>,
     #[serde(default)]
@@ -1589,10 +1593,15 @@ impl Security {
     fn check_host(&mut self, now: f64) {
         let ports = listening(&self.roots.proc);
         if !ports.is_empty() {
+            // state saved before ports_known existed: what was open then is known
+            if self.st.ports_known.is_empty() && !self.st.ports.is_empty() {
+                self.st.ports_known = self.st.ports.clone();
+                self.dirty = true;
+            }
             if !self.seeding && !self.st.ports.is_empty() {
                 for p in ports
                     .iter()
-                    .filter(|p| !self.st.ports.contains(*p))
+                    .filter(|p| !self.st.ports.contains(*p) && !self.st.ports_known.contains(*p))
                     .cloned()
                     .collect::<Vec<_>>()
                 {
@@ -1624,6 +1633,10 @@ impl Security {
                 }
             }
             let set: BTreeSet<_> = ports.iter().cloned().collect();
+            if !set.is_subset(&self.st.ports_known) {
+                self.st.ports_known.extend(set.iter().cloned());
+                self.dirty = true;
+            }
             if set != self.st.ports {
                 self.st.ports = set;
                 self.dirty = true;
@@ -2288,6 +2301,37 @@ mod tests {
         let titles: Vec<_> = s.st.events.iter().map(|e| e.title.as_str()).collect();
         assert!(titles.contains(&"มีไฟล์ใหม่: /root/.profile"), "{titles:?}");
         assert!(titles.contains(&"ไฟล์สำคัญถูกแก้: /root/.bashrc"), "{titles:?}");
+    }
+
+    #[test]
+    fn a_known_port_reopening_after_a_reboot_is_not_new() {
+        let t = Temp::new("reopen");
+        let r = roots(&t);
+        let now = 1_000_000.;
+        let open = |lines: &str| {
+            fs::write(
+                r.proc.join("1/net/tcp"),
+                format!("  sl  local_address rem_address   st\n{lines}"),
+            )
+            .unwrap()
+        };
+        let both = "   0: 00000000:0016 00000000:0000 0A\n   1: 00000000:01BB 00000000:0000 0A\n";
+        open(both);
+        let mut s = Security::load(r.clone(), now);
+        s.tick(now);
+        s.check_host(now + 60.);
+        // the proxy is not up yet after a reboot: 443 closes, then opens again
+        open("   0: 00000000:0016 00000000:0000 0A\n");
+        s.check_host(now + 120.);
+        open(both);
+        s.check_host(now + 180.);
+        let alerts: Vec<_> = s.st.events.iter().filter(|e| e.alert).map(|e| e.title.as_str()).collect();
+        assert!(alerts.is_empty(), "{alerts:?}");
+        // a port never seen before still alerts
+        open("   0: 00000000:0016 00000000:0000 0A\n   1: 00000000:01BB 00000000:0000 0A\n   2: 00000000:1F90 00000000:0000 0A\n");
+        s.check_host(now + 240.);
+        let e = s.st.events.back().unwrap();
+        assert_eq!((e.title.as_str(), e.alert), ("พอร์ตใหม่เปิดรับจากภายนอก: TCP 8080", true));
     }
 
     #[test]
