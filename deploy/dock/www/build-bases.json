@@ -7,6 +7,13 @@
     ]
   },
   {
+    "ref": "coturn/coturn:4.18.0-alpine",
+    "digest": "sha256:c29135c08565810d37053f384584392b7c24b69570fc81a721b878d6fe63e04e",
+    "files": [
+      "deploy/apps/turn/Dockerfile"
+    ]
+  },
+  {
     "ref": "jc21/nginx-proxy-manager",
     "digest": "sha256:4393e642e233e5efd5adeb7f10918d4aaea71c9ed875b94190273fc8e87f9594",
     "files": [

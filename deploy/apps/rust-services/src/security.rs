@@ -266,10 +266,10 @@ pub fn iso_time(s: &str) -> Option<f64> {
     let secs = days_from_civil(y, mo, d) * DAY + h * 3600 + mi * 60 + se - offset;
     Some(secs as f64 + frac)
 }
-fn bkk_day(ts: f64) -> i64 {
+pub fn bkk_day(ts: f64) -> i64 {
     (ts as i64 + BANGKOK).div_euclid(DAY) * DAY - BANGKOK
 }
-fn hour(ts: f64) -> i64 {
+pub fn hour(ts: f64) -> i64 {
     (ts as i64).div_euclid(3600) * 3600
 }
 

@@ -121,6 +121,25 @@ The first run, without that file, learns everything already present silently; on
 become events. A watch entry added in a later version is learned silently the same way. Delete the file to re-learn (apps-chat re-anchors when
 the event ids restart). Serve-only mode disables the watch and answers `{"enabled":false}`.
 
+### Attack map
+
+`src/attacks.rs` feeds Dock's Cyber page (`GET /security/attacks?days=1|7|30`, forwarded by Dock's nginx as
+`/api/security/attacks` behind the Portainer login). It counts failed SSH logins (auth.log), firewall blocks
+(ufw.log: `[UFW BLOCK]` and `[UFW LIMIT BLOCK]` with a routable source) and web bot probes (NPM access logs, the same
+`probe_kind` as the security watch) by country: per hour for the last 26 h (the 24 h view) and per Bangkok day for
+30 days, with the busiest ports and a capped list of addresses. **View-only**: its state is `DATA_DIR/attacks.json`,
+separate from `security.json`, and it never creates an event, a chat message or a push. A first run (no state file)
+backfills silently from the readable logs, rotated and gzip copies included. NPM logs a Cloudflare edge address for
+about half of the requests; those probes cannot be located and are only counted (`unlocated.webCloudflare`).
+
+Countries come from DB-IP "IP to Country Lite" (CC BY 4.0, attribution on the page), fetched by the Dockerfile at a
+pinned month with a SHA-256 check into `/geo/` and read by `src/geo.rs` (sorted range vectors, no crate; ~0.3 s at
+start). Without that file (`GEOIP_DB`, default `/geo/dbip-country-lite.csv.gz`) the endpoint answers
+`{"enabled":false}`. Monthly bump: take the release that is at least 14 days old, put its month and the SHA-256 of
+`https://download.db-ip.com/free/dbip-country-lite-YYYY-MM.csv.gz` into `ARG DBIP_MONTH` / `ARG DBIP_SHA256`, rebuild
+`dock-metrics`. Country label points (`src/centroids.rs`) and the map outlines (`deploy/dock/www/world-map.json`) are
+generated from Natural Earth by `deploy/dock/build-map.mjs`.
+
 Clean up exact unused images/volumes after checking **all** container references
 (including stopped containers) and current Compose declarations. Never delete a
 history/database/uploads/cache volume just because a disposable test is stopped.

@@ -724,3 +724,49 @@ html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 .toc-link:hover { background: var(--surface); color: var(--text); }
 .toc-link[aria-current='true'] { color: var(--text); background: var(--surface); }
 .overview .section-title, .overview .ctr-group, .overview .filters { scroll-margin-top: 16px; }
+
+/* ------------------------------------------------------------------ cyber: where attacks come from (#/cyber, cyber.js) */
+/* one colour per kind of attack, from the chart slots so light and dark follow the theme */
+.k-ssh { --cy-k: var(--s8); }
+.k-scan { --cy-k: var(--s1); }
+.k-web { --cy-k: var(--s4); }
+.cy-card { padding: 0; overflow: hidden; margin-bottom: 12px; }
+.cy-stage { line-height: 0; }
+.cy-map { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 394.4; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.cy-land { fill: color-mix(in srgb, var(--text) 8%, var(--surface)); stroke: var(--surface); stroke-width: 0.5; stroke-linejoin: round; pointer-events: none; }
+.cy-land.hit {
+  fill: color-mix(in srgb, var(--cy-k) calc(var(--heat, 0.3) * 55%), color-mix(in srgb, var(--text) 8%, var(--surface)));
+  pointer-events: auto; cursor: pointer; transition: fill 0.3s;
+}
+.cy-land.hit.on { stroke: var(--cy-k); stroke-width: 1; }
+.cy-arc, .cy-flow { fill: none; stroke: var(--cy-k); stroke-linecap: round; pointer-events: none; }
+.cy-flow { animation: cy-flow 1s linear infinite; }
+@keyframes cy-flow { to { stroke-dashoffset: var(--cy-period, -14); } }
+.cy-dot { fill: var(--cy-k); fill-opacity: 0.88; stroke: var(--surface); cursor: pointer; }
+.cy-dot.own { fill: none; stroke: var(--cy-k); stroke-opacity: 0.7; }
+.cy-map .cy-arc, .cy-map .cy-flow, .cy-map .cy-dot { transition: opacity 0.2s; }
+.cy-map.has-sel .cy-arc:not(.on), .cy-map.has-sel .cy-flow:not(.on), .cy-map.has-sel .cy-dot:not(.on) { opacity: 0.12; }
+.cy-map.has-sel .cy-arc.on { stroke-opacity: 1; }
+.cy-home { fill: var(--text); stroke: var(--surface); }
+.cy-pulse { fill: none; stroke: var(--text); opacity: 0.4; transform-box: fill-box; transform-origin: center; animation: cy-pulse 2.6s ease-out infinite; pointer-events: none; }
+.cy-pulse.two { animation-delay: 1.3s; }
+@keyframes cy-pulse { from { transform: scale(0.6); opacity: 0.6; } to { transform: scale(3); opacity: 0; } }
+.cy-label { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-linejoin: round; pointer-events: none; }
+.cy-sel-label { stroke-width: 3px; }
+.cy-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px 4px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.cy-hint { flex: 1 1 100%; font-size: 12px; color: var(--faint); }
+.cy-credit { margin: 0; padding: 2px 14px 12px; font-size: 12px; color: var(--faint); line-height: 1.4; }
+.cy-credit a { color: var(--muted); }
+.cy-chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cy-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--cy-k); flex: none; }
+.cy-meta { margin-bottom: 12px; }
+.cy-row .row-main { min-width: 0; }
+.cy-rank { flex: none; width: 22px; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.cy-kinds { display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--muted); font-size: 12.5px; }
+.cy-cc { color: var(--text); }
+.cy-bar { height: 3px; margin-top: 6px; }
+.cy-bar .meter-fill { background: var(--cy-k, var(--text)); }
+.cy-row[aria-pressed='true'] { background: var(--bg); box-shadow: inset 3px 0 0 var(--cy-k); }
+.cy-more { color: var(--muted); }
+.cy-col { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.cy .tiles { margin-bottom: 12px; }

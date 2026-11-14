@@ -1,9 +1,13 @@
+mod attacks;
+mod centroids;
 mod collector;
+mod geo;
 mod history;
 mod host;
 mod logs;
 mod security;
 
+use attacks::Attacks;
 use axum::{
     Router,
     body::Body,
@@ -28,6 +32,8 @@ struct App {
     fixed: Option<f64>,
     /// None in serve-only mode: the security watch writes state and reads host views
     security: Option<Arc<Mutex<Security>>>,
+    /// None in serve-only mode or without the IP database; view-only, apart from the security watch
+    attacks: Option<Arc<Mutex<Attacks>>>,
 }
 async fn not_found() -> Response<Body> {
     Response::builder()
@@ -108,6 +114,41 @@ async fn with_security(
         ),
     }
 }
+/// Same as `with_security` for the attack map's own state
+async fn with_attacks(
+    app: &App,
+    f: impl FnOnce(&mut Attacks, f64) -> serde_json::Value + Send + 'static,
+) -> Response<Body> {
+    let Some(attacks) = app.attacks.clone() else {
+        return json_response(StatusCode::OK, serde_json::json!({ "enabled": false }));
+    };
+    let result = tokio::task::spawn_blocking(move || {
+        attacks.lock().map(|mut a| f(&mut a, now())).map_err(|_| ())
+    })
+    .await;
+    match result {
+        Ok(Ok(body)) => json_response(StatusCode::OK, body),
+        _ => json_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            serde_json::json!({ "error": "attacks unavailable" }),
+        ),
+    }
+}
+/// Where attacks on the server come from, for Dock's Cyber page: `?days=1|7|30`
+async fn security_attacks(State(app): State<App>, RawQuery(query): RawQuery) -> Response<Body> {
+    let days = form_urlencoded::parse(query.as_deref().unwrap_or("").as_bytes())
+        .filter(|(k, _)| k == "days")
+        .last()
+        .map(|(_, v)| v.into_owned())
+        .unwrap_or_else(|| "1".into());
+    let Some(days) = days.parse::<u32>().ok().filter(|d| matches!(d, 1 | 7 | 30)) else {
+        return json_response(
+            StatusCode::BAD_REQUEST,
+            serde_json::json!({ "error": "bad days" }),
+        );
+    };
+    with_attacks(&app, move |a, t| a.payload(days, t)).await
+}
 async fn security_view(State(app): State<App>) -> Response<Body> {
     with_security(&app, |s, t| s.payload(t)).await
 }
@@ -185,7 +226,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         serializers: Arc::new(tokio::sync::Semaphore::new(1)),
         fixed,
         security: (!serve_only)
-            .then(|| Arc::new(Mutex::new(Security::load(security_roots, now())))),
+            .then(|| Arc::new(Mutex::new(Security::load(security_roots.clone(), now())))),
+        attacks: if serve_only {
+            None
+        } else {
+            let path = std::env::var_os("GEOIP_DB")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| "/geo/dbip-country-lite.csv.gz".into());
+            let month = std::env::var("GEOIP_MONTH").unwrap_or_default();
+            Attacks::load(security_roots, &path, month, now()).map(|a| Arc::new(Mutex::new(a)))
+        },
     };
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port()?)).await?;
     let (stop, mut stopped) = tokio::sync::watch::channel(false);
@@ -233,12 +283,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         })
     });
+    let attack_watcher = app.attacks.clone().map(|shared| {
+        let mut stopped = stop.subscribe();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                tokio::select! {
+                    _ = stopped.changed() => break,
+                    _ = interval.tick() => {
+                        let shared = shared.clone();
+                        let done = tokio::task::spawn_blocking(move || {
+                            if let Ok(mut a) = shared.lock() {
+                                a.tick(now());
+                            }
+                        })
+                        .await;
+                        if done.is_err() {
+                            eprintln!("attacks pass failed");
+                        }
+                    }
+                }
+            }
+        })
+    });
     let router = Router::new()
         .route("/metrics", get(metrics))
         .route("/metrics/", get(metrics))
         .route("/security", get(security_view))
         .route("/security/ack", post(security_ack))
         .route("/security/outbox", get(security_outbox))
+        .route("/security/attacks", get(security_attacks))
         .fallback(not_found)
         .method_not_allowed_fallback(not_found)
         .route("/healthz", get(|| async { "ok" }))
@@ -258,6 +333,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(watcher) = watcher {
         watcher.await?;
+    }
+    if let Some(watcher) = attack_watcher {
+        watcher.await?;
+    }
+    if let Some(attacks) = &app.attacks
+        && let Err(e) = attacks
+            .lock()
+            .map_err(|_| std::io::Error::other("attacks unavailable"))
+            .and_then(|mut a| a.save())
+    {
+        eprintln!("attacks save error: {e}");
     }
     if let Some(security) = &app.security
         && let Err(e) = security

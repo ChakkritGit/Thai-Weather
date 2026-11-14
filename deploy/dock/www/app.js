@@ -5,6 +5,7 @@ import { BRANDS } from './brands.js';
 import { roll } from './roll.js';
 import { LANG, LANGS, LOCALE, THEMES, setLang, setTheme, theme, tx } from './i18n.js';
 import { databaseView } from './database.js';
+import { cyberView } from './cyber.js';
 
 const TOKEN_KEY = 'dock.jwt';
 const LIST_REFRESH_MS = 10_000;
@@ -73,6 +74,8 @@ const ICONS = {
   contrast: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 2v20M12 7h5M12 12h7M12 17h5',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   server: 'M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01',
+  // the Cyber page: a folded map
+  map: 'M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7 9 4zM9 4v13M15 7v12.5',
   bug: 'M9 7a3 3 0 0 1 6 0v1H9zM7 10h10v4a5 5 0 0 1-10 0zM12 10v9M3 13h4M17 13h4M5 7l2 2.5M19 7l-2 2.5M5 20l2.5-2.5M19 20l-2.5-2.5',
 };
 const icon = (name, cls = '') =>
@@ -1254,9 +1257,15 @@ function secSummary(s, cat) {
 }
 /** the five category cards on the overview */
 function secCards(s) {
-  return SEC_CATS.map(([id, ic, label]) => h('a', { class: 'sec-cat', href: `#/security/${id}` },
-    h('span', { class: 'sec-cat-head' }, icon(ic, 'sec-cat-ic'), h('span', { class: 'sec-cat-name' }, label), secDot(s.cats[id].status)),
-    h('span', { class: 'sec-cat-sub' }, secSummary(s, id))));
+  return [
+    ...SEC_CATS.map(([id, ic, label]) => h('a', { class: 'sec-cat', href: `#/security/${id}` },
+      h('span', { class: 'sec-cat-head' }, icon(ic, 'sec-cat-ic'), h('span', { class: 'sec-cat-name' }, label), secDot(s.cats[id].status)),
+      h('span', { class: 'sec-cat-sub' }, secSummary(s, id)))),
+    // not a watch category (no status): the map of where attacks come from
+    h('a', { class: 'sec-cat', href: '#/cyber' },
+      h('span', { class: 'sec-cat-head' }, icon('map', 'sec-cat-ic'), h('span', { class: 'sec-cat-name' }, tx('แผนที่การโจมตี'))),
+      h('span', { class: 'sec-cat-sub' }, tx('ที่มาของการโจมตีเซิร์ฟเวอร์ แยกตามประเทศ'))),
+  ];
 }
 const eventRow = (e) => h('div', { class: 'row wrap' }, secDot(e.level),
   h('div', { class: 'row-main' }, h('span', { class: 'row-title' }, e.title), e.detail ? h('span', { class: 'row-sub' }, e.detail) : null),
@@ -1633,6 +1642,7 @@ function moreView() {
   shell(topBar(tx('เพิ่มเติม')),
     h('div', { class: 'list' },
       item('#/security', 'shield', tx('ความปลอดภัย'), tx('การเข้าเครื่อง ไฟล์สำคัญ พอร์ต บอทที่สแกนเว็บ และช่องโหว่ใน image')),
+      item('#/cyber', 'map', tx('แผนที่การโจมตี'), tx('ที่มาของการโจมตีเซิร์ฟเวอร์ แยกตามประเทศ บนแผนที่โลก')),
       item('#/chat', 'chat', tx('แชท'), tx('สรุปรายเดือนจากระบบ และถาม–ตอบ'), badge()),
       item('#/database', 'disk', tx('ฐานข้อมูล'), tx('ดูและจัดการตาราง PostgreSQL')),
       item('#/backup', 'archive', tx('สำรองข้อมูล'), tx('ไฟล์สำรองทั้งเซิร์ฟเวอร์ และวิธีกู้คืน')),
@@ -1927,6 +1937,13 @@ async function route() {
     else if (hash === '#/display') displayView();
     else if (hash === '#/more') moreView();
     else if (hash === '#/chat') await chatView(token);
+    else if (hash === '#/cyber') {
+      await cyberView(token, {
+        h, api, shell, topBar, tabs, handleError, card, tile, fmtNum, countryName, skelTiles, skelCard,
+        isCurrent: (t) => t === viewToken, reload: route,
+        every: (fn, ms) => { timer = setInterval(() => document.visibilityState === 'visible' && fn(), ms); },
+      });
+    }
     else if (hash === '#/security') await securityView(token, null);
     else if (/^#\/security\/[a-z]+$/.test(hash)) await securityView(token, hash.slice(11));
     else await overviewView(token);

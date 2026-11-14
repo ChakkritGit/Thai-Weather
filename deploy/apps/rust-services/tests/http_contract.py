@@ -119,6 +119,10 @@ class Contract(unittest.TestCase):
         self.assertEqual(
             json.loads(self.request(port, "/security")[2]), {"enabled": False}
         )
+        self.assertEqual(
+            json.loads(self.request(port, "/security/attacks?days=7")[2]),
+            {"enabled": False},
+        )
         code, headers, body = self.request(port, "/metrics", "HEAD")
         self.assertEqual((code, headers["content-encoding"], body), (200, "gzip", b""))
         subprocess.run([str(BINARY), "--healthcheck"], env=env, check=True, timeout=5)
@@ -207,6 +211,73 @@ class Contract(unittest.TestCase):
         saved = json.loads((self.root / "data/security.json").read_text())
         self.assertGreater(saved["acked"], 0)
         self.assertNotIn("/bin/sh", (self.root / "data/security.json").read_text())
+
+    def test_attack_map_is_view_only_and_counts_log_lines(self):
+        import datetime
+
+        host = self.root / "host"
+        (host / "log").mkdir(parents=True)
+        (self.root / "geo.csv").write_text(
+            "45.0.0.0,45.255.255.255,DE\n60.0.0.0,60.255.255.255,CN\n"
+        )
+        stamp = datetime.datetime.now(
+            datetime.timezone(datetime.timedelta(hours=7))
+        ).isoformat(timespec="microseconds")
+        (host / "log/ufw.log").write_text(
+            f"{stamp} h kernel: [1.0] [UFW BLOCK] IN=eth0 OUT= SRC=45.1.2.3 DST=203.0.113.9"
+            " LEN=44 PROTO=TCP SPT=5 DPT=22 WINDOW=1 SYN\n"
+            f"{stamp} h kernel: [1.0] [UFW BLOCK] IN=eth0 OUT= SRC=192.168.1.5 DST=203.0.113.9"
+            " LEN=44 PROTO=TCP SPT=5 DPT=22 WINDOW=1 SYN\n"
+        )
+        (host / "log/auth.log").write_text(
+            f"{stamp} h sshd[1]: Invalid user admin from 60.9.9.9 port 4\n"
+        )
+        self.env["SECURITY_HOST"] = str(host)
+        # no IP database: the map is off, nothing else changes
+        p, port, _ = self.start(False)
+        self.assertEqual(
+            json.loads(self.request(port, "/security/attacks")[2]), {"enabled": False}
+        )
+        p.send_signal(signal.SIGTERM)
+        self.assertEqual(p.wait(timeout=10), 0)
+        self.assertFalse((self.root / "data/attacks.json").exists())
+
+        self.env["GEOIP_DB"] = str(self.root / "geo.csv")
+        self.env["GEOIP_MONTH"] = "2026-10"
+        p, port, _ = self.start(False)
+        for _ in range(100):
+            code, headers, body = self.request(port, "/security/attacks?days=1")
+            data = json.loads(body)
+            if data["totals"]["total"]:
+                break
+            time.sleep(0.05)
+        self.assertEqual((code, headers["cache-control"]), (200, "no-store"))
+        self.assertEqual(
+            (data["totals"]["scan"], data["totals"]["ssh"], data["totals"]["web"]),
+            (1, 1, 0),
+        )
+        self.assertEqual([c["cc"] for c in data["countries"]], ["CN", "DE"])
+        self.assertEqual(data["geo"]["month"], "2026-10")
+        for days in ("7", "30"):
+            self.assertEqual(
+                json.loads(self.request(port, f"/security/attacks?days={days}")[2])["totals"]["total"], 2
+            )
+        for bad in ("0", "2", "x", ""):
+            self.assertEqual(
+                self.request(port, f"/security/attacks?days={bad}")[0], 400, bad
+            )
+        self.assertEqual(self.request(port, "/security/attacks", "POST")[0], 404)
+        # view-only: the security watch has nothing to tell apps-chat about these attackers
+        outbox = json.loads(self.request(port, "/security/outbox?after=0")[2])
+        self.assertEqual(outbox["events"], [])
+        p.send_signal(signal.SIGTERM)
+        self.assertEqual(p.wait(timeout=10), 0)
+        # the watch's own failed-login tally may hold the SSH address; no event may, and ufw is never read by it
+        saved = json.loads((self.root / "data/security.json").read_text())
+        self.assertNotIn("45.1.2.3", json.dumps(saved))
+        self.assertEqual([e["alert"] for e in saved["events"]], [False])
+        self.assertNotIn("60.9.9.9", json.dumps(saved["events"]))
+        self.assertTrue((self.root / "data/attacks.json").exists())
 
     def test_fixed_clock_requires_serve_only(self):
         result = subprocess.run(
