@@ -444,6 +444,14 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   2026-10-27, a major outside its dependents' range; NPM never globs user input) remain. Trivy without the scan's
   `--skip-files` also lists pip's vendored certifi/msgpack/urllib3/setuptools: that is why the nightly scan skips
   those SBOMs.
+- 2026-11-14 (owner: "วันนี้มี image ตัวไหนที่ต้องอัปเดทบ้างไหม"): ten Rust services (analytics, chat, database,
+  health, media, portfolio-api, reminders, rooms, sync, weather-web-api) again ran deleted apps-rust images after
+  the 11-13 dbgw build; recreated on the current one (built after the last Rust change). NPM: certbot's soupsieve
+  2.9.2 -> 3.0.2 (CVE-2026-126191). Waiting on the 14-day rule: soupsieve 4.0.0 (CVE-2026-126190, released
+  2026-11-03, eligible 11-17); backup's libpq/postgresql17-client 17.12-r0 (38 HIGH, built 2026-11-13, eligible
+  11-27; pinned in `deploy/apps/backup.Dockerfile`); zlib 1.4-r0 (MEDIUM, 2026-11-07, eligible 11-21). Portainer
+  still 2.45.3 (newest). The host still wants a reboot for libc6 (Docker was restarted on 11-13; sshd and other
+  host daemons still run the old glibc) - owner's call, it restarts every container.
 - 2026-11-06 (75b3a9f, deployed): Dock's `.grid`, `.sec-cats` and `.mini-grid` use `align-items: start`, so a card
   opening a table (memory per container) no longer stretches its neighbour (CPU). Weather site: `.prose` cards fill
   their row; only their children keep the 75ch measure ("ปัญหาที่พบในเขตร้อน" on the method page).
