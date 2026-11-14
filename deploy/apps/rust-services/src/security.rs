@@ -2325,13 +2325,23 @@ mod tests {
         s.check_host(now + 120.);
         open(both);
         s.check_host(now + 180.);
-        let alerts: Vec<_> = s.st.events.iter().filter(|e| e.alert).map(|e| e.title.as_str()).collect();
+        let alerts: Vec<_> =
+            s.st.events
+                .iter()
+                .filter(|e| e.alert)
+                .map(|e| e.title.as_str())
+                .collect();
         assert!(alerts.is_empty(), "{alerts:?}");
         // a port never seen before still alerts
-        open("   0: 00000000:0016 00000000:0000 0A\n   1: 00000000:01BB 00000000:0000 0A\n   2: 00000000:1F90 00000000:0000 0A\n");
+        open(
+            "   0: 00000000:0016 00000000:0000 0A\n   1: 00000000:01BB 00000000:0000 0A\n   2: 00000000:1F90 00000000:0000 0A\n",
+        );
         s.check_host(now + 240.);
         let e = s.st.events.back().unwrap();
-        assert_eq!((e.title.as_str(), e.alert), ("พอร์ตใหม่เปิดรับจากภายนอก: TCP 8080", true));
+        assert_eq!(
+            (e.title.as_str(), e.alert),
+            ("พอร์ตใหม่เปิดรับจากภายนอก: TCP 8080", true)
+        );
     }
 
     #[test]
