@@ -4,6 +4,7 @@
 #   RCE, TLS hostname bypasses), and the admin API runs on it.
 # - Debian's security updates, newer copies of vulnerable npm packages in the API's tree and of certbot's
 #   Python packages, and no npm CLI (unused at runtime): the 2026-10-25 image scan, owner's request.
+#   soupsieve 3.0.2 (2026-10-12; CVE-2026-126190/126191, HIGH): the 2026-11-14 scan.
 FROM node:22.23.4-trixie-slim@sha256:8eb619e402eaede1748a3c8173bffab391592812e85136452f781741c7242ddf AS node
 
 # the published tarballs, unchanged; patch-node-modules.mjs puts them in place and checks their dependencies
@@ -28,5 +29,6 @@ RUN node /tmp/patch-node-modules.mjs /tmp/pkgs \
     /app/node_modules/node-gyp /app/node_modules/.bin/node-gyp \
  && /opt/certbot/bin/pip install --no-cache-dir --disable-pip-version-check \
     certifi==2026.10.19 cryptography==50.0.2 pyopenssl==26.4.0 filelock==4.2.1 setuptools==84.1.0 \
+    soupsieve==3.0.2 \
  && /opt/certbot/bin/pip check \
  && /opt/certbot/bin/certbot --version
