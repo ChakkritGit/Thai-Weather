@@ -450,8 +450,8 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   2.9.2 -> 3.0.2 (CVE-2026-126191). Waiting on the 14-day rule: soupsieve 4.0.0 (CVE-2026-126190, released
   2026-11-03, eligible 11-17); backup's libpq/postgresql17-client 17.12-r0 (38 HIGH, built 2026-11-13, eligible
   11-27; pinned in `deploy/apps/backup.Dockerfile`); zlib 1.4-r0 (MEDIUM, 2026-11-07, eligible 11-21). Portainer
-  still 2.45.3 (newest). The host still wants a reboot for libc6 (Docker was restarted on 11-13; sshd and other
-  host daemons still run the old glibc) - owner's call, it restarts every container.
+  still 2.45.3 (newest). Host rebooted 17:23 the same day for libc6 (owner asked; 16 min after a forecast run):
+  28 containers back, sites 200, reboot-required gone.
 - 2026-11-06 (75b3a9f, deployed): Dock's `.grid`, `.sec-cats` and `.mini-grid` use `align-items: start`, so a card
   opening a table (memory per container) no longer stretches its neighbour (CPU). Weather site: `.prose` cards fill
   their row; only their children keep the 75ch measure ("ปัญหาที่พบในเขตร้อน" on the method page).
