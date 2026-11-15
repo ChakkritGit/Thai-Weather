@@ -380,9 +380,11 @@ button {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* the text panes (legend, timeline, search) blur more than the buttons: the map's place names under a clear pane
+   would read through it and over its own text */
 .glass > .lg-glass {
   --lg-glass: var(--pane-tint);
-  --lg-blur: 4px;
+  --lg-blur: 12px;
   box-shadow: none;
 }
 /* on a desktop the panes are wide cards (legend, timeline, search): a lens across them bends only their edges, which
