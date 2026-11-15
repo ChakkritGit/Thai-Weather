@@ -144,6 +144,16 @@ Python numerical worker and separate Python verification container retained. See
 - **Backups**: Dock → เพิ่มเติม → สำรองข้อมูล makes `chakkritton-server-backup-<date>.zip` (encrypted with the
   owner's passphrase; `restore.sh` inside). Make sure one recent bundle exists before risky server work.
   Nightly `pg_dump` too (`apps-db-backup.timer`, 14 days, `/opt/apps/backups`).
+- **Off-server copy on the owner's Mac** (2026-11-15): a launchd agent (`deploy/mac-backup/install.sh`, hourly,
+  one bundle a day) pulls a whole-server bundle onto the SSD (`/Volumes/SSD256GB/Backups/vps`, newest 3 kept, older
+  ones deleted only after a good new one). It verifies zip, checksum, decryption and the tar listing; failures go to
+  `~/Library/Logs/vps-backup.log` and one macOS notification a day. The VPS cannot reach the Mac, so a taken-over
+  server cannot delete these. SSH host `vps-backup` = key `~/.ssh/id_ed25519_vps_backup`, forced command
+  `restrict,command="/usr/local/sbin/backup-export"` in root's authorized_keys (installed copy of
+  `deploy/apps/backup-export.sh`; reinstall by hand after changing it). It accepts only the passphrase whose SHA-256
+  is in `/etc/backup-export.sha256`; the passphrase is in the Mac's Keychain ("VPS backup passphrase", account
+  vps-backup) and opens the bundles (`restore.sh`). The job runs as the "VPS Backup" applet because macOS does not
+  let launchd's bash write to an external disk.
 - **Plan upgrades / re-provisioning** at ReadyIDC run cloud-init as a new instance: SSH host keys change and the
   root password is reset to the panel's. Verify host keys from inside before trusting them; set the root
   password back to the Keychain one.
