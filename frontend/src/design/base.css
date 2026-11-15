@@ -403,6 +403,8 @@ button {
   --lg-foreground: var(--color-fg-default);
   --lg-muted: var(--color-fg-muted);
   --lg-on: var(--color-accent-default);
+  /* no hairline outline on any glass (the owner's ask): the tint and Glisse's rim light carry the edge */
+  --lg-edge: transparent;
   --pane-tint: color-mix(in srgb, var(--color-bg-surface) 18%, transparent);
 }
 /* light text on a pale map needs a little more tint than dark text does */
@@ -701,8 +703,9 @@ button {
   backdrop-filter: none;
 }
 .map-layers .chip > .lg-glass { --lg-glass: var(--pane-tint); --lg-blur: 4px; box-shadow: none; }
-/* over the glass the chips and round buttons drop their 1px outline (the owner's ask; Glisse's rim draws the edge);
-   the chosen chip keeps its accent outline. The width stays, so nothing shifts. */
+/* over the glass the panes, chips and round buttons drop their 1px outline (the owner's ask; Glisse's rim draws the
+   edge); the chosen chip keeps its accent outline. The width stays, so nothing shifts. */
+.glass:has(> .lg-glass),
 .map-layers .chip:not([aria-checked='true']):has(> .lg-glass),
 .map-tools .btn:has(> .lg-glass) { border-color: transparent; }
 .map-layers .chip[aria-checked='true'] > .lg-glass { --lg-glass: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }

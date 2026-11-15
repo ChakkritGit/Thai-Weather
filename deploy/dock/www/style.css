@@ -170,6 +170,8 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
    the plain bar, pickers and checkbox above and below stay as they are. Its tokens take Dock's colours. */
 :root {
   --lg-foreground: var(--text); --lg-muted: var(--muted); --lg-on: var(--accent);
+  /* no hairline outline on any glass (the owner's ask): the tint and Glisse's rim light carry the edge */
+  --lg-edge: transparent;
   --lg-glass: color-mix(in srgb, var(--surface) 16%, transparent);
   /* clear, as iOS 26's "Clear" Liquid Glass (the owner's ask): the rim and a light blur carry the shape */
   --glass-tint: color-mix(in srgb, var(--bg) 14%, transparent); --glass-blur: 3px;
@@ -205,7 +207,7 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .chat-row {
   position: relative; isolation: isolate; align-items: center;
   padding: 5px 5px 5px 4px; border-radius: 27px;
-  box-shadow: inset 0 0 0 0.5px var(--line), 0 6px 20px rgb(0 0 0 / 0.14);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
 }
 .chat-row::before {
   content: ''; position: absolute; inset: 0; z-index: -2; border-radius: inherit;
