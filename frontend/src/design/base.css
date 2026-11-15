@@ -701,11 +701,6 @@ button {
   backdrop-filter: none;
 }
 .map-layers .chip > .lg-glass { --lg-glass: var(--pane-tint); --lg-blur: 4px; box-shadow: none; }
-/* no rim light on the map's glass (the owner's ask): Glisse's bright bevel read as a white outline on the map */
-.map-layers .chip > .lg-glass,
-.map-tools .btn > .lg-glass,
-.glass > .lg-glass,
-.bottom-nav .lg-tab-bar-glass { background-image: none; }
 .map-layers .chip[aria-checked='true'] > .lg-glass { --lg-glass: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }
 @media (prefers-reduced-transparency: reduce) {
   .map-layers .chip > .lg-glass { --lg-glass: var(--color-bg-surface); }
