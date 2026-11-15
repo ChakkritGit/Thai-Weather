@@ -620,6 +620,13 @@ html[lang='ja'] .splash-tag::after { content: 'サーバー管理'; }
 .sec-banner .row-sub { white-space: normal; }
 .sec-banner .btn { flex: none; display: inline-flex; align-items: center; gap: 6px; }
 .sec-banner .btn svg { width: 16px; height: 16px; }
+/* on a phone the button beside the text squeezed the headline to an ellipsis: it takes its own line under the text */
+.sec-banner .row-title { white-space: normal; }
+@media (max-width: 560px) {
+  .sec-banner { flex-wrap: wrap; }
+  .sec-banner .row-main { flex-basis: calc(100% - 56px); }
+  .sec-banner .btn { flex: 1 0 100%; justify-content: center; }
+}
 .sec-banner.tone-ok .row-ic { color: var(--ok); }
 .sec-banner.tone-warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
 .sec-banner.tone-warn .row-ic { color: var(--warn); }
