@@ -382,7 +382,7 @@ button {
 }
 .glass > .lg-glass {
   --lg-glass: var(--pane-tint);
-  --lg-blur: 5px;
+  --lg-blur: 4px;
   box-shadow: none;
 }
 /* on a desktop the panes are wide cards (legend, timeline, search): a lens across them bends only their edges, which
@@ -394,23 +394,24 @@ button {
   .glass > .lg-glass { --lg-glass: var(--color-bg-surface); }
 }
 /* Glisse's own controls (components/GlassControls.tsx, Switch) in the site's colours; a plain :root rule outranks
-   its :where() tokens. --pane-tint is the clear tint of the panes over the map. */
+   its :where() tokens. --pane-tint is the clear tint of the panes over the map: as iOS 26's "Clear" Liquid Glass
+   (the owner's ask), the rim and a light blur carry the shape, the map shows through. */
 :root {
   --lg-foreground: var(--color-fg-default);
   --lg-muted: var(--color-fg-muted);
   --lg-on: var(--color-accent-default);
-  --pane-tint: color-mix(in srgb, var(--color-bg-surface) 45%, transparent);
+  --pane-tint: color-mix(in srgb, var(--color-bg-surface) 18%, transparent);
 }
-/* light text on a pale map needs more tint than dark text does: the muted captions fall below legible at 45% */
-:root[data-theme='dark'] { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 60%, transparent); }
+/* light text on a pale map needs a little more tint than dark text does */
+:root[data-theme='dark'] { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 26%, transparent); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 60%, transparent); }
+  :root:not([data-theme='light']) { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 26%, transparent); }
 }
 /* fit-content: as a grid item the bar would stretch, out of step with its fixed-width tabs and the lens */
 .lg-tab-bar {
   width: fit-content;
-  --lg-glass: color-mix(in srgb, var(--color-bg-subtle) 70%, transparent);
-  --lg-blur: 5px;
+  --lg-glass: color-mix(in srgb, var(--color-bg-subtle) 20%, transparent);
+  --lg-blur: 4px;
 }
 
 .btn {
@@ -696,7 +697,7 @@ button {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-.map-layers .chip > .lg-glass { --lg-glass: var(--pane-tint); --lg-blur: 5px; box-shadow: none; }
+.map-layers .chip > .lg-glass { --lg-glass: var(--pane-tint); --lg-blur: 4px; box-shadow: none; }
 .map-layers .chip[aria-checked='true'] > .lg-glass { --lg-glass: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }
 @media (prefers-reduced-transparency: reduce) {
   .map-layers .chip > .lg-glass { --lg-glass: var(--color-bg-surface); }
@@ -780,7 +781,7 @@ button {
 }
 .map-tools .btn > .lg-glass {
   --lg-glass: var(--pane-tint);
-  --lg-blur: 5px;
+  --lg-blur: 4px;
   box-shadow: none;
 }
 .map-tools .btn:hover { background: var(--color-bg-surface); }

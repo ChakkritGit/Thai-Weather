@@ -170,7 +170,9 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
    the plain bar, pickers and checkbox above and below stay as they are. Its tokens take Dock's colours. */
 :root {
   --lg-foreground: var(--text); --lg-muted: var(--muted); --lg-on: var(--accent);
-  --glass-tint: color-mix(in srgb, var(--bg) 42%, transparent); --glass-blur: 6px;
+  --lg-glass: color-mix(in srgb, var(--surface) 16%, transparent);
+  /* clear, as iOS 26's "Clear" Liquid Glass (the owner's ask): the rim and a light blur carry the shape */
+  --glass-tint: color-mix(in srgb, var(--bg) 14%, transparent); --glass-blur: 3px;
   /* the nav pill's gap to the screen edge: low in the home-indicator area, as iOS puts its own tab bar */
   --nav-bottom: max(8px, calc(env(safe-area-inset-bottom) - 14px));
 }
@@ -226,7 +228,7 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .glass-seg { display: inline-flex; max-width: 100%; }
 .glass-seg.scroll { overflow-x: auto; scrollbar-width: none; }
 .glass-seg.scroll::-webkit-scrollbar { display: none; }
-.glass-seg .lg-tab-bar { flex: none; --lg-glass: color-mix(in srgb, var(--surface) 45%, transparent); --lg-blur: var(--glass-blur); }
+.glass-seg .lg-tab-bar { flex: none; --lg-glass: color-mix(in srgb, var(--surface) 16%, transparent); --lg-blur: var(--glass-blur); }
 .glass-seg.scroll .lg-tab-bar { touch-action: pan-x pan-y; }
 .glass-seg .lg-tab, .glass-seg .lg-tab-copy { font-size: 14px; font-weight: 600; }
 .glass-switch { display: inline-flex; --lg-on: var(--ok); } /* on reads green: the accent is black or white */
