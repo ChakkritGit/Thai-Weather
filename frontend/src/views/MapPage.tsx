@@ -36,8 +36,9 @@ const STORE_KEY = 'thwx.layer';
 const SHEET_MQ = '(max-width: 860px)';
 /** Height of a collapsed ("peek") sheet: handle + place name. Keep in step with --sheet-peek. */
 const SHEET_PEEK_PX = 96;
-/** A full sheet leaves this much of the map above it. Keep in step with base.css (.map-sidebar[data-snap='full']). */
-const FULL_GAP_PX = 64;
+/** A full sheet stops under the layer chips and the search field (they sit above it and would cover its handle).
+ *  Keep in step with base.css (.map-sidebar[data-snap='full']). */
+const FULL_GAP_PX = 108;
 /** Space the layer chips and top controls take over the map. */
 const TOP_CONTROLS_PX = 104;
 const LOC_KEY = 'thwx.lastLocation';

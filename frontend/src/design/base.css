@@ -1217,8 +1217,11 @@ button {
     transition: transform var(--duration-slow) var(--easing-standard), max-height var(--duration-slow) var(--easing-standard);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  /* dragged up from open: all but a strip of the map (FULL_GAP_PX in MapPage) */
-  .map-sidebar[data-open='true'][data-snap='full'] { max-height: calc(100% - 64px); }
+  /* dragged up from open: up to just under the layer chips and the search field (FULL_GAP_PX in MapPage), which stay
+     usable; the round map buttons on the right would sit over the sheet, so they step aside */
+  .map-sidebar[data-open='true'][data-snap='full'] { max-height: calc(100% - 108px); }
+  .map-tools { transition: opacity var(--duration-fast) var(--easing-standard); }
+  .map-page[data-sheet='full'] .map-tools { opacity: 0; pointer-events: none; }
   .map-sidebar[data-open='true'] { transform: translateY(0); overscroll-behavior: contain; }
   /* collapsed: only the handle and the place name stay up (height = SHEET_PEEK_PX in MapPage) */
   .map-sidebar[data-open='true'][data-peek='true'] {
