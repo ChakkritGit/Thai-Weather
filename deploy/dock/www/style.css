@@ -180,7 +180,8 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 /* bottom nav: a floating TabBar. The plain bar keeps its box (the chat composer sits on it) but is neither drawn nor focusable. */
 .tabs[data-glass] { visibility: hidden; }
 .dock-nav { position: fixed; left: 0; right: 0; bottom: var(--nav-bottom); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
-.dock-nav .lg-tab-bar { pointer-events: auto; --lg-tab-width: min(94px, calc((100vw - 28px) / var(--lg-tabs))); --lg-tab-height: 50px; --lg-glass: transparent; --lg-blur: 0px; }
+/* the tab and lens size every app shares (CalorieFlow, Thai Weather, Drive Music) */
+.dock-nav .lg-tab-bar { pointer-events: auto; --lg-tab-width: min(88px, calc((100vw - 48px) / 5)); --lg-tab-height: 50px; --lg-glass: transparent; --lg-blur: 0px; }
 .dock-nav .lg-tab, .dock-nav .lg-tab-copy { font-size: 11px; font-weight: 600; }
 .dock-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; white-space: nowrap; }
 .dock-tab svg { width: 22px; height: 22px; }

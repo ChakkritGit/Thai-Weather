@@ -258,8 +258,9 @@ button {
   }
   .bottom-nav .lg-tab-bar {
     pointer-events: auto;
+    /* the tab and lens size every app shares (Dock, CalorieFlow, Drive Music): five tabs' width even with four */
     --lg-tab-height: 50px;
-    --lg-tab-width: min(88px, calc((100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 4));
+    --lg-tab-width: min(88px, calc((100vw - 48px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 5));
     --lg-glass: var(--pane-tint);
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
   }
