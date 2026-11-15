@@ -36,6 +36,8 @@ const STORE_KEY = 'thwx.layer';
 const SHEET_MQ = '(max-width: 860px)';
 /** Height of a collapsed ("peek") sheet: handle + place name. Keep in step with --sheet-peek. */
 const SHEET_PEEK_PX = 96;
+/** A full sheet leaves this much of the map above it. Keep in step with base.css (.map-sidebar[data-snap='full']). */
+const FULL_GAP_PX = 64;
 /** Space the layer chips and top controls take over the map. */
 const TOP_CONTROLS_PX = 104;
 const LOC_KEY = 'thwx.lastLocation';
@@ -176,7 +178,9 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     };
   }, [airOn]);
   const sheetRef = useRef<HTMLElement>(null);
-  const [peek, setPeek] = useState(false);
+  /** phone sheet: peek (the place name), open (62% of the map) or full (all but a strip of the map) */
+  const [snap, setSnap] = useState<'peek' | 'open' | 'full'>('open');
+  const peek = snap === 'peek';
   const peekRef = useRef(peek);
   peekRef.current = peek;
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
@@ -312,7 +316,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   // ------------------------------------------------------------ phone bottom sheet
   // A new point opens the sheet fully; a point the open sheet would hide is moved up into view.
   useEffect(() => {
-    setPeek(false);
+    setSnap('open');
     const m = maps.current.fine;
     const stage = stageRef.current;
     if (!selected || !m || !stage || !window.matchMedia(SHEET_MQ).matches) return;
@@ -322,8 +326,9 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     if (y > sheetTop - 40 || y < TOP_CONTROLS_PX) m.easeTo({ center: centerShowing(selected, m.getZoom(), sheetLift()), duration: 450 });
   }, [selected, sheetLift]);
 
-  // Drag the sheet: down to a peek (just the place name), down again to close, up to open. From the
-  // handle any time, from the content only while it is scrolled to the top (otherwise it scrolls).
+  // Drag the sheet: up from a peek to open, up again to full; down from full to open, then to a peek, then
+  // closed. From the handle any time, from the content only while it is scrolled to the top; a full sheet's
+  // content scrolls on an upward swipe. Going up the sheet grows (its max-height follows the finger).
   const closeSheet = useRef(() => setSelected(null));
   closeSheet.current = () => setSelected(null);
   useEffect(() => {
@@ -335,6 +340,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     let dragging = false;
     let fromHandle = false;
     let base: number | null = null;
+    let height = 0;
     const start = (e: TouchEvent) => {
       if (!mq.matches || el.dataset.open !== 'true' || e.touches.length !== 1) return;
       const y = e.touches[0].clientY;
@@ -343,30 +349,43 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
       startY = y;
       dy = 0;
       base = null;
+      height = el.getBoundingClientRect().height;
       dragging = true;
     };
     const move = (e: TouchEvent) => {
       if (!dragging) return;
       dy = e.touches[0].clientY - startY;
-      const peeked = el.dataset.peek === 'true';
-      if (!fromHandle && !peeked && dy < 0) {
-        dragging = false; // an upward swipe on the content is a scroll
+      const state = el.dataset.snap;
+      if (dy < 0 && state === 'full' && !fromHandle) {
+        dragging = false; // an upward swipe on a full sheet's content is a scroll
         return;
       }
       e.preventDefault();
       if (base === null) base = new DOMMatrix(getComputedStyle(el).transform).m42; // where the sheet sits now
       el.style.transition = 'none';
-      el.style.transform = `translateY(${Math.max(0, base + dy)}px)`;
+      if (state === 'peek' || dy >= 0 || base > 0) {
+        el.style.transform = `translateY(${Math.max(0, base + dy)}px)`;
+      } else {
+        const room = el.parentElement?.clientHeight ?? height;
+        el.style.maxHeight = `${Math.min(room - FULL_GAP_PX, height - dy)}px`;
+      }
     };
     const end = () => {
       if (!dragging) return;
       dragging = false;
       el.style.transition = '';
       el.style.transform = '';
+      el.style.maxHeight = '';
       if (Math.abs(dy) < 8) return; // a tap: the handle button handles it
-      if (el.dataset.peek !== 'true') {
-        if (dy > 70) setPeek(true);
-      } else if (dy < -40) setPeek(false);
+      const state = el.dataset.snap;
+      if (state === 'full') {
+        if (dy > 260) setSnap('peek');
+        else if (dy > 70) setSnap('open');
+      } else if (state === 'open') {
+        if (dy < -40) setSnap('full');
+        else if (dy > 70) setSnap('peek');
+      } else if (dy < -260) setSnap('full');
+      else if (dy < -40) setSnap('open');
       else if (dy > 50) closeSheet.current();
     };
     el.addEventListener('touchstart', start, { passive: true });
@@ -550,7 +569,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, air: airOn ? airStations : null, pm: pmFrame, onSelect: setSelected };
 
   return (
-    <div className="map-page" data-sheet={selected ? (peek ? 'peek' : 'open') : undefined}>
+    <div className="map-page" data-sheet={selected ? snap : undefined}>
       <div className="map-stage" ref={stageRef}>
         <WeatherMap
           {...common}
@@ -614,7 +633,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
 
         <PlaceSearch onSelect={(place) => {
           const point = { lat: place.lat, lon: place.lon };
-          setPeek(false);
+          setSnap('open');
           setSelected(point);
           flyTo(point, place.kind === 'province' ? 8 : 10);
         }} />
@@ -701,6 +720,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
         className="map-sidebar"
         data-open={selected ? 'true' : 'false'}
         data-peek={selected && peek ? 'true' : undefined}
+        data-snap={selected ? snap : undefined}
         aria-label={selected ? t('next48') : t('overview')}
       >
         {selected && (
@@ -708,8 +728,9 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
             type="button"
             className="sheet-handle"
             aria-expanded={!peek}
-            aria-label={peek ? t('sheetExpand') : t('sheetCollapse')}
-            onClick={() => setPeek((x) => !x)}
+            aria-label={snap === 'full' ? t('sheetCollapse') : t('sheetExpand')}
+            // a tap steps up (peek, open, full) and from full back down to a peek
+            onClick={() => setSnap((x) => (x === 'peek' ? 'open' : x === 'open' ? 'full' : 'peek'))}
           />
         )}
         {selected ? (
