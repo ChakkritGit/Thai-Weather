@@ -115,7 +115,7 @@ function tabWidth(labels, sample) {
 function syncSeg(group, ok) {
   const buttons = [...group.querySelectorAll(':scope > button')];
   if (!buttons.length) return; // the site list fills in once its data arrives
-  let rec = mounted.get(group);
+  let rec = mounted.get(group) ?? adopt(group);
   if (!rec) {
     if (!ok()) return;
     const host = document.createElement('div');
@@ -123,17 +123,32 @@ function syncSeg(group, ok) {
     // a picker wider than the screen scrolls: a finger's sideways drag must pan it, not drag the lens (a tap still picks)
     if (group.classList.contains('scroll')) host.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') e.stopPropagation(); }, true);
     group.after(host);
-    rec = { host, root: root(host), sig: '', buttons, undo: () => { group.hidden = false; host.remove(); } };
+    rec = { host, root: root(host), sig: '', key: segKey(group), buttons, undo: () => { group.hidden = false; host.remove(); } };
     mounted.set(group, rec);
   }
   rec.buttons = buttons;
   const labels = buttons.map((b) => b.textContent.trim());
   const selected = buttons.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
   const sig = `${labels.join('\n')}\0${selected}`;
-  if (sig === rec.sig) return;
-  rec.sig = sig;
-  draw(rec, h(Seg, { labels, selected, width: tabWidth(labels, buttons[0]), name: group.getAttribute('aria-label') ?? undefined, press: (i) => rec.buttons[i]?.click() }));
+  if (sig !== rec.sig) {
+    rec.sig = sig;
+    draw(rec, h(Seg, { labels, selected, width: tabWidth(labels, buttons[0]), name: group.getAttribute('aria-label') ?? undefined, press: (i) => rec.buttons[i]?.click() }));
+  }
   if (!dead) group.hidden = true;
+}
+
+const segKey = (group) => `${group.className}\0${group.getAttribute('aria-label') ?? ''}`;
+// pickers whose plain markup app.js has just replaced (a range tap re-renders the whole page): the next picker of the
+// same kind takes the mounted bar over, so it keeps its state and the lens glides instead of the bar starting afresh
+const orphans = [];
+function adopt(group) {
+  const i = orphans.findIndex((rec) => rec.key === segKey(group));
+  if (i < 0) return null;
+  const [rec] = orphans.splice(i, 1);
+  group.after(rec.host);
+  rec.undo = () => { group.hidden = false; rec.host.remove(); };
+  mounted.set(group, rec);
+  return rec;
 }
 
 function syncSwitch(label) {
@@ -151,7 +166,12 @@ function syncSwitch(label) {
 function scan() {
   if (dead) return;
   try {
-    for (const [plain, rec] of mounted) if (!plain.isConnected) { mounted.delete(plain); setTimeout(() => rec.root.unmount(), 0); }
+    for (const [plain, rec] of mounted) {
+      if (plain.isConnected) continue;
+      mounted.delete(plain);
+      if (rec.key) orphans.push(rec);
+      else setTimeout(() => rec.root.unmount(), 0);
+    }
     // --lg-glass comes from glisse.css; without it nothing Glisse draws would show, so leave the plain controls alone
     let styled;
     const ok = () => !dead && (styled ??= !!getComputedStyle(document.documentElement).getPropertyValue('--lg-glass'));
@@ -160,6 +180,8 @@ function scan() {
     for (const group of app.querySelectorAll('.segmented')) syncSeg(group, ok);
     for (const label of app.querySelectorAll('label.switch')) if (!mounted.has(label) && label.querySelector(':scope > input[type=checkbox]') && ok()) syncSwitch(label);
     for (const bar of app.querySelectorAll(PANES)) if (!mounted.has(bar) && ok()) pane(bar);
+    // a picker nobody took over (the page no longer has one) goes now
+    for (const rec of orphans.splice(0)) setTimeout(() => rec.root.unmount(), 0);
   } catch (error) {
     stop(error);
   }
