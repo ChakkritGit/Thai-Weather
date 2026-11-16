@@ -620,7 +620,8 @@ class Strip {
     const node = copy(src, !b.shallow, false) as HTMLElement;
     const cs = getComputedStyle(src);
     for (const name of INHERITED) node.style.setProperty(name, cs.getPropertyValue(name));
-    node.style.cssText += `;${PLACED}left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;`;
+    // a shell (its children are blocks of their own) keeps no z-index: one (a sheet's) painted it over its content
+    node.style.cssText += `;${PLACED}left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;${b.shallow ? "z-index:auto;" : ""}`;
     this.live.set(b.el, { node, w: b.w, h: b.h });
     this.src.stats.clones++;
     return node;
