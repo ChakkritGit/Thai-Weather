@@ -263,6 +263,8 @@ button {
     --lg-tab-width: min(88px, calc((100vw - 48px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 5));
     --lg-glass: var(--pane-tint);
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+    /* the sheet's bent copy (lib/domGlass.ts) is laid in the bar at z-index -2: it must stay inside the bar */
+    isolation: isolate;
   }
   /* on the map page the bar's glass is the WebGL glass too, tint included (--wgl-tint, drawn in the map): Glisse's bar
      keeps its pressed glow and a 2px blur for the HTML labels, and a lifted lens, drawn after the bar, covers it as on iOS */
