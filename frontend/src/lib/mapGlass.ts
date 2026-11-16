@@ -42,12 +42,12 @@ export interface Look {
   rim: number;
 }
 
-export const DEFAULT_LOOK: Look = { bend: 0.75, dispersion: 1.05, blur: 2.5, saturation: 1.4, rim: 1 };
+export const DEFAULT_LOOK: Look = { bend: 0.75, dispersion: 1.05, blur: 4, saturation: 1.4, rim: 1 };
 
 /** Colour-fringe width per unit of `Look.dispersion`, as a fraction of the displacement. */
 const DISPERSION_UNIT = 0.12;
-/** A copied crop reaches this far past its elements: room for the blur taps at the rim. */
-const PAD = 4;
+/** A copied crop reaches this far past its elements: room for the blur taps at a frosted rim (--wgl-blur 12). */
+const PAD = 16;
 const LAYER_ID = 'thwx-glass';
 /** How long the layout is re-read every frame after a transition starts or ends (the longest one is 0.15 s). */
 const SETTLE_MS = 400;
@@ -134,17 +134,22 @@ export function clusterRects(rects: Rect[]): number[][] {
 // ---------------------------------------------------------------------------------------------- the glass elements
 
 const hosts = new Set<HTMLElement>();
+/** hosts that move without any event to tell (the tab bar's lens follows a finger): read every frame while here */
+const live = new Set<HTMLElement>();
 const watchers = new Set<() => void>();
 
 /**
  * Register an element as map glass: the page's glass panes call this for their parent. Returns the function that
- * takes it out again. Registering costs nothing while no map glass runs.
+ * takes it out again. Registering costs nothing while no map glass runs. A `live` host is measured every frame, so
+ * register one only while it moves.
  */
-export function trackGlassHost(el: HTMLElement): () => void {
+export function trackGlassHost(el: HTMLElement, opts: { live?: boolean } = {}): () => void {
   hosts.add(el);
+  if (opts.live) live.add(el);
   watchers.forEach((w) => w());
   return () => {
     hosts.delete(el);
+    live.delete(el);
     watchers.forEach((w) => w());
   };
 }
@@ -184,10 +189,13 @@ vec3 tap(vec2 p) {
   vec2 uv = (p - uBox.xy) / uBox.zw;
   return textureLod(uTex, vec2(uv.x, 1.0 - uv.y), uLod).rgb;
 }
-// a soft face: the mip level does most of the blur, the diagonal taps hide its blocks
+// a soft face: the mip level does most of the blur, a ring of eight taps hides its blocks
 vec3 soft(vec2 p) {
   float k = uBlur * 0.5;
-  return (2.0 * tap(p) + tap(p + vec2(k, k)) + tap(p + vec2(-k, k)) + tap(p + vec2(k, -k)) + tap(p + vec2(-k, -k))) / 6.0;
+  float j = uBlur * 0.7;
+  vec3 c = 2.0 * tap(p) + tap(p + vec2(k, k)) + tap(p + vec2(-k, k)) + tap(p + vec2(k, -k)) + tap(p + vec2(-k, -k));
+  c += tap(p + vec2(j, 0.0)) + tap(p + vec2(-j, 0.0)) + tap(p + vec2(0.0, j)) + tap(p + vec2(0.0, -j));
+  return c / 10.0;
 }
 
 void main() {
@@ -241,6 +249,8 @@ interface Host extends Rect {
   bezel: number;
   thick: number;
   bend: number;
+  /** blur of its face in CSS px: frosted rims on text panes, a near-clear lens on the tab bar */
+  blur: number;
   alpha: number;
   clip: Rect;
   /** only the bent rim is drawn; the face is left to the map under the host's own CSS blur (a text pane) */
@@ -370,6 +380,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
       const bend = parseFloat(cs.getPropertyValue('--wgl-bend'));
       if (bend === 0) continue;
       const m = Math.min(r.w, r.h);
+      const blur = parseFloat(cs.getPropertyValue('--wgl-blur'));
       found.push({
         x: r.x - cr.left,
         y: r.y - cr.top,
@@ -379,6 +390,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         bezel: clamp(m * 0.12, 4, 10),
         thick: clamp(m * 0.2, 8, 24),
         bend: Number.isFinite(bend) ? bend : look.bend,
+        blur: Number.isFinite(blur) ? blur : look.blur,
         alpha: Math.min(1, alpha),
         clip: { x: shown.x - cr.left, y: shown.y - cr.top, w: shown.w, h: shown.h },
         rim: parseFloat(cs.getPropertyValue('--wgl-face')) === 0,
@@ -486,8 +498,6 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
     g.uniform2f(uni.uSize, L.cssW, L.cssH);
     g.uniform1f(uni.uPx, L.k);
     g.uniform1f(uni.uDisp, look.dispersion);
-    g.uniform1f(uni.uBlur, look.blur);
-    g.uniform1f(uni.uLod, Math.log2(Math.max(1, look.blur * L.k)));
     g.uniform1f(uni.uSat, look.saturation);
     g.uniform1f(uni.uRim, look.rim);
     L.clusters.forEach((c, i) => {
@@ -500,6 +510,8 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         g.uniform1f(uni.uBezel, h.bezel);
         g.uniform1f(uni.uThick, h.thick);
         g.uniform1f(uni.uBend, h.bend);
+        g.uniform1f(uni.uBlur, h.blur);
+        g.uniform1f(uni.uLod, Math.log2(Math.max(1, h.blur * L.k)));
         g.uniform1f(uni.uAlpha, h.alpha);
         g.uniform1f(uni.uRimOnly, h.rim ? 1 : 0);
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
@@ -603,12 +615,24 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
   const stage = map.getContainer().closest('.map-page');
   // the sheet state moves the bottom panes (a position change, no resize)
   const mo = new MutationObserver(relayout);
-  const watcher = () => relayout();
+  // a live host (the dragged lens) keeps the layout read every frame until it is taken out
+  let liveRaf = 0;
+  const follow = () => {
+    liveRaf = 0;
+    if (dead || !live.size) return;
+    relayout();
+    liveRaf = requestAnimationFrame(follow);
+  };
+  const watcher = () => {
+    relayout();
+    if (live.size && !liveRaf) liveRaf = requestAnimationFrame(follow);
+  };
 
   const teardown = () => {
     if (dead) return;
     dead = true;
     if (raf) cancelAnimationFrame(raf);
+    if (liveRaf) cancelAnimationFrame(liveRaf);
     ro.disconnect();
     mo.disconnect();
     watchers.delete(watcher);

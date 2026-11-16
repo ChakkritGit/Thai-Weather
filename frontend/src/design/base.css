@@ -271,6 +271,13 @@ button {
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
   }
+  /* a lifted lens is WebGL glass too: a stronger, near-clear bend that magnifies the map, so the bar's CSS blur steps
+     aside while it is up (it would blur the lens drawn under it) */
+  .bottom-nav .lg-tab-lens { --wgl-bend: 1; --wgl-blur: 0.5; }
+  :root[data-map-glass='on'] .bottom-nav .lg-tab-bar[data-lifted] .lg-tab-bar-glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
   .app-main { padding-bottom: var(--nav-room); }
   .app-main:has(.map-page) { padding-bottom: 0; }
   .bottom-nav .lg-tab,
@@ -407,11 +414,11 @@ button {
    (the parent of every GlassPane, marked by .wgl-pane) drop Glisse's pane and keep their tint, hover and pressed
    colours as their own background over the canvas. It works where Glisse can only blur (Safari). The city labels are
    HTML above the canvas, not in the bent pixels, so a host blurs what is behind it in CSS: a light blur all over the
-   small ones (buttons, chips, the nav); on the text panes 12px, but only inside, 5px in from the rim, so the bent rim
-   stays sharp. The map then draws only the rim of a pane (--wgl-face 0, always set: the map reads it before the glass
-   has drawn): the face is the map under that blur. :where() keeps the rules as weak as the Glisse rules above (the
+   small ones (buttons, chips, the nav); on the text panes 12px, but only inside, 5px in from the rim. The map then
+   draws only the rim of a pane (--wgl-face 0, always set: the map reads it before the glass has drawn), bent and
+   frosted as much (--wgl-blur 12); the face is the map under the CSS blur. :where() keeps the rules as weak as the Glisse rules above (the
    search field's focus border still wins). */
-.glass:has(> .wgl-pane) { --wgl-face: 0; }
+.glass:has(> .wgl-pane) { --wgl-face: 0; --wgl-blur: 12; }
 :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane) {
   isolation: isolate;
   background: var(--pane-tint);

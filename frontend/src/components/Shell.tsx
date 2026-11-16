@@ -134,10 +134,28 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
       </span>
     ),
   }));
-  // the bar is a glass host for the map page's WebGL glass (lib/mapGlass.ts); that runs on the map page only
+  // the bar is a glass host for the map page's WebGL glass (lib/mapGlass.ts); that runs on the map page only. The lens
+  // joins while a finger lifts it, as a live host: Glisse moves it by a style change no observer reports.
   const glassHost = useCallback((nav: HTMLElement | null) => {
     const bar = nav?.querySelector<HTMLElement>('.lg-tab-bar');
-    return bar ? trackGlassHost(bar) : undefined;
+    if (!bar) return undefined;
+    const untrack = trackGlassHost(bar);
+    let lens: (() => void) | undefined;
+    const sync = () => {
+      const el = bar.hasAttribute('data-lifted') ? bar.querySelector<HTMLElement>('.lg-tab-lens') : null;
+      if (el && !lens) lens = trackGlassHost(el, { live: true });
+      else if (!el && lens) {
+        lens();
+        lens = undefined;
+      }
+    };
+    const mo = new MutationObserver(sync);
+    mo.observe(bar, { attributes: true, attributeFilter: ['data-lifted'] });
+    return () => {
+      mo.disconnect();
+      lens?.();
+      untrack();
+    };
   }, []);
   return (
     <div className="bottom-nav" ref={glassHost}>
