@@ -466,6 +466,19 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   opening a table (memory per container) no longer stretches its neighbour (CPU). Weather site: `.prose` cards fill
   their row; only their children keep the 75ch measure ("ปัญหาที่พบในเขตร้อน" on the method page).
 
+### Glass across the apps (2026-11-15/16, Claude)
+
+- Clear glass everywhere (tint 14-26% of the surface, 3-4 px blur; Thai Weather's text panes 12 px); no hairline
+  outlines (`--lg-edge: transparent`, hosts' 1px borders transparent); one tab bar size in all four apps (50 px tabs,
+  `min(88px, (100vw - 48px) / 5)` wide, Glisse's default lens growth).
+- Thai Weather prototype: WebGL Liquid Glass under the round map buttons (`lib/mapGlass.ts`, `components/MapGlass.tsx`).
+  A MapLibre custom layer copies the crop under the buttons from the map's frame buffer and bends it (Glisse's optics
+  in GLSL, `DEFAULT_LOOK` bend 0.75, dispersion 1.05), so Safari/iPhone shows refraction; Glisse's pane is the
+  fallback. An overlay canvas was ~6.4 ms/frame in WebKit; the in-map layer is ~0.02 ms. HTML labels over the map are
+  not in the bent pixels (a 2 px CSS blur covers them). Waiting on the owner's iPhone check before the chips, search
+  field and nav get it. Glisse 0.5/0.6 have no bend/dispersion props (checked 2026-11-16).
+- Dock: a re-rendered page's range picker adopts the mounted glass bar (glass/src/main.js), no rebuild animation.
+
 ### Dock Cyber page (2026-11-14, Claude)
 Owner asked for a 2D world map of where attacks on the VPS come from. Dock -> เพิ่มเติม -> แผนที่การโจมตี (also a card
 in the ความปลอดภัย area): `#/cyber`, `deploy/dock/www/cyber.js`. Deployed 2026-11-14 (`095bec5`): `dock-metrics`
