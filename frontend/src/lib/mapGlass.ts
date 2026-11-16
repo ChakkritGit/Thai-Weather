@@ -25,7 +25,7 @@ import type { CustomLayerInterface, Map as MLMap } from 'maplibre-gl';
 export interface Look {
   /**
    * Rim refraction, as Glisse's `--lg-refraction`: 1 is the full physical bend (Snell, n = 1.5, the content at the rim
-   * is pulled in by up to ~20 px on a 40 px button with this module's bevel), 0 is flat glass. Typical range 0..1. A host can override it with
+   * is pulled in by up to ~25 px on a 40 px button with this module's bevel), 0 is flat glass. Typical range 0..1. A host can override it with
    * the CSS custom property `--wgl-bend`.
    */
   bend: number;
@@ -309,6 +309,18 @@ function cornerRadius(cs: CSSStyleDeclaration, w: number, h: number): number {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
+ * The corner radius of an element drawn at its on-screen box `r`, which a transform may have scaled (the tab bar's
+ * lifted lens grows): a capsule stays a capsule, other corners scale with the element.
+ */
+function scaledRadius(cs: CSSStyleDeclaration, el: HTMLElement, r: Rect): number {
+  const ow = el.offsetWidth || r.w;
+  const oh = el.offsetHeight || r.h;
+  const base = cornerRadius(cs, ow, oh);
+  if (base >= Math.min(ow, oh) / 2 - 0.5) return Math.min(r.w, r.h) / 2;
+  return base * Math.min(r.w / ow, r.h / oh);
+}
+
+/**
  * Read a computed colour (`--wgl-tint` is registered as a <color>, so it arrives resolved): rgb()/rgba(), or the
  * color(srgb ...) a color-mix() computes to. Anything else is no tint.
  */
@@ -405,11 +417,11 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         y: r.y - cr.top,
         w: r.w,
         h: r.h,
-        radius: cornerRadius(cs, r.w, r.h),
-        // a wider, thicker bevel than Glisse's (0.12 / 0.2 of the short side): at its size the bend read too faintly
-        // on a phone (the owner's check, 2026-11-16)
-        bezel: clamp(m * 0.25, 6, 20),
-        thick: clamp(m * 0.45, 14, 40),
+        radius: scaledRadius(cs, el, r),
+        // a much wider, thicker bevel than Glisse's (0.12 / 0.2 of the short side): at its size the bend read too
+        // faintly on a phone, above all along the long top and bottom edges (the owner's checks, 2026-11-16)
+        bezel: clamp(m * 0.35, 8, 24),
+        thick: clamp(m * 0.6, 16, 48),
         bend: Number.isFinite(bend) ? bend : look.bend,
         blur: Number.isFinite(blur) ? blur : look.blur,
         tint: parseColor(cs.getPropertyValue('--wgl-tint')),
