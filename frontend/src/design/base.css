@@ -264,6 +264,13 @@ button {
     --lg-glass: var(--pane-tint);
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
   }
+  /* on the map page the bar's glass is the WebGL glass too: Glisse's bar keeps its tint and its pressed glow, but loses
+     its rim and keeps Glisse's 4px blur (the page's text, over a sheet, reads through it); the lens above it stays Glisse's */
+  :root[data-map-glass='on'] .bottom-nav .lg-tab-bar-glass {
+    background-image: none;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
   .app-main { padding-bottom: var(--nav-room); }
   .app-main:has(.map-page) { padding-bottom: 0; }
   .bottom-nav .lg-tab,
@@ -395,6 +402,43 @@ button {
 }
 @media (prefers-reduced-transparency: reduce) {
   .glass > .lg-glass { --lg-glass: var(--color-bg-surface); }
+}
+/* WebGL glass (lib/mapGlass.ts, components/MapGlass.tsx): once a layer in the map's own canvas has drawn, the glass hosts
+   (the parent of every GlassPane, marked by .wgl-pane) drop Glisse's pane and keep their tint, hover and pressed
+   colours as their own background over the canvas. It works where Glisse can only blur (Safari). The city labels are
+   HTML above the canvas, not in the bent pixels, so a host blurs what is behind it in CSS: a light blur all over the
+   small ones (buttons, chips, the nav); on the text panes 12px, but only inside, 5px in from the rim, so the bent rim
+   stays sharp. The map then draws only the rim of a pane (--wgl-face 0, always set: the map reads it before the glass
+   has drawn): the face is the map under that blur. :where() keeps the rules as weak as the Glisse rules above (the
+   search field's focus border still wins). */
+.glass:has(> .wgl-pane) { --wgl-face: 0; }
+:where(:root[data-map-glass='on']) .glass:has(> .wgl-pane) {
+  isolation: isolate;
+  background: var(--pane-tint);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: transparent;
+}
+:where(:root[data-map-glass='on']) .glass:has(> .wgl-pane)::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  border-radius: calc(var(--wgl-r, var(--radius-lg)) - 5px);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+}
+/* on a desktop the panes are wide cards: as with Glisse's lens they keep the plain blur (--wgl-bend 0: the map draws
+   no glass under them, and the blur covers them to the rim) */
+@media (min-width: 861px) {
+  .glass:has(> .wgl-pane) { --wgl-bend: 0; }
+  :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane)::before {
+    inset: 0;
+    border-radius: inherit;
+    -webkit-backdrop-filter: blur(12px) saturate(1.5);
+    backdrop-filter: blur(12px) saturate(1.5);
+  }
 }
 /* Glisse's own controls (components/GlassControls.tsx, Switch) in the site's colours; a plain :root rule outranks
    its :where() tokens. --pane-tint is the clear tint of the panes over the map: as iOS 26's "Clear" Liquid Glass
@@ -712,6 +756,14 @@ button {
 @media (prefers-reduced-transparency: reduce) {
   .map-layers .chip > .lg-glass { --lg-glass: var(--color-bg-surface); }
 }
+/* the WebGL glass under the chips (the chosen one keeps its accent outline and its stronger tint) */
+:where(:root[data-map-glass='on']) .map-layers .chip:has(> .wgl-pane) {
+  background: var(--pane-tint);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+:where(:root[data-map-glass='on']) .map-layers .chip:not([aria-checked='true']):has(> .wgl-pane) { border-color: transparent; }
+:where(:root[data-map-glass='on']) .map-layers .chip[aria-checked='true']:has(> .wgl-pane) { background: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }
 
 .place-search {
   position: absolute;
@@ -801,18 +853,15 @@ button {
 @media (prefers-reduced-transparency: reduce) {
   .map-tools .btn > .lg-glass { --lg-glass: var(--color-bg-surface); }
 }
-/* WebGL glass (lib/mapGlass.ts, components/MapGlass.tsx): a layer in the map's own canvas bends the map's pixels under
-   the buttons, so it works where Glisse can only blur (Safari). Once it has drawn, the buttons give up Glisse's pane and
-   backdrop-filter and keep the tint, hover and pressed colours as their own background over the canvas. A light blur
-   of their own stays: the city labels are HTML over the canvas, not in the bent pixels, and would read sharp through
-   the icon. */
-.map-tools[data-glass='on'] .btn {
+/* the WebGL glass under the round buttons: a light blur of their own stays, the city labels are HTML over the canvas
+   and would read sharp through the icon */
+:root[data-map-glass='on'] .map-tools .btn {
   background: var(--pane-tint);
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   border-color: transparent;
 }
-.map-tools[data-glass='on'] .btn:is(:hover, [aria-pressed='true']) { background: var(--color-bg-surface); }
+:root[data-map-glass='on'] .map-tools .btn:is(:hover, [aria-pressed='true']) { background: var(--color-bg-surface); }
 .map-tools .btn--icon { width: 40px; min-height: 40px; padding: 0; }
 .map-tools .btn--icon svg { width: var(--size-iconMd); height: var(--size-iconMd); }
 
@@ -1764,6 +1813,7 @@ button {
 .aq-marker[data-level='5'] { color: #fff; }
 .aq-marker:focus-visible { outline: 2px solid var(--color-accent-default); outline-offset: 1px; }
 .air-legend-glass {
+  --wgl-r: var(--radius-md);
   position: relative;
   border-radius: var(--radius-md);
   min-width: 0;

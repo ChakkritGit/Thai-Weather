@@ -12,8 +12,8 @@ import { decodeFrame, frameIndex, loadAirForecast } from '../lib/pmField';
 import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
-import { GlassPane } from '../components/GlassPane';
-import { MapGlassProvider, ToolGlass, useMapGlass } from '../components/MapGlass';
+import { GlassPane, MapGlassProvider } from '../components/GlassPane';
+import { useMapGlass } from '../components/MapGlass';
 import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
 import { LocateCta, type LocateStatus } from '../components/LocateCta';
@@ -189,9 +189,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   // the same maps as state: the WebGL glass under the map buttons (components/MapGlass.tsx) follows them
   const [fineMap, setFineMap] = useState<MLMap | null>(null);
   const [coarseMap, setCoarseMap] = useState<MLMap | null>(null);
-  const toolsRef = useRef<HTMLDivElement>(null);
-  // the toolbar fades out under a fully open phone sheet (base.css); its glass is part of the map's pixels, so it stops drawing
-  const glassOn = useMapGlass(toolsRef, fineMap, compare ? coarseMap : null, !!selected && snap === 'full');
+  const glassOn = useMapGlass(fineMap, compare ? coarseMap : null);
 
   /** Phones: how far above the map's middle a point must sit to be in the middle of the area left above the sheet. */
   const sheetLift = useCallback((): number => {
@@ -579,181 +577,181 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const common = { run, layer, windLayer, index, lut, theme, selected, showGrid: compare || gridOn, radar: atNow ? radar.frame : null, air: airOn ? airStations : null, pm: pmFrame, onSelect: setSelected };
 
   return (
-    <div className="map-page" data-sheet={selected ? snap : undefined}>
-      <div className="map-stage" ref={stageRef}>
-        <WeatherMap
-          {...common}
-          res="fine"
-          className="map-canvas"
-          onMap={onFineMap}
-          onLoading={setLoading}
-          ariaLabel={`${t('fineModel', { km: fmtKm(run.fine_grid.resolution_km, lang) })} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
-        />
-        {compare && (
-          <>
-            <WeatherMap
-              {...common}
-              res="coarse"
-              className="map-canvas map-canvas--top"
-              onMap={onCoarseMap}
-              ariaLabel={`${t('modelCoarse', { km: fmtKm(run.coarse_grid.resolution_km, lang) })} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
-            />
-            <style>{`.map-canvas--top{clip-path:inset(0 ${(1 - split) * 100}% 0 0)}`}</style>
-            <div className="compare-slot compare-slot--left" style={{ left: 8, width: `max(96px, calc(${split * 100}% - 20px))` }}>
-              <div className="compare-tag glass">
-                <GlassPane />
-                {t('compareLeft')} · {fmtKm(run.coarse_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
-                {!narrow && <small>{run.model}</small>}
+    <MapGlassProvider value={glassOn}>
+      <div className="map-page" data-sheet={selected ? snap : undefined}>
+        <div className="map-stage" ref={stageRef}>
+          <WeatherMap
+            {...common}
+            res="fine"
+            className="map-canvas"
+            onMap={onFineMap}
+            onLoading={setLoading}
+            ariaLabel={`${t('fineModel', { km: fmtKm(run.fine_grid.resolution_km, lang) })} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
+          />
+          {compare && (
+            <>
+              <WeatherMap
+                {...common}
+                res="coarse"
+                className="map-canvas map-canvas--top"
+                onMap={onCoarseMap}
+                ariaLabel={`${t('modelCoarse', { km: fmtKm(run.coarse_grid.resolution_km, lang) })} – ${lang === 'th' ? layer.name_th : layer.name_en}`}
+              />
+              <style>{`.map-canvas--top{clip-path:inset(0 ${(1 - split) * 100}% 0 0)}`}</style>
+              <div className="compare-slot compare-slot--left" style={{ left: 8, width: `max(96px, calc(${split * 100}% - 20px))` }}>
+                <div className="compare-tag glass">
+                  <GlassPane />
+                  {t('compareLeft')} · {fmtKm(run.coarse_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
+                  {!narrow && <small>{run.model}</small>}
+                </div>
               </div>
-            </div>
-            <div className="compare-slot" style={{ left: `min(calc(${split * 100}% + 12px), calc(100% - 104px))`, right: 8 }}>
-              <div className="compare-tag glass">
-                <GlassPane />
-                {t('compareRight')} · {fmtKm(run.fine_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
-                {!narrow && <small>{lang === 'th' ? 'ภูมิประเทศ + ฟิสิกส์เขตร้อน' : 'terrain + tropical physics'}</small>}
+              <div className="compare-slot" style={{ left: `min(calc(${split * 100}% + 12px), calc(100% - 104px))`, right: 8 }}>
+                <div className="compare-tag glass">
+                  <GlassPane />
+                  {t('compareRight')} · {fmtKm(run.fine_grid.resolution_km, lang)} {lang === 'th' ? 'กม.' : 'km'}
+                  {!narrow && <small>{lang === 'th' ? 'ภูมิประเทศ + ฟิสิกส์เขตร้อน' : 'terrain + tropical physics'}</small>}
+                </div>
               </div>
-            </div>
-            <div className="compare-handle" style={{ left: `${split * 100}%` }}>
+              <div className="compare-handle" style={{ left: `${split * 100}%` }}>
+                <button
+                  type="button"
+                  className="compare-knob"
+                  onPointerDown={dragSplit}
+                  onKeyDown={onSplitKey}
+                  role="slider"
+                  aria-label={compareLabel}
+                  aria-valuemin={5}
+                  aria-valuemax={95}
+                  aria-valuenow={Math.round(split * 100)}
+                >
+                  <Icon name="split" />
+                </button>
+              </div>
+            </>
+          )}
+
+          <LayerPicker
+            layers={meta.layers}
+            value={pmFrame ? null : layerId}
+            onChange={(id) => {
+              // picking a weather layer leaves the PM2.5 view: the two are never on the map together
+              setAirOn(false);
+              setLayerId(id);
+            }}
+          />
+
+          <PlaceSearch onSelect={(place) => {
+            const point = { lat: place.lat, lon: place.lon };
+            setSnap('open');
+            setSelected(point);
+            flyTo(point, place.kind === 'province' ? 8 : 10);
+          }} />
+
+          <div className="map-tools">
+              {canLocate && <LocateCta status={locateStatus} onLocate={() => locate()} />}
               <button
                 type="button"
-                className="compare-knob"
-                onPointerDown={dragSplit}
-                onKeyDown={onSplitKey}
-                role="slider"
-                aria-label={compareLabel}
-                aria-valuemin={5}
-                aria-valuemax={95}
-                aria-valuenow={Math.round(split * 100)}
+                className="btn btn--icon-narrow"
+                aria-pressed={radarOn}
+                aria-label={t('radar')}
+                title={t('radar')}
+                onClick={() => setRadarOn((r) => !r)}
               >
-                <Icon name="split" />
+                <GlassPane />
+                <Icon name="radar" />
+                <span className="btn-label">{t('radar')}</span>
               </button>
-            </div>
-          </>
-        )}
-
-        <LayerPicker
-          layers={meta.layers}
-          value={pmFrame ? null : layerId}
-          onChange={(id) => {
-            // picking a weather layer leaves the PM2.5 view: the two are never on the map together
-            setAirOn(false);
-            setLayerId(id);
-          }}
-        />
-
-        <PlaceSearch onSelect={(place) => {
-          const point = { lat: place.lat, lon: place.lon };
-          setSnap('open');
-          setSelected(point);
-          flyTo(point, place.kind === 'province' ? 8 : 10);
-        }} />
-
-        <div className="map-tools" ref={toolsRef} data-glass={glassOn ? 'on' : undefined}>
-          <MapGlassProvider value={glassOn}>
-            {canLocate && <LocateCta status={locateStatus} onLocate={() => locate()} />}
-            <button
-              type="button"
-              className="btn btn--icon-narrow"
-              aria-pressed={radarOn}
-              aria-label={t('radar')}
-              title={t('radar')}
-              onClick={() => setRadarOn((r) => !r)}
-            >
-              <ToolGlass />
-              <Icon name="radar" />
-              <span className="btn-label">{t('radar')}</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn--icon-narrow"
-              aria-pressed={airOn}
-              aria-label={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
-              title={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
-              onClick={() => setAirOn((on) => !on)}
-            >
-              <ToolGlass />
-              <Icon name="air" />
-              <span className="btn-label">PM2.5</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn--icon-narrow"
-              aria-pressed={compare}
-              aria-label={compareLabel}
-              title={compareLabel}
-              onClick={() => setCompare((c) => !c)}
-            >
-              <ToolGlass />
-              <Icon name="split" />
-              <span className="btn-label">{compareLabel}</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn--icon-narrow"
-              aria-pressed={gridOn || compare}
-              disabled={compare}
-              aria-label={gridLabel}
-              title={gridLabel}
-              onClick={toggleGrid}
-            >
-              <ToolGlass />
-              <Icon name="grid" />
-              <span className="btn-label">{gridLabel}</span>
-            </button>
-          </MapGlassProvider>
-        </div>
-
-        {loading && (
-          <div className="map-loading glass" role="status">
-            <GlassPane />
-            <span className="spinner" /> {t('loading')}
+              <button
+                type="button"
+                className="btn btn--icon-narrow"
+                aria-pressed={airOn}
+                aria-label={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
+                title={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
+                onClick={() => setAirOn((on) => !on)}
+              >
+                <GlassPane />
+                <Icon name="air" />
+                <span className="btn-label">PM2.5</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn--icon-narrow"
+                aria-pressed={compare}
+                aria-label={compareLabel}
+                title={compareLabel}
+                onClick={() => setCompare((c) => !c)}
+              >
+                <GlassPane />
+                <Icon name="split" />
+                <span className="btn-label">{compareLabel}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn--icon-narrow"
+                aria-pressed={gridOn || compare}
+                disabled={compare}
+                aria-label={gridLabel}
+                title={gridLabel}
+                onClick={toggleGrid}
+              >
+                <GlassPane />
+                <Icon name="grid" />
+                <span className="btn-label">{gridLabel}</span>
+              </button>
           </div>
-        )}
 
-        <div className="map-bottom">
-          {radarOn && <RadarControl radar={radar} active={atNow} onSelect={onRadarSelect} />}
-          {!pmFrame && <Legend layer={layer} />}
-          {airOn && <AirLegend lang={lang} count={airStations?.length ?? null} forecast={pmFrame !== null} />}
-          <Timeline
-            run={run}
-            daily={layer.daily}
-            index={index}
-            nowIndex={nowIdx}
-            onChange={onTimeline}
-            playing={playing}
-            onPlaying={togglePlay}
-            label={radarTimeLabel}
-          />
+          {loading && (
+            <div className="map-loading glass" role="status">
+              <GlassPane />
+              <span className="spinner" /> {t('loading')}
+            </div>
+          )}
+
+          <div className="map-bottom">
+            {radarOn && <RadarControl radar={radar} active={atNow} onSelect={onRadarSelect} />}
+            {!pmFrame && <Legend layer={layer} />}
+            {airOn && <AirLegend lang={lang} count={airStations?.length ?? null} forecast={pmFrame !== null} />}
+            <Timeline
+              run={run}
+              daily={layer.daily}
+              index={index}
+              nowIndex={nowIdx}
+              onChange={onTimeline}
+              playing={playing}
+              onPlaying={togglePlay}
+              label={radarTimeLabel}
+            />
+          </div>
         </div>
-      </div>
 
-      <aside
-        ref={sheetRef}
-        className="map-sidebar"
-        data-open={selected ? 'true' : 'false'}
-        data-peek={selected && peek ? 'true' : undefined}
-        data-snap={selected ? snap : undefined}
-        aria-label={selected ? t('next48') : t('overview')}
-      >
-        {selected && (
-          <button
-            type="button"
-            className="sheet-handle"
-            aria-expanded={!peek}
-            aria-label={snap === 'full' ? t('sheetCollapse') : t('sheetExpand')}
-            // a tap steps up (peek, open, full) and from full back down to a peek
-            onClick={() => setSnap((x) => (x === 'peek' ? 'open' : x === 'open' ? 'full' : 'peek'))}
-          />
-        )}
-        {selected ? (
-          <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
-        ) : (
-          <>
-            <OverviewPanel run={run} dayIndex={day} />
-          </>
-        )}
-      </aside>
-    </div>
+        <aside
+          ref={sheetRef}
+          className="map-sidebar"
+          data-open={selected ? 'true' : 'false'}
+          data-peek={selected && peek ? 'true' : undefined}
+          data-snap={selected ? snap : undefined}
+          aria-label={selected ? t('next48') : t('overview')}
+        >
+          {selected && (
+            <button
+              type="button"
+              className="sheet-handle"
+              aria-expanded={!peek}
+              aria-label={snap === 'full' ? t('sheetCollapse') : t('sheetExpand')}
+              // a tap steps up (peek, open, full) and from full back down to a peek
+              onClick={() => setSnap((x) => (x === 'peek' ? 'open' : x === 'open' ? 'full' : 'peek'))}
+            />
+          )}
+          {selected ? (
+            <PointPanel point={selected} step={step} nowIndex={nowIdx} fineKm={run.fine_grid.resolution_km} coarseKm={run.coarse_grid.resolution_km} onClose={() => setSelected(null)} />
+          ) : (
+            <>
+              <OverviewPanel run={run} dayIndex={day} />
+            </>
+          )}
+        </aside>
+      </div>
+    </MapGlassProvider>
   );
 }
 

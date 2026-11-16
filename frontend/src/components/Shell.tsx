@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LangProvider, useT, type DictKey, type Lang } from '../i18n';
 import { ThemeProvider, useTheme, type Theme } from '../lib/theme';
 import { fmtDateTime } from '../lib/format';
+import { trackGlassHost } from '../lib/mapGlass';
 import { paths } from '../lib/paths';
 import { GlassTabs } from './GlassControls';
 import { Icon, type IconName } from './Icon';
@@ -133,8 +134,13 @@ export function BottomNav({ alertCount }: { alertCount: number }) {
       </span>
     ),
   }));
+  // the bar is a glass host for the map page's WebGL glass (lib/mapGlass.ts); that runs on the map page only
+  const glassHost = useCallback((nav: HTMLElement | null) => {
+    const bar = nav?.querySelector<HTMLElement>('.lg-tab-bar');
+    return bar ? trackGlassHost(bar) : undefined;
+  }, []);
   return (
-    <div className="bottom-nav">
+    <div className="bottom-nav" ref={glassHost}>
       <GlassTabs
         label="main"
         items={items}

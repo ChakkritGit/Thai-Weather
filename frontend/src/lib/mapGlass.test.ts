@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cropRect, DEFAULT_LOOK, unionRect } from './mapGlass';
+import { clusterRects, cropRect, DEFAULT_LOOK, intersectRect, unionRect } from './mapGlass';
 
 describe('unionRect', () => {
   it('holds every rect and grows by the pad', () => {
@@ -27,6 +27,35 @@ describe('cropRect', () => {
 
   it('is null when nothing of the box is on the canvas', () => {
     expect(cropRect({ x: 500, y: 0, w: 20, h: 20 }, 1, 390, 844)).toBeNull();
+  });
+});
+
+describe('intersectRect', () => {
+  it('is the shared part', () => {
+    expect(intersectRect({ x: 0, y: 0, w: 100, h: 50 }, { x: 60, y: 10, w: 100, h: 100 })).toEqual({ x: 60, y: 10, w: 40, h: 40 });
+  });
+
+  it('is null for rects that only touch or miss', () => {
+    expect(intersectRect({ x: 0, y: 0, w: 10, h: 10 }, { x: 10, y: 0, w: 10, h: 10 })).toBeNull();
+    expect(intersectRect({ x: 0, y: 0, w: 10, h: 10 }, { x: 30, y: 30, w: 5, h: 5 })).toBeNull();
+  });
+});
+
+describe('clusterRects', () => {
+  it('joins rects that overlap, also through a third one', () => {
+    const rects = [
+      { x: 0, y: 0, w: 50, h: 20 },
+      { x: 40, y: 0, w: 50, h: 20 },
+      { x: 80, y: 0, w: 50, h: 20 },
+      { x: 0, y: 400, w: 30, h: 30 },
+    ];
+    expect(clusterRects(rects)).toEqual([[0, 1, 2], [3]]);
+  });
+
+  it('keeps every rect in exactly one group', () => {
+    const rects = Array.from({ length: 12 }, (_, i) => ({ x: (i % 4) * 30, y: Math.floor(i / 4) * 200, w: 40, h: 40 }));
+    const groups = clusterRects(rects);
+    expect(groups.flat().sort((a, b) => a - b)).toEqual(rects.map((_, i) => i));
   });
 });
 

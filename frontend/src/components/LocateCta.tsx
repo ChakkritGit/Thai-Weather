@@ -2,8 +2,8 @@
 
 import { useId } from 'react';
 import { useT } from '../i18n';
+import { GlassPane } from './GlassPane';
 import { Icon } from './Icon';
-import { ToolGlass } from './MapGlass';
 
 export type LocateStatus = 'idle' | 'locating' | 'denied' | 'failed';
 
@@ -32,7 +32,7 @@ export function LocateCta({
         aria-busy={busy}
         aria-describedby={hintId}
       >
-        <ToolGlass />
+        <GlassPane />
         {busy ? <span className="spinner" /> : <Icon name="locate" />}
       </button>
       <span className={error ? 'map-locate-error glass' : 'sr-only'} id={hintId} role={error ? 'alert' : 'status'}>
