@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clusterRects, cropRect, DEFAULT_LOOK, intersectRect, unionRect } from './mapGlass';
+import { clusterRects, cropRect, DEFAULT_LOOK, intersectRect, parseColor, unionRect } from './mapGlass';
 
 describe('unionRect', () => {
   it('holds every rect and grows by the pad', () => {
@@ -63,5 +63,14 @@ describe('look', () => {
   it('defaults to the documented bend and dispersion', () => {
     expect(DEFAULT_LOOK.bend).toBe(1);
     expect(DEFAULT_LOOK.dispersion).toBe(1.5);
+  });
+});
+
+describe('parseColor', () => {
+  it('reads rgb, rgba and color(srgb) and drops the rest', () => {
+    expect(parseColor('rgb(255, 0, 51)')).toEqual([1, 0, 0.2, 1]);
+    expect(parseColor('rgba(0, 0, 0, 0.5)')).toEqual([0, 0, 0, 0.5]);
+    expect(parseColor(' color(srgb 0.1 0.2 0.3 / 0.26)')).toEqual([0.1, 0.2, 0.3, 0.26]);
+    expect(parseColor('transparent')).toEqual([0, 0, 0, 0]);
   });
 });

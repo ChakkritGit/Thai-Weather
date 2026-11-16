@@ -180,6 +180,7 @@ precision highp float;
 uniform vec2 uSize;
 uniform vec4 uRect, uBox, uClip;
 uniform float uRadius, uBezel, uThick, uAlpha, uRimOnly;
+uniform vec4 uTint;
 uniform float uBend, uDisp, uBlur, uLod, uSat, uRim, uPx;
 uniform sampler2D uTex;
 in vec2 vPos;
@@ -227,6 +228,8 @@ void main() {
     col = vec3(soft(vPos + off * (1.0 + DISP_UNIT * uDisp)).r, soft(vPos + off).g, soft(vPos + off * (1.0 - DISP_UNIT * uDisp)).b);
   }
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, uSat);
+  // a host's tint drawn here, not in CSS, so a glass drawn after it (the lifted lens) covers it, rim and all
+  col = mix(col, uTint.rgb, uTint.a);
 
   // rim light, lit from the top left
   float light = -(n.x + n.y) * 0.70710678;
@@ -251,6 +254,8 @@ interface Host extends Rect {
   bend: number;
   /** blur of its face in CSS px: frosted rims on text panes, a near-clear lens on the tab bar */
   blur: number;
+  /** its tint (--wgl-tint), straight RGBA 0..1; transparent when the host keeps its tint in CSS */
+  tint: [number, number, number, number];
   alpha: number;
   clip: Rect;
   /** only the bent rim is drawn; the face is left to the map under the host's own CSS blur (a text pane) */
@@ -301,6 +306,19 @@ function cornerRadius(cs: CSSStyleDeclaration, w: number, h: number): number {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * Read a computed colour (`--wgl-tint` is registered as a <color>, so it arrives resolved): rgb()/rgba(), or the
+ * color(srgb ...) a color-mix() computes to. Anything else is no tint.
+ */
+export function parseColor(v: string): [number, number, number, number] {
+  const n = v.trim().match(/-?[\d.]+(?:e-?\d+)?%?/g)?.map((x) => (x.endsWith('%') ? parseFloat(x) / 100 : parseFloat(x)));
+  if (!n || n.length < 3) return [0, 0, 0, 0];
+  const a = n.length > 3 ? n[3] : 1;
+  if (/^color\(srgb/.test(v.trim())) return [n[0], n[1], n[2], a];
+  if (/^rgba?\(/.test(v.trim())) return [n[0] / 255, n[1] / 255, n[2] / 255, a];
+  return [0, 0, 0, 0];
+}
 const asRect = (r: DOMRect): Rect => ({ x: r.left, y: r.top, w: r.width, h: r.height });
 
 /** What sits above an element: the product of the opacities, and the box the scroll containers leave visible. */
@@ -393,6 +411,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         thick: clamp(m * 0.45, 14, 40),
         bend: Number.isFinite(bend) ? bend : look.bend,
         blur: Number.isFinite(blur) ? blur : look.blur,
+        tint: parseColor(cs.getPropertyValue('--wgl-tint')),
         alpha: Math.min(1, alpha),
         clip: { x: shown.x - cr.left, y: shown.y - cr.top, w: shown.w, h: shown.h },
         rim: parseFloat(cs.getPropertyValue('--wgl-face')) === 0,
@@ -429,7 +448,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
     if (!g.getProgramParameter(p, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(p) ?? 'link');
     program = p;
     uni = {};
-    for (const n of ['uSize', 'uRect', 'uBox', 'uClip', 'uRadius', 'uBezel', 'uThick', 'uAlpha', 'uRimOnly', 'uBend', 'uDisp', 'uBlur', 'uLod', 'uSat', 'uRim', 'uPx', 'uTex']) uni[n] = g.getUniformLocation(p, n);
+    for (const n of ['uSize', 'uRect', 'uBox', 'uClip', 'uRadius', 'uBezel', 'uThick', 'uAlpha', 'uRimOnly', 'uTint', 'uBend', 'uDisp', 'uBlur', 'uLod', 'uSat', 'uRim', 'uPx', 'uTex']) uni[n] = g.getUniformLocation(p, n);
     // WebGL 2 draws attribute-less geometry from gl_VertexID; a bound VAO keeps the state tidy
     vao = g.createVertexArray();
     pool = [];
@@ -513,6 +532,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         g.uniform1f(uni.uThick, h.thick);
         g.uniform1f(uni.uBend, h.bend);
         g.uniform1f(uni.uBlur, h.blur);
+        g.uniform4f(uni.uTint, ...h.tint);
         g.uniform1f(uni.uLod, Math.log2(Math.max(1, h.blur * L.k)));
         g.uniform1f(uni.uAlpha, h.alpha);
         g.uniform1f(uni.uRimOnly, h.rim ? 1 : 0);
