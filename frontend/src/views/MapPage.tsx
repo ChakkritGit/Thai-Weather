@@ -24,7 +24,6 @@ import { PointPanel } from '../components/PointPanel';
 import { PlaceSearch } from '../components/PlaceSearch';
 import { Timeline } from '../components/Timeline';
 import type { MapPoint } from '../components/WeatherMap';
-import { GlassSource } from '../lib/domGlass';
 
 /**
  * Only the map itself needs the browser (MapLibre uses `window` and WebGL), so only it loads on the
@@ -321,35 +320,6 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
     if (e.key === 'ArrowLeft') setSplit((s) => Math.max(0.05, s - 0.05));
     if (e.key === 'ArrowRight') setSplit((s) => Math.min(0.95, s + 0.05));
   };
-
-  // Over an open sheet the nav sits on HTML, which the map's WebGL glass cannot bend. Where Glisse cannot bend the live
-  // backdrop either (Safari, every iOS browser, Firefox), the nav and its lifted lens bend a copy of the sheet instead.
-  useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!selected || !sheet || /Chrom(?:e|ium)\//.test(navigator.userAgent)) return;
-    if (!matchMedia('(max-width: 860px)').matches || matchMedia('(prefers-reduced-transparency: reduce)').matches) return;
-    const glass = document.querySelector<HTMLElement>('.bottom-nav .lg-tab-bar-glass');
-    const bar = glass?.closest<HTMLElement>('.lg-tab-bar');
-    if (!glass || !bar) return;
-    const src = new GlassSource(sheet, sheet);
-    const off = src.attach(glass);
-    let lens: (() => void) | undefined;
-    const mo = new MutationObserver(() => {
-      const el = bar.hasAttribute('data-lifted') ? bar.querySelector<HTMLElement>('.lg-tab-lens') : null;
-      if (el && !lens) lens = src.attach(el, { follow: true, under: glass });
-      else if (!el && lens) {
-        lens();
-        lens = undefined;
-      }
-    });
-    mo.observe(bar, { attributes: true, attributeFilter: ['data-lifted'] });
-    return () => {
-      mo.disconnect();
-      lens?.();
-      off();
-      src.destroy();
-    };
-  }, [selected]);
 
   // ------------------------------------------------------------ phone bottom sheet
   // A new point opens the sheet fully; a point the open sheet would hide is moved up into view.
