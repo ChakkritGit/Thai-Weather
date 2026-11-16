@@ -61,7 +61,7 @@ describe('clusterRects', () => {
 
 describe('look', () => {
   it('defaults to the documented bend and dispersion', () => {
-    expect(DEFAULT_LOOK.bend).toBe(0.75);
-    expect(DEFAULT_LOOK.dispersion).toBe(1.05);
+    expect(DEFAULT_LOOK.bend).toBe(1);
+    expect(DEFAULT_LOOK.dispersion).toBe(1.5);
   });
 });

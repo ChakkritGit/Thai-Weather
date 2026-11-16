@@ -25,7 +25,7 @@ import type { CustomLayerInterface, Map as MLMap } from 'maplibre-gl';
 export interface Look {
   /**
    * Rim refraction, as Glisse's `--lg-refraction`: 1 is the full physical bend (Snell, n = 1.5, the content at the rim
-   * is pulled in by up to ~9 px on a 40 px button), 0 is flat glass. Typical range 0..1. A host can override it with
+   * is pulled in by up to ~20 px on a 40 px button with this module's bevel), 0 is flat glass. Typical range 0..1. A host can override it with
    * the CSS custom property `--wgl-bend`.
    */
   bend: number;
@@ -42,7 +42,7 @@ export interface Look {
   rim: number;
 }
 
-export const DEFAULT_LOOK: Look = { bend: 0.75, dispersion: 1.05, blur: 4, saturation: 1.4, rim: 1 };
+export const DEFAULT_LOOK: Look = { bend: 1, dispersion: 1.5, blur: 4, saturation: 1.4, rim: 1 };
 
 /** Colour-fringe width per unit of `Look.dispersion`, as a fraction of the displacement. */
 const DISPERSION_UNIT = 0.12;
@@ -387,8 +387,10 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         w: r.w,
         h: r.h,
         radius: cornerRadius(cs, r.w, r.h),
-        bezel: clamp(m * 0.12, 4, 10),
-        thick: clamp(m * 0.2, 8, 24),
+        // a wider, thicker bevel than Glisse's (0.12 / 0.2 of the short side): at its size the bend read too faintly
+        // on a phone (the owner's check, 2026-11-16)
+        bezel: clamp(m * 0.25, 6, 20),
+        thick: clamp(m * 0.45, 14, 40),
         bend: Number.isFinite(bend) ? bend : look.bend,
         blur: Number.isFinite(blur) ? blur : look.blur,
         alpha: Math.min(1, alpha),
