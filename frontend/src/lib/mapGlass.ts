@@ -42,7 +42,8 @@ export interface Look {
   rim: number;
 }
 
-export const DEFAULT_LOOK: Look = { bend: 1, dispersion: 1.5, blur: 4, saturation: 1.4, rim: 1 };
+// blur and saturation as Glisse's glass in CalorieFlow (3px, 1.5), the look the owner set as the reference
+export const DEFAULT_LOOK: Look = { bend: 1, dispersion: 1.5, blur: 3, saturation: 1.5, rim: 1 };
 
 /** Colour-fringe width per unit of `Look.dispersion`, as a fraction of the displacement. */
 const DISPERSION_UNIT = 0.12;

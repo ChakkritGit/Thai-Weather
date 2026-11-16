@@ -280,6 +280,12 @@ button {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+  /* Glisse's own refracting lens (Chromium) would draw a second lens over the map's */
+  :root[data-map-glass='on'] .bottom-nav .lg-tab-bar .lg-tab-lens.lg-glass {
+    background-image: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
   .app-main { padding-bottom: var(--nav-room); }
   .app-main:has(.map-page) { padding-bottom: 0; }
   .bottom-nav .lg-tab,
@@ -415,16 +421,16 @@ button {
 /* WebGL glass (lib/mapGlass.ts, components/MapGlass.tsx): once a layer in the map's own canvas has drawn, the glass hosts
    (the parent of every GlassPane, marked by .wgl-pane) drop Glisse's pane and keep their tint, hover and pressed
    colours as their own background over the canvas. It works where Glisse can only blur (Safari). The city labels are
-   HTML above the canvas, not in the bent pixels, so a host blurs what is behind it in CSS: 2-3px all over. A text pane
-   is one piece of glass: the map draws its whole face frosted (--wgl-blur 10) with the bent rim, and the same light
-   CSS blur covers rim and face alike (a stronger blur inside only left a seam at the rim, the owner's check).
+   HTML above the canvas, not in the bent pixels, so a host blurs what is behind it in CSS: 2px all over. A text pane
+   is one piece of glass as clear as CalorieFlow's bar (the owner's reference): the map draws its whole face (3px
+   frost) with the bent rim, and the same light CSS blur covers rim and face alike (a stronger blur inside only left a
+   seam at the rim).
    :where() keeps the rules as weak as the Glisse rules above (the search field's focus border still wins). */
-.glass:has(> .wgl-pane) { --wgl-blur: 10; }
 :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane) {
   isolation: isolate;
   background: var(--pane-tint);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   border-color: transparent;
 }
 /* on a desktop the panes are wide cards: as with Glisse's lens they keep the plain blur (--wgl-bend 0: the map draws
