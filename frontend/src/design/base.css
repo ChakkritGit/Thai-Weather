@@ -267,21 +267,25 @@ button {
   /* on the map page the bar's glass is the WebGL glass too, tint included (--wgl-tint, drawn in the map): Glisse's bar
      keeps its pressed glow and a 2px blur for the HTML labels, and a lifted lens, drawn after the bar, covers it as on iOS */
   .bottom-nav .lg-tab-bar { --wgl-tint: var(--pane-tint); }
-  :root[data-map-glass='on'] .bottom-nav .lg-tab-bar-glass {
+  /* over an open place sheet the bar sits on HTML, which the map cannot bend: Glisse's own glass takes over (it bends
+     the live backdrop in Chromium, blurs elsewhere) */
+  :root:has(.map-page[data-sheet]) .bottom-nav :is(.lg-tab-bar, .lg-tab-lens) { --wgl-bend: 0; }
+  :root[data-map-glass='on']:not(:has(.map-page[data-sheet])) .bottom-nav .lg-tab-bar-glass {
     background-color: transparent;
     background-image: none;
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(1px);
+    backdrop-filter: blur(1px);
   }
   /* a lifted lens: a stronger, near-clear bend that magnifies the map; the bar's CSS blur steps aside while it is up
      (it would blur the lens drawn under it) */
-  .bottom-nav .lg-tab-lens { --wgl-bend: 1.3; --wgl-blur: 0.5; }
-  :root[data-map-glass='on'] .bottom-nav .lg-tab-bar[data-lifted] .lg-tab-bar-glass {
+  /* a wide colour fringe, as iOS's lens (--wgl-disp 4: red and blue about half the bend apart) */
+  .bottom-nav .lg-tab-lens { --wgl-bend: 1.3; --wgl-blur: 0.5; --wgl-disp: 4; }
+  :root[data-map-glass='on']:not(:has(.map-page[data-sheet])) .bottom-nav .lg-tab-bar[data-lifted] .lg-tab-bar-glass {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
   /* Glisse's own refracting lens (Chromium) would draw a second lens over the map's */
-  :root[data-map-glass='on'] .bottom-nav .lg-tab-bar .lg-tab-lens.lg-glass {
+  :root[data-map-glass='on']:not(:has(.map-page[data-sheet])) .bottom-nav .lg-tab-bar .lg-tab-lens.lg-glass {
     background-image: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -429,15 +433,26 @@ button {
 :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane) {
   isolation: isolate;
   background: var(--pane-tint);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: transparent;
+}
+/* the blur is a layer of its own: Firefox draws no backdrop blur on the host itself here (the owner's desktop) */
+:where(:root[data-map-glass='on']) .glass:has(> .wgl-pane)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
-  border-color: transparent;
 }
 /* on a desktop the panes are wide cards: as with Glisse's lens they keep the plain blur (--wgl-bend 0: the map draws
    no glass under them, and the blur covers them to the rim) */
 @media (min-width: 861px) {
   .glass:has(> .wgl-pane) { --wgl-bend: 0; }
-  :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane) {
+  :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane)::before {
     -webkit-backdrop-filter: blur(12px) saturate(1.5);
     backdrop-filter: blur(12px) saturate(1.5);
   }

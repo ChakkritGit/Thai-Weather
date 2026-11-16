@@ -42,8 +42,8 @@ export interface Look {
   rim: number;
 }
 
-// blur and saturation as Glisse's glass in CalorieFlow (3px, 1.5), the look the owner set as the reference
-export const DEFAULT_LOOK: Look = { bend: 1, dispersion: 1.5, blur: 3, saturation: 1.5, rim: 1 };
+// saturation as Glisse's glass in CalorieFlow; a light blur, as iOS 26's bars (Threads, the owner's reference)
+export const DEFAULT_LOOK: Look = { bend: 1, dispersion: 1.5, blur: 2, saturation: 1.5, rim: 1 };
 
 /** Colour-fringe width per unit of `Look.dispersion`, as a fraction of the displacement. */
 const DISPERSION_UNIT = 0.12;
@@ -255,6 +255,8 @@ interface Host extends Rect {
   bend: number;
   /** blur of its face in CSS px: frosted rims on text panes, a near-clear lens on the tab bar */
   blur: number;
+  /** its colour fringe (--wgl-disp), the look's dispersion unless set */
+  disp: number;
   /** its tint (--wgl-tint), straight RGBA 0..1; transparent when the host keeps its tint in CSS */
   tint: [number, number, number, number];
   alpha: number;
@@ -412,6 +414,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
       if (bend === 0) continue;
       const m = Math.min(r.w, r.h);
       const blur = parseFloat(cs.getPropertyValue('--wgl-blur'));
+      const disp = parseFloat(cs.getPropertyValue('--wgl-disp'));
       found.push({
         x: r.x - cr.left,
         y: r.y - cr.top,
@@ -425,6 +428,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         bend: Number.isFinite(bend) ? bend : look.bend,
         blur: Number.isFinite(blur) ? blur : look.blur,
         tint: parseColor(cs.getPropertyValue('--wgl-tint')),
+        disp: Number.isFinite(disp) ? disp : look.dispersion,
         alpha: Math.min(1, alpha),
         clip: { x: shown.x - cr.left, y: shown.y - cr.top, w: shown.w, h: shown.h },
         rim: parseFloat(cs.getPropertyValue('--wgl-face')) === 0,
@@ -531,7 +535,6 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
     g.uniform1i(uni.uTex, 0);
     g.uniform2f(uni.uSize, L.cssW, L.cssH);
     g.uniform1f(uni.uPx, L.k);
-    g.uniform1f(uni.uDisp, look.dispersion);
     g.uniform1f(uni.uSat, look.saturation);
     g.uniform1f(uni.uRim, look.rim);
     L.clusters.forEach((c, i) => {
@@ -545,6 +548,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         g.uniform1f(uni.uThick, h.thick);
         g.uniform1f(uni.uBend, h.bend);
         g.uniform1f(uni.uBlur, h.blur);
+        g.uniform1f(uni.uDisp, h.disp);
         g.uniform4f(uni.uTint, ...h.tint);
         g.uniform1f(uni.uLod, Math.log2(Math.max(1, h.blur * L.k)));
         g.uniform1f(uni.uAlpha, h.alpha);
