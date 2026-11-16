@@ -181,7 +181,8 @@ precision highp float;
 uniform vec2 uSize;
 uniform vec4 uRect, uBox, uClip;
 uniform float uRadius, uBezel, uThick, uAlpha, uRimOnly;
-uniform vec4 uTint;
+uniform vec4 uTint, uUnder, uUnderTint;
+uniform float uUnderR;
 uniform float uBend, uDisp, uBlur, uLod, uSat, uRim, uPx;
 uniform sampler2D uTex;
 in vec2 vPos;
@@ -222,13 +223,22 @@ void main() {
   float shift = tan(inc - asin(sin(inc) / 1.5)) * (uThick + surf * uBezel) * uBend;
 
   vec3 col;
+  vec2 off = shift < 0.01 ? vec2(0.0) : -n * shift;
   if (shift < 0.01) {
     col = soft(vPos);
   } else {
-    vec2 off = -n * shift;
     col = vec3(soft(vPos + off * (1.0 + DISP_UNIT * uDisp)).r, soft(vPos + off).g, soft(vPos + off * (1.0 - DISP_UNIT * uDisp)).b);
   }
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, uSat);
+  // the glass under this one (the tab bar under its lifted lens) is not in the frame copy: drawn here at the bent
+  // sample point, its tint and edges show through the lens and curve at the rim, as on iOS
+  if (uUnder.z > 0.0) {
+    vec2 bh = uUnder.zw * 0.5;
+    vec2 bq = abs(vPos + off - (uUnder.xy + bh)) - (bh - uUnderR);
+    float bd = uUnderR - (length(max(bq, 0.0)) + min(max(bq.x, bq.y), 0.0));
+    col = mix(col, uUnderTint.rgb, uUnderTint.a * clamp(bd + 0.5, 0.0, 1.0));
+    col = mix(col, vec3(1.0), 0.45 * exp(-pow(bd / 0.9, 2.0)));
+  }
   // a host's tint drawn here, not in CSS, so a glass drawn after it (the lifted lens) covers it, rim and all
   col = mix(col, uTint.rgb, uTint.a);
 
@@ -263,6 +273,8 @@ interface Host extends Rect {
   clip: Rect;
   /** only the bent rim is drawn; the face is left to the map under the host's own CSS blur (a text pane) */
   rim: boolean;
+  /** the host whose element holds this one (the tab bar under its lens): drawn into this one's glass */
+  under?: Host;
 }
 
 /** The elements that share one crop of the frame, with the crop and the CSS box it covers. */
@@ -397,6 +409,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
     };
 
     const found: Host[] = [];
+    const els: HTMLElement[] = [];
     for (const el of hosts) {
       if (!el.isConnected) continue;
       const r = asRect(el.getBoundingClientRect());
@@ -433,10 +446,15 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         clip: { x: shown.x - cr.left, y: shown.y - cr.top, w: shown.w, h: shown.h },
         rim: parseFloat(cs.getPropertyValue('--wgl-face')) === 0,
       });
+      els.push(el);
       // a button, chip or pane that changes size must be noticed too
       ro.observe(el);
     }
     if (!found.length) return null;
+    found.forEach((h, i) => {
+      const j = els.findIndex((o, n) => n !== i && o.contains(els[i]));
+      if (j >= 0) h.under = found[j];
+    });
 
     const clusters: Cluster[] = [];
     let pixels = 0;
@@ -465,7 +483,7 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
     if (!g.getProgramParameter(p, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(p) ?? 'link');
     program = p;
     uni = {};
-    for (const n of ['uSize', 'uRect', 'uBox', 'uClip', 'uRadius', 'uBezel', 'uThick', 'uAlpha', 'uRimOnly', 'uTint', 'uBend', 'uDisp', 'uBlur', 'uLod', 'uSat', 'uRim', 'uPx', 'uTex']) uni[n] = g.getUniformLocation(p, n);
+    for (const n of ['uSize', 'uRect', 'uBox', 'uClip', 'uRadius', 'uBezel', 'uThick', 'uAlpha', 'uRimOnly', 'uTint', 'uUnder', 'uUnderTint', 'uUnderR', 'uBend', 'uDisp', 'uBlur', 'uLod', 'uSat', 'uRim', 'uPx', 'uTex']) uni[n] = g.getUniformLocation(p, n);
     // WebGL 2 draws attribute-less geometry from gl_VertexID; a bound VAO keeps the state tidy
     vao = g.createVertexArray();
     pool = [];
@@ -550,6 +568,10 @@ export function createMapGlass(opts: MapGlassOptions): MapGlass | null {
         g.uniform1f(uni.uBlur, h.blur);
         g.uniform1f(uni.uDisp, h.disp);
         g.uniform4f(uni.uTint, ...h.tint);
+        const u = h.under;
+        g.uniform4f(uni.uUnder, u?.x ?? 0, u?.y ?? 0, u?.w ?? 0, u?.h ?? 0);
+        g.uniform4f(uni.uUnderTint, ...(u?.tint ?? [0, 0, 0, 0]));
+        g.uniform1f(uni.uUnderR, u?.radius ?? 0);
         g.uniform1f(uni.uLod, Math.log2(Math.max(1, h.blur * L.k)));
         g.uniform1f(uni.uAlpha, h.alpha);
         g.uniform1f(uni.uRimOnly, h.rim ? 1 : 0);
