@@ -426,36 +426,15 @@ button {
    (the parent of every GlassPane, marked by .wgl-pane) drop Glisse's pane and keep their tint, hover and pressed
    colours as their own background over the canvas. It works where Glisse can only blur (Safari). The city labels are
    HTML above the canvas, not in the bent pixels, so a host blurs what is behind it in CSS: 2px all over. A text pane
-   is one piece of glass as clear as CalorieFlow's bar (the owner's reference): the map draws its whole face (3px
-   frost) with the bent rim, and the same light CSS blur covers rim and face alike (a stronger blur inside only left a
-   seam at the rim).
+   is the same clear, bent glass as the round buttons, on a desktop too (the owner's ask): the map draws its whole face
+   with the bent rim, and the same light CSS blur covers rim and face alike (a stronger blur inside only left a seam).
    :where() keeps the rules as weak as the Glisse rules above (the search field's focus border still wins). */
 :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane) {
   isolation: isolate;
   background: var(--pane-tint);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border-color: transparent;
-}
-/* the blur is a layer of its own: Firefox draws no backdrop blur on the host itself here (the owner's desktop) */
-:where(:root[data-map-glass='on']) .glass:has(> .wgl-pane)::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
-}
-/* on a desktop the panes are wide cards: as with Glisse's lens they keep the plain blur (--wgl-bend 0: the map draws
-   no glass under them, and the blur covers them to the rim) */
-@media (min-width: 861px) {
-  .glass:has(> .wgl-pane) { --wgl-bend: 0; }
-  :where(:root[data-map-glass='on']) .glass:has(> .wgl-pane)::before {
-    -webkit-backdrop-filter: blur(12px) saturate(1.5);
-    backdrop-filter: blur(12px) saturate(1.5);
-  }
+  border-color: transparent;
 }
 /* resolved to a colour in computed style, so the map glass can read the tint (lib/mapGlass.ts) */
 @property --wgl-tint {
