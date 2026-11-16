@@ -801,6 +801,18 @@ button {
 @media (prefers-reduced-transparency: reduce) {
   .map-tools .btn > .lg-glass { --lg-glass: var(--color-bg-surface); }
 }
+/* WebGL glass (lib/mapGlass.ts, components/MapGlass.tsx): a layer in the map's own canvas bends the map's pixels under
+   the buttons, so it works where Glisse can only blur (Safari). Once it has drawn, the buttons give up Glisse's pane and
+   backdrop-filter and keep the tint, hover and pressed colours as their own background over the canvas. A light blur
+   of their own stays: the city labels are HTML over the canvas, not in the bent pixels, and would read sharp through
+   the icon. */
+.map-tools[data-glass='on'] .btn {
+  background: var(--pane-tint);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  border-color: transparent;
+}
+.map-tools[data-glass='on'] .btn:is(:hover, [aria-pressed='true']) { background: var(--color-bg-surface); }
 .map-tools .btn--icon { width: 40px; min-height: 40px; padding: 0; }
 .map-tools .btn--icon svg { width: var(--size-iconMd); height: var(--size-iconMd); }
 

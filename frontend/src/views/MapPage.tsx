@@ -13,6 +13,7 @@ import { useRadar } from '../lib/useRadar';
 import { useT } from '../i18n';
 import { useTheme } from '../lib/theme';
 import { GlassPane } from '../components/GlassPane';
+import { MapGlassProvider, ToolGlass, useMapGlass } from '../components/MapGlass';
 import { Icon } from '../components/Icon';
 import { LayerPicker } from '../components/LayerPicker';
 import { LocateCta, type LocateStatus } from '../components/LocateCta';
@@ -185,6 +186,12 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const peekRef = useRef(peek);
   peekRef.current = peek;
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
+  // the same maps as state: the WebGL glass under the map buttons (components/MapGlass.tsx) follows them
+  const [fineMap, setFineMap] = useState<MLMap | null>(null);
+  const [coarseMap, setCoarseMap] = useState<MLMap | null>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  // the toolbar fades out under a fully open phone sheet (base.css); its glass is part of the map's pixels, so it stops drawing
+  const glassOn = useMapGlass(toolsRef, fineMap, compare ? coarseMap : null, !!selected && snap === 'full');
 
   /** Phones: how far above the map's middle a point must sit to be in the middle of the area left above the sheet. */
   const sheetLift = useCallback((): number => {
@@ -276,6 +283,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const onFineMap = useCallback(
     (m: MLMap | null) => {
       maps.current.fine = m;
+      setFineMap(m);
       syncMaps();
       if (m && initialPoint) m.once('load', () => m.flyTo({ center: centerShowing(initialPoint, 7.5, sheetLift()), zoom: 7.5 }));
       else if (m && pendingFly.current) {
@@ -289,6 +297,7 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const onCoarseMap = useCallback(
     (m: MLMap | null) => {
       maps.current.coarse = m;
+      setCoarseMap(m);
       syncMaps();
     },
     [syncMaps],
@@ -639,57 +648,59 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
           flyTo(point, place.kind === 'province' ? 8 : 10);
         }} />
 
-        <div className="map-tools">
-          {canLocate && <LocateCta status={locateStatus} onLocate={() => locate()} />}
-          <button
-            type="button"
-            className="btn btn--icon-narrow"
-            aria-pressed={radarOn}
-            aria-label={t('radar')}
-            title={t('radar')}
-            onClick={() => setRadarOn((r) => !r)}
-          >
-            <GlassPane />
-            <Icon name="radar" />
-            <span className="btn-label">{t('radar')}</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn--icon-narrow"
-            aria-pressed={airOn}
-            aria-label={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
-            title={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
-            onClick={() => setAirOn((on) => !on)}
-          >
-            <GlassPane />
-            <Icon name="air" />
-            <span className="btn-label">PM2.5</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn--icon-narrow"
-            aria-pressed={compare}
-            aria-label={compareLabel}
-            title={compareLabel}
-            onClick={() => setCompare((c) => !c)}
-          >
-            <GlassPane />
-            <Icon name="split" />
-            <span className="btn-label">{compareLabel}</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn--icon-narrow"
-            aria-pressed={gridOn || compare}
-            disabled={compare}
-            aria-label={gridLabel}
-            title={gridLabel}
-            onClick={toggleGrid}
-          >
-            <GlassPane />
-            <Icon name="grid" />
-            <span className="btn-label">{gridLabel}</span>
-          </button>
+        <div className="map-tools" ref={toolsRef} data-glass={glassOn ? 'on' : undefined}>
+          <MapGlassProvider value={glassOn}>
+            {canLocate && <LocateCta status={locateStatus} onLocate={() => locate()} />}
+            <button
+              type="button"
+              className="btn btn--icon-narrow"
+              aria-pressed={radarOn}
+              aria-label={t('radar')}
+              title={t('radar')}
+              onClick={() => setRadarOn((r) => !r)}
+            >
+              <ToolGlass />
+              <Icon name="radar" />
+              <span className="btn-label">{t('radar')}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn--icon-narrow"
+              aria-pressed={airOn}
+              aria-label={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
+              title={lang === 'th' ? 'PM2.5 ตอนนี้ (สถานี Air4Thai)' : 'PM2.5 now (Air4Thai stations)'}
+              onClick={() => setAirOn((on) => !on)}
+            >
+              <ToolGlass />
+              <Icon name="air" />
+              <span className="btn-label">PM2.5</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn--icon-narrow"
+              aria-pressed={compare}
+              aria-label={compareLabel}
+              title={compareLabel}
+              onClick={() => setCompare((c) => !c)}
+            >
+              <ToolGlass />
+              <Icon name="split" />
+              <span className="btn-label">{compareLabel}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn--icon-narrow"
+              aria-pressed={gridOn || compare}
+              disabled={compare}
+              aria-label={gridLabel}
+              title={gridLabel}
+              onClick={toggleGrid}
+            >
+              <ToolGlass />
+              <Icon name="grid" />
+              <span className="btn-label">{gridLabel}</span>
+            </button>
+          </MapGlassProvider>
         </div>
 
         {loading && (
