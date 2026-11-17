@@ -1782,6 +1782,7 @@ async function chatView(token) {
     clearSkel(log);
     for (const m of msgs) if (m.id > lastId) { log.append(bubble(m)); lastId = m.id; if (!firstId) firstId = m.id; }
     if (follow) toBottom();
+    paintLatest();
   };
   // scrolling to the top brings the previous page; the view stays on the message you were reading
   const older = h('div', { class: 'chat-older', hidden: true }, h('span', { class: 'spinner' }), tx('กำลังโหลดข้อความก่อนหน้า…'));
@@ -1800,7 +1801,16 @@ async function chatView(token) {
       window.scrollTo({ top: y + document.documentElement.scrollHeight - height });
     } catch (err) { handleError(err); } finally { loadingOlder = false; older.hidden = true; }
   };
-  const onScroll = () => { if (window.scrollY < 200) loadOlder(); };
+  // back to the newest message, shown once the reader has scrolled up away from it
+  const latest = h('button', { class: 'chat-latest', type: 'button', 'aria-label': tx('ข้อความล่าสุด'), title: tx('ข้อความล่าสุด'), tabindex: -1, 'aria-hidden': 'true' }, icon('chevdown'));
+  latest.addEventListener('click', () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  const paintLatest = () => {
+    const away = !atBottom();
+    latest.classList.toggle('show', away);
+    latest.tabIndex = away ? 0 : -1;
+    latest.setAttribute('aria-hidden', String(!away));
+  };
+  const onScroll = () => { if (window.scrollY < 200) loadOlder(); paintLatest(); };
   window.addEventListener('scroll', onScroll, { passive: true });
   const cleanupScroll = () => window.removeEventListener('scroll', onScroll);
   window.addEventListener('hashchange', cleanupScroll, { once: true });
@@ -1852,6 +1862,7 @@ async function chatView(token) {
     }
   });
   const form = h('form', { class: 'chat-compose', onsubmit: (e) => { e.preventDefault(); const t = input.value; input.value = ''; grow(); submit(t); } },
+    latest,
     h('div', { class: 'chat-quick' }, // the commands go to the server in Thai (it reads them); the chips show them in the chosen language
     ['สรุป', 'เดือนก่อน', 'ช่วย'].map((c) => h('button', { type: 'button', class: 'chip', onclick: () => submit(c) }, tx(c)))),
     h('div', { class: 'chat-row' }, input, send), note);

@@ -456,6 +456,19 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .chat-quick::-webkit-scrollbar { display: none; }
 .chip { flex: none; min-height: 32px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; font-weight: 600; }
 .chat-quick .chip { background: var(--glass-tint); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+/* jump to the newest message: above the field at the column's right edge, eased in once scrolled away from it */
+.chat-compose > .chat-latest {
+  position: absolute; bottom: calc(100% + 10px); right: max(var(--gutter), calc((100% - 720px) / 2)); margin: 0;
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--line); color: var(--text);
+  background: var(--glass-tint); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5); backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(8px) scale(0.9);
+  transition: opacity 0.14s ease-in, transform 0.14s ease-in, visibility 0.14s;
+}
+.chat-compose > .chat-latest.show { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition-duration: 0.18s; transition-timing-function: ease-out; }
+.chat-compose > .chat-latest svg { width: 22px; height: 22px; }
+@media (prefers-reduced-transparency: reduce) { .chat-compose > .chat-latest { background: var(--surface); } }
 .chat-row { display: flex; align-items: flex-end; gap: 8px; }
 /* 16px: iOS zooms into smaller inputs on focus */
 .chat-input { flex: 1; min-height: 44px; padding: 11px 14px; resize: none; font-size: 16px; line-height: 1.4; }
