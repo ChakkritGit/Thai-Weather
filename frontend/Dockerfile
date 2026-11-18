@@ -14,8 +14,10 @@ LABEL org.opencontainers.image.source="https://github.com/ChakkritGit/Thai-Weath
       org.opencontainers.image.description="Thai Weather HD – Next.js web app" \
       com.chakkrit.stack="next-bun-rust"
 # Alpine's stable branch only takes security and bug fixes; apply them at build time so OpenSSL, zlib and
-# musl do not wait for the next base image (owner, 2026-10-25, after the first image scan)
-RUN apk upgrade --no-cache
+# musl do not wait for the next base image (owner, 2026-10-25, after the first image scan). Bump
+# ALPINE_UPDATES when a scan reports a new Alpine fix, so the cached upgrade layer runs again.
+ARG ALPINE_UPDATES=2026-11-18
+RUN echo "Alpine updates as of $ALPINE_UPDATES" && apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./

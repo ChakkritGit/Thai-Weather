@@ -19,8 +19,11 @@ RUN --mount=type=secret,id=env,target=/app/.env.production \
 FROM oven/bun:1.4.2-alpine@sha256:d888c0ae6c86d7866ff10c5aafdd9077b36aee6455b33dd270fb93c0dd5cef6f AS bun
 LABEL com.chakkrit.stack="next-bun-rust"
 # Alpine's stable branch only takes security and bug fixes; apply them at build time so OpenSSL, zlib and
-# musl do not wait for the next base image (owner, 2026-10-25, after the first image scan)
-RUN apk upgrade --no-cache
+# musl do not wait for the next base image (owner, 2026-10-25, after the first image scan). Bump
+# ALPINE_UPDATES when a scan reports a new Alpine fix: the cached upgrade layer otherwise keeps the old
+# packages (2026-11-18: all five Next images still had zlib 1.3.2-r1 after 1.4-r0 shipped).
+ARG ALPINE_UPDATES=2026-11-18
+RUN echo "Alpine updates as of $ALPINE_UPDATES" && apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=bun:bun /app/.next/standalone ./
@@ -35,7 +38,8 @@ CMD ["bun", "server.js"]
 
 # Retain an explicit Node target for runtime comparisons and recovery.
 FROM node:24.22.3-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS node
-RUN apk upgrade --no-cache
+ARG ALPINE_UPDATES=2026-11-18
+RUN echo "Alpine updates as of $ALPINE_UPDATES" && apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app/.next/standalone ./
