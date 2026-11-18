@@ -20,7 +20,7 @@ from http_contract import HOSTS, request, value
 ROOT = Path(__file__).resolve().parents[4]
 NGINX = os.environ.get(
     "DATABASE_TEST_NGINX_IMAGE",
-    "nginx:1.30.6-alpine3.24-slim@sha256:d9322bba63c6cfc63dc9e86522fd4f95fd4d9020a02b5bced282bbf38b8c3960",
+    "nginx:1.30.7-alpine3.24-slim@sha256:e00f38ab6677f5a8d861a9d9430f97c491a44f98072aa349915e4abb7e7f432b",
 )
 POSTGRES = os.environ.get("DATABASE_TEST_POSTGRES_IMAGE", "postgres:17.12-alpine3.24")
 IMAGE = os.environ.get("APPS_RUST_TEST_IMAGE", "apps-rust:local")

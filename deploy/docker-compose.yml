@@ -59,7 +59,8 @@ services:
   # No Docker socket here – login and every Docker call go through Portainer.
   dock:
     # stable line, slim: core nginx only (auth_request, proxy), without curl/libxml2/tiff and the rest
-    image: nginx:1.30.6-alpine3.24-slim@sha256:d9322bba63c6cfc63dc9e86522fd4f95fd4d9020a02b5bced282bbf38b8c3960
+    # 1.30.7 (2026-11-18, before the 14-day rule: nginx's HTTP/2, resolver, HTTP/3, TLS 1.3 and mail fixes)
+    image: nginx:1.30.7-alpine3.24-slim@sha256:e00f38ab6677f5a8d861a9d9430f97c491a44f98072aa349915e4abb7e7f432b
     container_name: dock
     restart: unless-stopped
     read_only: true

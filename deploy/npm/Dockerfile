@@ -6,6 +6,11 @@
 # - Debian's security updates, newer copies of vulnerable npm packages in the API's tree and of certbot's
 #   Python packages, and no npm CLI (unused at runtime): the 2026-10-25 image scan, owner's request.
 #   soupsieve 4.0.0 (2026-11-03; CVE-2026-126190/126191, HIGH): before the 14-day rule (owner, 2026-11-18).
+# - HTTP/2 off on every host: CVE-2026-123633 and CVE-2026-123007 (2026-11-18) let an unauthenticated client run code
+#   through nginx's HTTP/2 up to 1.31.8, and the image's OpenResty is 1.31.1.1. The listen template never renders
+#   `http2 on`, so a host saved in the admin UI stays off; the live configs were switched the same way on 2026-11-19
+#   (owner's go; the hosts that had it: /root/npm-http2-on-20261119-0001.txt). Cloudflare reaches the origin over
+#   HTTP/1.1 then. Drop once OpenResty carries nginx 1.30.7/1.31.9 or later (HANDOFF, "nginx HTTP/2 RCE").
 FROM node:22.23.5-trixie-slim@sha256:68c76cfad89921b927eae28ba21407475e29d0ce450afcdbe70c1532db042b64 AS node
 
 # the published tarballs, unchanged; patch-node-modules.mjs puts them in place and checks their dependencies
@@ -33,3 +38,6 @@ RUN node /tmp/patch-node-modules.mjs /tmp/pkgs \
     soupsieve==4.0.0 \
  && /opt/certbot/bin/pip check \
  && /opt/certbot/bin/certbot --version
+# HTTP/2 off (see the top): `http2 off` whatever a host's HTTP/2 switch says
+RUN sed -i 's/{% if http2_support == 1 or http2_support == true %}/{% if false %}/' /app/templates/_listen.conf \
+ && grep -q '{% if false %}' /app/templates/_listen.conf

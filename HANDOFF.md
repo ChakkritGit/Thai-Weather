@@ -295,6 +295,26 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   under Glass across the apps), faded future days in the calendars, the map search placeholder over the map's glass. The Christmas skin only applies 1 Dec - 6 Jan (checked by forcing `data-skin`).
 - **Not tested**: the real iPhone (not connected), Web Push, calls, Google sign-in, the camera.
 
+### nginx HTTP/2 RCE (2026-11-19, Claude)
+
+- CVE-2026-123633 (HTTP/2 use-after-free, mainly with proxy_pass; nginx 1.19.7-1.31.8) and CVE-2026-123007 (HTTP/2
+  flow-control memory corruption, even for static files; 1.9.5-1.31.8), disclosed 2026-11-18 by Wiz, Xint and others:
+  unauthenticated remote code execution wherever HTTP/2 is on. Fixed in nginx 1.30.7 / 1.31.9, which also fix a
+  resolver use-after-free, an HTTP/3 one, a TLS 1.3 request-body loop and a mail proxy one.
+- **NPM** runs OpenResty 1.31.1.1 (nginx 1.31.1) and had `http2 on` on 10 hosts. No fixed build yet (OpenResty's
+  newest is 1.31.8.1, NPM's 2.17.0 predates the disclosure), so HTTP/2 is **off** on every host since 2026-11-19
+  00:01 (owner's go): the generated configs (`http2 on;` -> `off`, `nginx -t`, reload, no restart) and the listen
+  template, in the running container and in `deploy/npm/Dockerfile`. Hosts that had it:
+  `/root/npm-http2-on-20261119-0001.txt`. Visitors still get HTTP/2 and 3 from Cloudflare; Cloudflare reaches the
+  origin over HTTP/1.1 (checked: every site 200). Exposure before the change was only through Cloudflare: the
+  DOCKER-USER lock drops 80/443 from anything else, and the VPS has no global IPv6.
+- **To undo once fixed**: rebuild NPM on a release whose OpenResty carries nginx 1.30.7/1.31.9 or later (drop the
+  Dockerfile's sed), then in the container `sed -i 's/http2 off;/http2 on;/'` the files in that list, `nginx -t`,
+  `nginx -s reload`.
+- **Dock** moved from nginx 1.30.6 to 1.30.7 (it never had HTTP/2, so the two RCEs did not reach it).
+- The origin lock (`deploy/hardening/cf-origin-lock.sh`) is IPv4 only, while docker-proxy also listens on `[::]:80`
+  and `[::]:443`. Harmless without a global IPv6 address; if the VPS ever gets one, add the same rules to ip6tables.
+
 ### Container check and hardening (2026-11-12, Claude)
 
 - **Checked, sound**: SSH is key-only (fail2ban on, 22 rate-limited); ufw denies all but 22/80/443 and TURN; the
@@ -450,7 +470,7 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   web and all four app repos (+ `eslint-config-next` 16.4.1, sharp 0.35.5 where it is a direct dependency).
 - Next runtimes (`deploy/apps/next.Dockerfile`, `frontend/Dockerfile`): `oven/bun:1.4.2-alpine` pinned by digest and
   `apk upgrade` at build (Alpine stable takes only security/bug fixes: OpenSSL 3.5.8, zlib, musl).
-- Dock `nginx:1.30.6-alpine3.24-slim`; Portainer current `lts` digest (2.45.3).
+- Dock `nginx:1.30.7-alpine3.24-slim` (since 2026-11-19, see "nginx HTTP/2 RCE"); Portainer current `lts` digest (2.45.3).
 - Postgres: `deploy/apps/db/Dockerfile` replaces the entrypoint's gosu (Go 1.24.6, ~60 stdlib CVEs) with Alpine's
   su-exec; same postgres 17.11 data, no migration. The old binary is deleted and the wrapper lives in
   `/usr/local/sbin`: Trivy kept reporting it when a later layer only overwrote or symlinked the same path.
