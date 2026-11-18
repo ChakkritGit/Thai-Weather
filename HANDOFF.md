@@ -101,7 +101,8 @@ Python numerical worker and separate Python verification container retained. See
   - Postgres: `./build.sh db` (`apps-db:local`, su-exec instead of gosu); run `systemctl start apps-db-backup`
     first, then `docker compose up -d --no-deps db` and `docker restart apps-rest` (PostgREST reconnects slowly).
   - NPM (edge proxy): `cd deploy && docker compose -f docker-compose.yml -f docker-compose.build.yml build
-    nginx-proxy-manager`; test a candidate on copies of both volumes with 127.0.0.1 ports before `up -d`.
+    nginx-proxy-manager`; test a candidate on copies of both volumes with 127.0.0.1 ports before `up -d`. Its
+    admin API can still answer 502 after its sites answer (the backend starts later); the swap is ~11 s offline.
   - Rust collector: `deploy/apps/rust-services/README.md`; build `dock-metrics` in `deploy/` with the build
     override (server stack), compare a read-only candidate first, then stop only metrics for its final history save
     before recreating it. Retain `thai-weather_dock-metrics`; no API/verify/web restart is needed.
@@ -304,7 +305,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - **NPM** runs OpenResty 1.31.1.1 (nginx 1.31.1) and had `http2 on` on 10 hosts. No fixed build yet (OpenResty's
   newest is 1.31.8.1, NPM's 2.17.0 predates the disclosure), so HTTP/2 is **off** on every host since 2026-11-19
   00:01 (owner's go): the generated configs (`http2 on;` -> `off`, `nginx -t`, reload, no restart) and the listen
-  template, in the running container and in `deploy/npm/Dockerfile`. Hosts that had it:
+  template, first in the running container, then in the image (`deploy/npm/Dockerfile`; full rebuild, swapped at
+  00:25 after a candidate on copied volumes answered all ten hostnames like the live proxy). Hosts that had it:
   `/root/npm-http2-on-20261119-0001.txt`. Visitors still get HTTP/2 and 3 from Cloudflare; Cloudflare reaches the
   origin over HTTP/1.1 (checked: every site 200). Exposure before the change was only through Cloudflare: the
   DOCKER-USER lock drops 80/443 from anything else, and the VPS has no global IPv6.
