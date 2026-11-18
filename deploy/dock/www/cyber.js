@@ -185,7 +185,8 @@ export async function cyberView(token, d) {
   const note = h('p', { class: 'meta sec-note' });
   // the range picker stays where it is built: the glass control that replaces it sits beside it
   const slot = h('div', { class: 'cy-slot' }, d.skelCard(200, '30%'));
-  const body = h('div', { class: 'overview cy' }, h('div', { class: 'filters' }, seg), meta, tiles, slot);
+  // a heading for screen readers: the cards' h3 titles would otherwise follow the page's h1 directly
+  const body = h('div', { class: 'overview cy' }, h('div', { class: 'filters' }, seg), h('h2', { class: 'sr-only' }, tx('ภาพรวม')), meta, tiles, slot);
   shell(topBar(tx('แผนที่การโจมตี'), { back: '#/security', onRefresh: () => load() }), body, tabs('#/'));
   document.querySelector('.shell')?.classList.add('wide');
 

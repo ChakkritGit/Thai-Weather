@@ -1,5 +1,7 @@
 // Dock's PostgreSQL browser. All database values are rendered as text, never HTML.
 // The server owns authorization, masking, validation, audit, and query limits.
+import { LOCALE } from './i18n.js';
+
 export async function databaseView(token, { h, tx, api, shell, topBar, tabs, handleError, fmtBytes, isCurrent }) {
   const body = h('div', { class: 'db-page' });
   shell(topBar(tx('ฐานข้อมูล'), { back: '#/more', onRefresh: () => refresh() }), body, tabs('#/more'));
@@ -75,7 +77,7 @@ export async function databaseView(token, { h, tx, api, shell, topBar, tabs, han
         table = t; offset = 0; sort = ''; direction = 'asc'; search = ''; page = null; editor = null; message = '';
         await loadRows();
       } }, h('span', { class: 'row-main' }, h('span', { class: 'row-title db-mono' }, `${t.schema}.${t.name}`),
-      h('span', { class: 'row-sub' }, tx('ประมาณ {0} แถว · {1}', Number(t.rows || 0).toLocaleString(), fmtBytes(Number(t.size))))),
+      h('span', { class: 'row-sub' }, tx('ประมาณ {0} แถว · {1}', Number(t.rows || 0).toLocaleString(LOCALE), fmtBytes(Number(t.size))))),
       h('span', { class: 'db-chevron', 'aria-hidden': 'true' }, '›')))) : small(tx('ไม่พบตาราง')));
   }
 
@@ -84,7 +86,7 @@ export async function databaseView(token, { h, tx, api, shell, topBar, tabs, han
       audit.length ? h('div', { class: 'list' }, audit.map((item) => h('div', { class: 'row' },
         h('span', { class: 'row-main' }, h('span', { class: 'row-title db-mono' }, `${item.database} / ${item.schema}.${item.table}`),
           h('span', { class: 'row-sub db-audit-info' }, `${item.action} · ${item.status}${item.columns?.length ? ` · ${item.columns.join(', ')}` : ''}`)),
-        h('span', { class: 'row-side' }, item.time ? new Date(item.time).toLocaleString() : '–')))) : small(tx('ยังไม่มีประวัติการแก้ไข')));
+        h('span', { class: 'row-side' }, item.time ? new Date(item.time).toLocaleString(LOCALE) : '–')))) : small(tx('ยังไม่มีประวัติการแก้ไข')));
   }
 
   function sqlView() {

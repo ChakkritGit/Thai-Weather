@@ -20,6 +20,15 @@ let envId = null;
 let timer = 0;
 let viewToken = 0; // increases on every navigation; async work for an old view is dropped
 let charts = []; // charts of the current view (destroyed on navigation)
+let leaving = []; // the current view's listeners on window/document, removed when another view (or sign-in) replaces it
+/** Ends the current view: its timer, charts and listeners. Returns the new view's token. */
+function stopView() {
+  clearInterval(timer);
+  charts.forEach((c) => c.destroy());
+  charts = [];
+  for (const off of leaving.splice(0)) off();
+  return ++viewToken;
+}
 const mkChart = (host, opts) => {
   const c = chart(host, opts);
   charts.push(c);
@@ -454,7 +463,9 @@ function dropdown(ic, label, options, current, pick) {
   const wrap = h('div', { class: 'dd' });
   const btnLabel = h('span', {}, options.find(([v]) => v === current)?.[1] ?? '');
   const btnIcon = h('span', { class: 'dd-ic' }, icon(typeof ic === 'function' ? ic(current) : ic));
-  const btn = h('button', { type: 'button', class: 'dd-btn', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': label }, btnIcon, btnLabel, icon('chevdown', 'dd-chev'));
+  // the name read out is "ภาษา: ไทย": it holds the visible choice, so a voice command that says what is on screen works
+  const btn = h('button', { type: 'button', class: 'dd-btn', 'aria-haspopup': 'menu', 'aria-expanded': 'false' },
+    h('span', { class: 'sr-only' }, `${label}: `), btnIcon, btnLabel, icon('chevdown', 'dd-chev'));
   const menu = h('div', { class: 'dd-menu', role: 'menu', hidden: true });
   const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', esc); };
   const outside = (e) => { if (!wrap.contains(e.target)) close(); };
@@ -502,6 +513,9 @@ function displayView() {
 }
 
 function loginView(message = '') {
+  // the page underneath stops first: its refresh timer would hit 401 every few seconds and redraw this form, wiping
+  // what was typed (signing out of the overview, whose hash does not change, or a session that ran out on any page)
+  stopView();
   const err = h('p', { class: 'error', role: 'alert' }, message);
   const user = h('input', { class: 'field', name: 'username', autocomplete: 'username', placeholder: tx('ชื่อผู้ใช้'), required: true, autocapitalize: 'none' });
   const pass = h('input', { class: 'field', name: 'password', type: 'password', autocomplete: 'current-password', placeholder: tx('รหัสผ่าน'), required: true });
@@ -522,7 +536,7 @@ function loginView(message = '') {
       }
     },
   },
-  h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('box')), 'Dock'),
+  h('h1', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('box')), 'Dock'),
   user, pass, err, submit,
   h('p', { class: 'hint' }, tx('ใช้บัญชีเดียวกับ Portainer')),
   h('div', { class: 'login-prefs' }, langPicker(), themePicker()));
@@ -673,11 +687,16 @@ async function containerView(token, id) {
   const actions = h('div', { class: 'actions' },
     running
       ? confirmButton(tx('หยุด'), tx('ยืนยันหยุด?'), () => act('stop', tx('หยุด {0} แล้ว', name)), { danger: true, disabled: guarded })
-      : h('button', { class: 'btn primary', type: 'button', onclick: (e) => { e.currentTarget.disabled = true; act('start', tx('เริ่ม {0} แล้ว', name)).catch(handleError); } }, tx('เริ่ม')),
+      : h('button', { class: 'btn primary', type: 'button', onclick: (e) => {
+          const b = e.currentTarget;
+          b.disabled = true;
+          // a start that failed can be tried again
+          act('start', tx('เริ่ม {0} แล้ว', name)).catch((err) => { b.disabled = false; handleError(err); });
+        } }, tx('เริ่ม')),
     running ? confirmButton(tx('รีสตาร์ท'), tx('ยืนยันรีสตาร์ท?'), () => act('restart', tx('รีสตาร์ท {0} แล้ว', name))) : null);
 
   const statBox = (label, value, sub) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value), sub ? h('small', {}, sub) : null);
-  const statsEl = h('div', { class: 'stats' }, statBox('CPU', '…'), statBox(tx('หน่วยความจำ'), '…'), statBox(tx('เครือข่าย'), '…'));
+  const statsEl = h('div', { class: 'stats' }, statBox('CPU', '…'), statBox(tx('หน่วยความจำ'), '…'), statBox(`${tx('เครือข่าย')} ↓`, '…'));
 
   const ports = Object.entries(c.NetworkSettings?.Ports ?? {})
     .map(([p, binds]) => (binds?.length ? binds.map((b) => `${b.HostIp || '0.0.0.0'}:${b.HostPort} → ${p}`).join(', ') : p));
@@ -710,7 +729,8 @@ async function containerView(token, id) {
     patchChildren(statsEl, [
       statBox('CPU', fmtPct(u.cpu)),
       statBox(tx('หน่วยความจำ'), fmtBytes(u.mem), u.limit ? tx('จาก {0}', fmtBytes(u.limit)) : ''),
-      statBox(tx('เครือข่าย'), `↓ ${fmtBytes(u.rx)}`, `↑ ${fmtBytes(u.tx)}`)]);
+      // the arrow in the label: "↓ 49.6 MB" did not fit a third of a phone's width and ended in "…"
+      statBox(`${tx('เครือข่าย')} ↓`, fmtBytes(u.rx), `↑ ${fmtBytes(u.tx)}`)]);
   };
 
   // CPU / RAM history of this container from dock-metrics (last hour)
@@ -875,6 +895,10 @@ function tile(label, value, sub, pct, tone) {
 const pctTone = (p) => (p >= 90 ? 'bad' : p >= 75 ? 'warn' : '');
 const card = (title, sub, ...children) =>
   h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', { class: 'card-title' }, title), sub ? h('span', { class: 'card-sub' }, sub) : null), ...children);
+/** a table that may scroll sideways on a phone: a named region the keyboard can reach and scroll */
+const tableWrap = (label, table) => h('div', { class: 'table-wrap', tabindex: '0', role: 'region', 'aria-label': label }, table);
+/** a heading only screen readers see, where a page's cards (h3) would otherwise follow its h1 directly */
+const srHeading = (text) => h('h2', { class: 'sr-only' }, text);
 
 /**
  * The overview's contents: a sticky list on the left of a wide screen (hidden on narrow ones, where the page is one
@@ -974,7 +998,7 @@ async function overviewView(token) {
   const ctrTitle = h('h2', { class: 'section-title' }, tx('คอนเทนเนอร์'));
   const filters = h('div', { class: 'filters' }, seg, live);
   const body = h('div', { class: 'overview' },
-    filters, hostLine, hostTiles, secTitle, secBox, chartsGrid,
+    filters, srHeading(tx('เซิร์ฟเวอร์')), hostLine, hostTiles, secTitle, secBox, chartsGrid,
     ngTitle, ngTiles, ngGrid, ngTables,
     ctrTitle, ctrMem, ctrGrid);
   // the contents on the left (wide screens): a jump to each section and each app group, the one in view marked
@@ -1069,7 +1093,7 @@ async function overviewView(token) {
     const bytes = hosts.reduce((s2, k) => s2 + sumOf(ng[k].bytes), 0);
     const spanMin = (times.length * step) / 60;
     patchChildren(ngTiles, [
-      tile(tx('คำขอทั้งหมด'), fmtNum(allReq), tx('เฉลี่ย {0} ต่อนาที', (allReq / spanMin).toFixed(1))),
+      tile(tx('คำขอทั้งหมด'), fmtNum(allReq), tx('เฉลี่ย {0} ต่อนาที', (allReq / Math.max(1, spanMin)).toFixed(1))),
       tile(tx('ผู้เข้าชม (IP ไม่ซ้ำ)'), fmtNum(mx.top?.unique_clients), tx('นับจาก log ของ proxy')),
       tile(tx('ข้อผิดพลาด 4xx / 5xx'), `${fmtNum(cls('s4'))} / ${fmtNum(cls('s5'))}`, allReq ? tx('{0}% ของคำขอ', ((errors / allReq) * 100).toFixed(1)) : '–', allReq ? (errors / allReq) * 100 : NaN, errors / Math.max(1, allReq) > 0.05 ? 'warn' : ''),
       tile(tx('ข้อมูลที่ส่งออก'), fmtBytes(bytes), tx('body ของ response')),
@@ -1113,10 +1137,10 @@ async function overviewView(token) {
       h('td', { class: 'mono' }, `${p.method} ${p.path}`),
       h('td', { class: 'num' }, fmtNum(p.count))));
     patchChildren(ngTables, [
-      card(tx('สรุปตามเว็บไซต์'), null, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-        h('tr', {}, h('th', {}, tx('เว็บไซต์')), h('th', { class: 'num' }, tx('คำขอ')), h('th', { class: 'num' }, tx('ผิดพลาด')), h('th', { class: 'num' }, tx('ส่งออก')), h('th', {}, tx('สัดส่วน'))),
+      card(tx('สรุปตามเว็บไซต์'), null, tableWrap(tx('สรุปตามเว็บไซต์'), h('table', { class: 'data' },
+        h('tr', {}, h('th', {}, tx('เว็บไซต์')), h('th', { class: 'num' }, tx('คำขอ')), h('th', { class: 'num' }, tx('ผิดพลาด')), h('th', { class: 'num' }, tx('ส่งออก')), h('th', { class: 'bar-cell' }, tx('สัดส่วน'))),
         siteRows))),
-      card(tx('หน้าที่ถูกเรียกมากที่สุด'), tx('ไม่รวมไฟล์ static'), h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+      card(tx('หน้าที่ถูกเรียกมากที่สุด'), tx('ไม่รวมไฟล์ static'), tableWrap(tx('หน้าที่ถูกเรียกมากที่สุด'), h('table', { class: 'data' },
         h('tr', {}, h('th', {}, tx('เว็บไซต์')), h('th', {}, tx('คำขอ')), h('th', { class: 'num' }, tx('ครั้ง'))),
         pathRows.length ? pathRows : h('tr', {}, h('td', { colspan: 3 }, tx('ยังไม่มีข้อมูล'))))))]);
 
@@ -1296,7 +1320,7 @@ async function securityView(token, cat) {
     }
     const chartIn = (c, opts) => { mine.push(mkChart(c, opts)); return c; };
     // the views return arrays with null for parts not shown; replaceChildren would print those as "null"
-    body.replaceChildren(...(meta ? secCategory(s, cat, chartIn) : secMain(s, load)).flat().filter((c) => c != null && c !== false));
+    body.replaceChildren(...(meta ? [srHeading(tx('ภาพรวม')), secCategory(s, cat, chartIn)] : secMain(s, load)).flat().filter((c) => c != null && c !== false));
   };
   await load();
   if (token !== viewToken || meta) return;
@@ -1493,7 +1517,7 @@ async function webView(token) {
   const vitalsBox = h('div', {}, skelCard(110, '36%'));
   const body = h('div', { class: 'overview' },
     h('div', { class: 'filters' }, seg, sites),
-    tiles, chartGrid,
+    srHeading(tx('ภาพรวม')), tiles, chartGrid,
     h('h2', { class: 'section-title' }, tx('ความเร็วที่ผู้ใช้จริงเห็น (Web Vitals, p75)')), vitalsBox,
     h('h2', { class: 'section-title' }, tx('มาจากไหน ดูอะไร')), tables);
   shell(topBar(tx('สถิติเว็บ'), { onRefresh: () => load() }), body, tabs('#/web'));
@@ -1537,20 +1561,20 @@ async function webView(token) {
       views = mkChart(c, { ...opts, label: tx('ผู้เข้าชมและเพจวิวรายวัน') });
     } else views.update(opts);
 
-    patchChildren(vitalsBox, [card('Web Vitals', tx('ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้'), h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+    patchChildren(vitalsBox, [card('Web Vitals', tx('ค่าที่ 75% ของการเข้าชมทำได้ดีกว่านี้'), tableWrap('Web Vitals', h('table', { class: 'data vitals' },
       h('tr', {}, h('th', {}, tx('ตัวชี้วัด')), h('th', { class: 'num' }, tx('ทั้งหมด')), h('th', { class: 'num' }, tx('มือถือ')), h('th', { class: 'num' }, tx('เดสก์ท็อป')), h('th', {}, tx('ผล'))),
       VITALS.map(([key, label, good, poor, fmt]) => {
         const v = st.vitals[key];
         const tone = v ? vitalTone(v.p75, good, poor) : '';
         return h('tr', {},
-          h('td', {}, h('b', {}, key), h('span', { class: 'muted' }, ` ${label}`)),
+          h('td', { title: label }, h('b', {}, key), h('span', { class: 'muted' }, ` ${label}`)),
           h('td', { class: 'num' }, v ? fmt(v.p75) : '–'),
           h('td', { class: 'num' }, v?.mobile != null ? fmt(v.mobile) : '–'),
           h('td', { class: 'num' }, v?.desktop != null ? fmt(v.desktop) : '–'),
           h('td', {}, tone ? h('span', { class: `pill ${tone}` }, h('span', { class: `dot ${tone}` }), vitalText(tone)) : '–'));
       }))))]);
 
-    const table = (title, sub, head, rows, render) => card(title, sub, h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+    const table = (title, sub, head, rows, render) => card(title, sub, tableWrap(title, h('table', { class: 'data' },
       h('tr', {}, h('th', {}, head), h('th', { class: 'num' }, tx('ผู้เข้าชม')), h('th', { class: 'num' }, tx('เพจวิว'))),
       rows.length ? rows.map((r) => h('tr', {}, h('td', { class: render === 'mono' ? 'mono' : '' }, typeof render === 'function' ? render(r.key) : r.key),
         h('td', { class: 'num' }, fmtNum(r.visitors)), h('td', { class: 'num' }, fmtNum(r.views))))
@@ -1812,8 +1836,7 @@ async function chatView(token) {
   };
   const onScroll = () => { if (window.scrollY < 200) loadOlder(); paintLatest(); };
   window.addEventListener('scroll', onScroll, { passive: true });
-  const cleanupScroll = () => window.removeEventListener('scroll', onScroll);
-  window.addEventListener('hashchange', cleanupScroll, { once: true });
+  leaving.push(() => window.removeEventListener('scroll', onScroll));
   const load = async () => {
     const first = !lastId;
     const res = await api(first ? '/chat' : `/chat?after=${lastId}`);
@@ -1852,7 +1875,14 @@ async function chatView(token) {
       send.disabled = !input.value.trim();
     }
   };
-  const grow = () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 140)}px`; };
+  // the field grows to six lines; the log's end moves up with it (place below), and a reader at the newest message stays there
+  const grow = () => {
+    const follow = atBottom();
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
+    place();
+    if (follow) toBottom();
+  };
   input.addEventListener('input', () => { send.disabled = busy || !input.value.trim(); grow(); });
   // Enter sends on a computer; on a phone the return key makes a new line
   input.addEventListener('keydown', (e) => {
@@ -1888,11 +1918,20 @@ async function chatView(token) {
   });
   shell(topBar(tx('แชท'), { back: '#/more', onRefresh: () => load(), extra: [clearBtn, pushButton()] }), older, log, form, tabs('#/more'));
   app.querySelector('.shell').classList.add('chat');
-  // the composer sits right on top of the tab bar, whatever height that has on this device
+  // the composer sits right on top of the tab bar, whatever height that has on this device; the shell learns where its
+  // top edge is (--compose-top), so the log ends above it and fades out under it however tall the field has grown
   const nav = app.querySelector('.tabs');
-  const place = () => { form.style.bottom = `${nav.offsetHeight}px`; };
+  const shellEl = app.querySelector('.shell');
+  function place() {
+    form.style.bottom = `${nav.offsetHeight}px`;
+    shellEl.style.setProperty('--compose-top', `${Math.ceil(window.innerHeight - form.getBoundingClientRect().top)}px`);
+  }
   place();
-  new ResizeObserver(place).observe(nav);
+  const ro = new ResizeObserver(() => place());
+  ro.observe(nav);
+  ro.observe(form);
+  window.addEventListener('resize', place);
+  leaving.push(() => { ro.disconnect(); window.removeEventListener('resize', place); });
   await load();
   if (token !== viewToken) return;
   toBottom();
@@ -1928,10 +1967,7 @@ function handleError(e) {
 }
 
 async function route() {
-  clearInterval(timer);
-  charts.forEach((c) => c.destroy());
-  charts = [];
-  const token = ++viewToken;
+  const token = stopView();
   if (!localStorage.getItem(TOKEN_KEY)) return loginView();
   const hash = location.hash || '#/';
   try {
