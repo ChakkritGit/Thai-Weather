@@ -22,7 +22,9 @@ Updated 2026-10-29 (Bangkok) by Codex, for the next agent. Read this file and
   This newer explicit direction takes precedence over the Bun/Elysia default.
   **Defer gRPC**, using HTTP/2 when that separate work is resumed.
 - Dependency and image versions: **exact pins, at least 14 days old** at the time you add them.
-  Security fixes the owner approved earlier are listed in §9 (2026-10-25: Next 16.4.1 and the image-scan fixes).
+  Security fixes the owner approved earlier are listed in §9 (2026-10-25: Next 16.4.1 and the image-scan fixes;
+  2026-11-18: Postgres 17.12, Node 22.23.5/24.22.3, backup libs, Next 16.4.5). The owner has waived the rule for
+  each security release so far: when one lands for something we run, say so and offer to apply it right away.
 - The owner tests on an **iPhone** (Safari + home-screen PWA). Check phone layouts, safe areas and iOS
   behaviour before calling UI work done; say plainly what you could not test (pages behind a login).
 - This repo is **public**. Never commit secrets, the owner's e-mail, `.wrangler/` (its cache holds the
@@ -70,8 +72,8 @@ metrics, health, media, analytics, dbgw, backup, rooms, sync, chat and reminders
 Backup uses a separate pinned tools image. `deploy/apps/services` now holds only the
 Cloudflare status Worker and test oracles/JavaScript compatibility fixtures.
 
-**Current Next stack (2026-10-20):** Portfolio, Spent/Cost, Whiteboard, Drive Music
-and Thai Weather keep **Next 16.3.8 on Bun 1.4.2** for SSR, sessions and server actions.
+**Current Next stack (2026-10-20; Next 16.4.5 since 2026-11-18):** Portfolio, Spent/Cost, Whiteboard, Drive Music,
+CalorieFlow and Thai Weather keep **Next on Bun 1.4.2** for SSR, sessions and server actions.
 Their formerly Elysia-owned APIs are native Rust: published Portfolio search/DB health,
 Spent/Cost dependency health, Drive token signing, Weather text/RSS; Whiteboard already
 uses native Rooms. No Elysia package remains in the new web images. Portfolio Studio
@@ -476,6 +478,13 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   `DEBIAN_UPDATES`. Docker CE was already 29.9.3. Sandboxed Trivy on the rebuilt images (db, backup, NPM,
   apps-rust, dock-metrics, web, drive-music): 0 fixable CRITICAL/HIGH. The Mac's nvm default is Node 24.22.3
   (24.22.1 kept; globals unchanged).
+  Then (owner showed the dev overlay's "Upgrade Next.js to a safe version"): **Next 16.4.5** + `eslint-config-next`
+  16.4.5 in all six apps (Nov 3 security release, GHSA-mfr8-8qww-v76h, -vc7v-qv4w-wrv8, -vvgp-ww4w-46vf,
+  -rhh4-g77r-r9qj, -pc58-hwjq-p385, -7qx7-33qx-rqx2, -f3mh-rxg3-f5g2; 16.0.0-16.4.4 affected). 16.4.6 (Nov 9) is
+  bug fixes only and compresses route-handler responses by default: not taken. Lockfiles moved only the Next
+  packages; typecheck/lint/tests/builds passed. Portfolio, Spent-Cost and Whiteboard are not checked out on the
+  Mac: they were cloned into a scratch directory for this. A fresh clone needs `next typegen` (or a build) before
+  `tsc`: `next-env.d.ts` is gitignored and declares the image imports.
 - 2026-11-06 (75b3a9f, deployed): Dock's `.grid`, `.sec-cats` and `.mini-grid` use `align-items: start`, so a card
   opening a table (memory per container) no longer stretches its neighbour (CPU). Weather site: `.prose` cards fill
   their row; only their children keep the 75ch measure ("ปัญหาที่พบในเขตร้อน" on the method page).
