@@ -1363,7 +1363,11 @@ button {
 .chart .dot--fine { fill: var(--color-chart-fine); stroke: var(--color-bg-surface); stroke-width: 2; }
 .chart .dot--coarse { fill: var(--color-chart-coarse); stroke: var(--color-bg-surface); stroke-width: 2; }
 .chart .day-sep { stroke: var(--color-border-default); stroke-width: 1; }
-.chart .direct-label { font-size: 11px; font-weight: 600; fill: var(--color-fg-muted); }
+/* a surface-coloured halo: the label stays readable where the other series' line runs through it */
+.chart .direct-label {
+  font-size: 11px; font-weight: 600; fill: var(--color-fg-muted);
+  paint-order: stroke; stroke: var(--color-bg-surface); stroke-width: 3px; stroke-linejoin: round;
+}
 .chart-tip {
   position: absolute;
   top: 0;
