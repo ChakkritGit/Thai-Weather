@@ -1,7 +1,8 @@
 # Native backup service, retaining the existing pg_dump/tar/OpenSSL/zip restore format.
 # Alpine digest published 2026-06-22; every installed package is pinned to the
 # existing production toolset (all built before 2026-10-05), except musl and zlib,
-# raised to their security fixes after the 2026-10-25 image scan (owner's request).
+# raised to their security fixes after the 2026-10-25 image scan (owner's request), and
+# libpq/postgresql17-client 17.12 and zlib 1.4 (CVE-2026-6460 release; owner, 2026-11-18, before the 14-day rule).
 FROM alpine:3.22.5@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
 RUN apk add --no-cache \
     acl-libs=2.3.2-r1 \
@@ -16,7 +17,7 @@ RUN apk add --no-cache \
     libapk2=2.14.10-r0 \
     libcrypto3=3.5.9-r0 \
     libncursesw=6.5_p20250503-r0 \
-    libpq=17.11-r0 \
+    libpq=17.12-r0 \
     libssl3=3.5.9-r0 \
     lz4-libs=1.10.0-r0 \
     musl=1.2.5-r13 \
@@ -24,12 +25,12 @@ RUN apk add --no-cache \
     ncurses-terminfo-base=6.5_p20250503-r0 \
     openssl=3.5.9-r0 \
     postgresql-common=1.2-r1 \
-    postgresql17-client=17.11-r0 \
+    postgresql17-client=17.12-r0 \
     readline=8.2.13-r1 \
     tar=1.35-r3 \
     unzip=6.0-r15 \
     zip=3.0-r13 \
-    zlib=1.3.2-r1 \
+    zlib=1.4-r0 \
     zstd-libs=1.5.7-r0
 COPY --from=runtime /apps-runtime /apps-runtime
 COPY backup/restore.sh backup/README.txt /app/backup/

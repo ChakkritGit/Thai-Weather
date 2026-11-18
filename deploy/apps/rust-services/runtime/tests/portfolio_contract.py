@@ -36,7 +36,7 @@ class Portfolio(unittest.TestCase):
                 "/var/lib/postgresql/data",
                 "-e",
                 "POSTGRES_PASSWORD=fixture-password",
-                os.environ.get("PORTFOLIO_TEST_PG_IMAGE", "postgres:17.11-alpine3.24"),
+                os.environ.get("PORTFOLIO_TEST_PG_IMAGE", "postgres:17.12-alpine3.24"),
             )
             for _ in range(100):
                 if (

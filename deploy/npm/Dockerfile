@@ -1,11 +1,12 @@
 # Nginx Proxy Manager, built on the VPS (deploy/docker-compose.build.yml): jc21's 2.16.0 image (pinned by
 # digest) plus the security fixes it does not ship yet. Drop each part once a jc21 release contains it.
-# - Node 22.23.4: the image ships 22.23.2, missing the Oct 21, 2026 security fixes (CVE-2026-111497 Brotli
-#   RCE, TLS hostname bypasses), and the admin API runs on it.
+# - Node 22.23.5: the image ships 22.23.2, missing the Oct 21 and Nov 11, 2026 security fixes (CVE-2026-111497
+#   Brotli RCE, TLS hostname bypasses, HTTP/2 and TLS memory disclosure), and the admin API runs on it.
+#   22.23.5 went in before the 14-day rule (owner, 2026-11-18).
 # - Debian's security updates, newer copies of vulnerable npm packages in the API's tree and of certbot's
 #   Python packages, and no npm CLI (unused at runtime): the 2026-10-25 image scan, owner's request.
-#   soupsieve 3.0.2 (2026-10-12; CVE-2026-126190/126191, HIGH): the 2026-11-14 scan.
-FROM node:22.23.4-trixie-slim@sha256:8eb619e402eaede1748a3c8173bffab391592812e85136452f781741c7242ddf AS node
+#   soupsieve 4.0.0 (2026-11-03; CVE-2026-126190/126191, HIGH): before the 14-day rule (owner, 2026-11-18).
+FROM node:22.23.5-trixie-slim@sha256:68c76cfad89921b927eae28ba21407475e29d0ce450afcdbe70c1532db042b64 AS node
 
 # the published tarballs, unchanged; patch-node-modules.mjs puts them in place and checks their dependencies
 FROM node AS packages
@@ -20,7 +21,7 @@ RUN apt-mark hold nodejs >/dev/null \
  && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/bin/node
-RUN node -e 'const [a,b,c]=process.versions.node.split(".").map(Number); if (a!==22||b<23||(b===23&&c<4)) process.exit(1)'
+RUN node -e 'const [a,b,c]=process.versions.node.split(".").map(Number); if (a!==22||b<23||(b===23&&c<5)) process.exit(1)'
 COPY --from=packages /pkgs /tmp/pkgs
 COPY patch-node-modules.mjs /tmp/
 # the API runs `node index.js` (yarn only in development mode); node-gyp only built bcrypt/better-sqlite3
@@ -29,6 +30,6 @@ RUN node /tmp/patch-node-modules.mjs /tmp/pkgs \
     /app/node_modules/node-gyp /app/node_modules/.bin/node-gyp \
  && /opt/certbot/bin/pip install --no-cache-dir --disable-pip-version-check \
     certifi==2026.10.19 cryptography==50.0.2 pyopenssl==26.4.0 filelock==4.2.1 setuptools==84.1.0 \
-    soupsieve==3.0.2 \
+    soupsieve==4.0.0 \
  && /opt/certbot/bin/pip check \
  && /opt/certbot/bin/certbot --version

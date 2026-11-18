@@ -94,7 +94,7 @@ sessions. Production preserves the `apps-dbgw` name and restarts only this proxy
 The five Next runtimes and Postgres/PostgREST are not restarted.
 
 Backup uses the same native binary in a pinned Alpine 3.22.5 image with the
-existing pinned pg_dump 17.11, GNU tar 1.35, OpenSSL 3.5.9 and zip 3.0 toolset.
+existing pinned pg_dump 17.12, GNU tar 1.35, OpenSSL 3.5.9 and zip 3.0 toolset.
 Run `./build.sh rust && ./build.sh backup`. Every Alpine package is pinned;
 base digest and package build dates were checked against the 14-day rule.
 The restore format remains AES-256-CBC/PBKDF2-600000 inside the existing zip.

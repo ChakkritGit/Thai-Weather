@@ -1,7 +1,7 @@
 # DB-IP "IP to Country Lite" for the Cyber page (CC BY 4.0, attribution is shown on the page). A release is
 # eligible 14 days after DB-IP publishes it; bump the month and the checksum together (see HANDOFF.md).
-ARG DBIP_MONTH=2026-10
-ARG DBIP_SHA256=097426b8ddae89157d444a59ac1847e873f7943c32d52becc4371c8b0273af80
+ARG DBIP_MONTH=2026-11
+ARG DBIP_SHA256=e5c8459d638a272ece7f4d7cfa49dce18d91b4f403f6940ba9249bf0db3781fd
 
 FROM rust:1.90.0-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f AS build
 ARG DBIP_MONTH

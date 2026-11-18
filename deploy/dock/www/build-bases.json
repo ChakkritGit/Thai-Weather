@@ -28,15 +28,15 @@
     ]
   },
   {
-    "ref": "node:22.23.4-trixie-slim",
-    "digest": "sha256:8eb619e402eaede1748a3c8173bffab391592812e85136452f781741c7242ddf",
+    "ref": "node:22.23.5-trixie-slim",
+    "digest": "sha256:68c76cfad89921b927eae28ba21407475e29d0ce450afcdbe70c1532db042b64",
     "files": [
       "deploy/npm/Dockerfile"
     ]
   },
   {
-    "ref": "node:24.22.1-alpine3.24",
-    "digest": "sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53",
+    "ref": "node:24.22.3-alpine3.24",
+    "digest": "sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5",
     "files": [
       "deploy/apps/next.Dockerfile",
       "frontend/Dockerfile"
@@ -51,8 +51,8 @@
     ]
   },
   {
-    "ref": "postgres:17.11-alpine3.24",
-    "digest": "sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb",
+    "ref": "postgres:17.12-alpine3.24",
+    "digest": "sha256:a77aa70e641402a21411b92b721c58d10f23b50ae5fdd2333efd22d166e1e5f7",
     "files": [
       "deploy/apps/db/Dockerfile"
     ]

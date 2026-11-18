@@ -3,7 +3,7 @@
 # Alpine's su-exec (C, same `user command…` syntax) takes its place. Build: deploy/apps/build.sh db
 # The wrapper lives in /usr/local/sbin (earlier in PATH) so the old path is a deletion: image scanners drop a
 # lower layer's binary only on a whiteout, not when a later layer overwrites or symlinks the same path.
-FROM postgres:17.11-alpine3.24@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
+FROM postgres:17.12-alpine3.24@sha256:a77aa70e641402a21411b92b721c58d10f23b50ae5fdd2333efd22d166e1e5f7
 RUN apk upgrade --no-cache \
  && apk add --no-cache su-exec \
  && rm /usr/local/bin/gosu && mkdir -p /usr/local/sbin \

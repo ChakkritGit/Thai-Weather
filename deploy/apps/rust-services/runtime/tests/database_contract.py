@@ -22,7 +22,7 @@ NGINX = os.environ.get(
     "DATABASE_TEST_NGINX_IMAGE",
     "nginx:1.30.6-alpine3.24-slim@sha256:d9322bba63c6cfc63dc9e86522fd4f95fd4d9020a02b5bced282bbf38b8c3960",
 )
-POSTGRES = os.environ.get("DATABASE_TEST_POSTGRES_IMAGE", "postgres:17.11-alpine3.24")
+POSTGRES = os.environ.get("DATABASE_TEST_POSTGRES_IMAGE", "postgres:17.12-alpine3.24")
 IMAGE = os.environ.get("APPS_RUST_TEST_IMAGE", "apps-rust:local")
 
 
