@@ -27,10 +27,12 @@ function useGlassLayer(map: MLMap | null, off: boolean): boolean {
  */
 export function useMapGlass(fine: MLMap | null, coarse: MLMap | null): boolean {
   const [reduced, setReduced] = useState(false);
-  // a reader who asked for less transparency keeps the opaque panes
+  // a reader who asked for less transparency, or a browser that cannot blur behind the panes, keeps the solid panes
+  // (base.css, "Solid glass")
   useEffect(() => {
+    const blurs = CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)');
     const mq = window.matchMedia('(prefers-reduced-transparency: reduce)');
-    const sync = () => setReduced(mq.matches);
+    const sync = () => setReduced(mq.matches || !blurs);
     sync();
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);

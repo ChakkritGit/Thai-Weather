@@ -425,9 +425,6 @@ button {
 @media (min-width: 861px) {
   .glass > .lg-glass { background-image: none; -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(1.5); backdrop-filter: blur(var(--lg-blur)) saturate(1.5); }
 }
-@media (prefers-reduced-transparency: reduce) {
-  .glass > .lg-glass { --lg-glass: var(--color-bg-surface); }
-}
 /* WebGL glass (lib/mapGlass.ts, components/MapGlass.tsx): once a layer in the map's own canvas has drawn, the glass hosts
    (the parent of every GlassPane, marked by .wgl-pane) drop Glisse's pane and keep their tint, hover and pressed
    colours as their own background over the canvas. It works where Glisse can only blur (Safari). The city labels are
@@ -458,16 +455,40 @@ button {
   /* no hairline outline on any glass (the owner's ask): the tint and Glisse's rim light carry the edge */
   --lg-edge: transparent;
   --pane-tint: color-mix(in srgb, var(--color-bg-surface) 18%, transparent);
+  /* the pickers' track (.lg-tab-bar) and the chosen layer chip's stronger tint */
+  --picker-tint: color-mix(in srgb, var(--color-bg-subtle) 20%, transparent);
+  --chip-on-tint: color-mix(in srgb, var(--color-bg-surface) 82%, transparent);
 }
 /* light text on a pale map needs a little more tint than dark text does */
 :root[data-theme='dark'] { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 26%, transparent); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) { --pane-tint: color-mix(in srgb, var(--color-bg-surface) 26%, transparent); }
 }
+/* Solid glass: a glass tint is only clear because a backdrop blur sits under it. Where the blur cannot be drawn (a
+   browser without backdrop-filter) or the reader asked for less transparency, every glass surface is solid instead of
+   a bare tint over the page (the owner's ask): the tints turn opaque, and every pane, chip, button, picker and the nav
+   reads them. !important outranks the dark-theme tints. The WebGL map glass stays off in both cases (MapGlass.tsx).
+   The two blocks must stay the same. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --pane-tint: var(--color-bg-surface) !important;
+    --picker-tint: var(--color-bg-subtle) !important;
+    --chip-on-tint: var(--color-bg-surface) !important;
+    --color-bg-glass: var(--color-bg-surface) !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --pane-tint: var(--color-bg-surface) !important;
+    --picker-tint: var(--color-bg-subtle) !important;
+    --chip-on-tint: var(--color-bg-surface) !important;
+    --color-bg-glass: var(--color-bg-surface) !important;
+  }
+}
 /* fit-content: as a grid item the bar would stretch, out of step with its fixed-width tabs and the lens */
 .lg-tab-bar {
   width: fit-content;
-  --lg-glass: color-mix(in srgb, var(--color-bg-subtle) 20%, transparent);
+  --lg-glass: var(--picker-tint);
   --lg-blur: 4px;
 }
 
@@ -760,10 +781,7 @@ button {
 .glass:has(> .lg-glass),
 .map-layers .chip:not([aria-checked='true']):has(> .lg-glass),
 .map-tools .btn:has(> .lg-glass) { border-color: transparent; }
-.map-layers .chip[aria-checked='true'] > .lg-glass { --lg-glass: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }
-@media (prefers-reduced-transparency: reduce) {
-  .map-layers .chip > .lg-glass { --lg-glass: var(--color-bg-surface); }
-}
+.map-layers .chip[aria-checked='true'] > .lg-glass { --lg-glass: var(--chip-on-tint); }
 /* the WebGL glass under the chips (the chosen one keeps its accent outline and its stronger tint) */
 :where(:root[data-map-glass='on']) .map-layers .chip:has(> .wgl-pane) {
   background: var(--pane-tint);
@@ -771,7 +789,7 @@ button {
   backdrop-filter: blur(2px);
 }
 :where(:root[data-map-glass='on']) .map-layers .chip:not([aria-checked='true']):has(> .wgl-pane) { border-color: transparent; }
-:where(:root[data-map-glass='on']) .map-layers .chip[aria-checked='true']:has(> .wgl-pane) { background: color-mix(in srgb, var(--color-bg-surface) 82%, transparent); }
+:where(:root[data-map-glass='on']) .map-layers .chip[aria-checked='true']:has(> .wgl-pane) { background: var(--chip-on-tint); }
 
 .place-search {
   position: absolute;
@@ -858,9 +876,6 @@ button {
 .map-tools .btn[aria-pressed='true'] { background: var(--color-bg-surface); }
 /* hovered and pressed are the opaque surface today: the pane takes that tint, the host's own background sits under it */
 .map-tools .btn:is(:hover, [aria-pressed='true']) > .lg-glass { --lg-glass: var(--color-bg-surface); }
-@media (prefers-reduced-transparency: reduce) {
-  .map-tools .btn > .lg-glass { --lg-glass: var(--color-bg-surface); }
-}
 /* the WebGL glass under the round buttons: a light blur of their own stays, the city labels are HTML over the canvas
    and would read sharp through the icon */
 :root[data-map-glass='on'] .map-tools .btn {

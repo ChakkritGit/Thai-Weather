@@ -291,8 +291,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   `src/lib/color.ts`, and `Txt tone="red"`/`"orange"` use them; the stats title is no longer cut (Thai marks were
   counted as width); no Reanimated, Worklets or DateTimePicker warnings. Metro misses edits on the SSD: restart it
   with `--clear`.
-- **Left as designed**: the glass composer's transparency, faded future days in the calendars, the map search
-  placeholder over the map's glass. The Christmas skin only applies 1 Dec - 6 Jan (checked by forcing `data-skin`).
+- **Left as designed**: the glass composer's transparency (where it blurs; solid where it cannot, see "Solid glass"
+  under Glass across the apps), faded future days in the calendars, the map search placeholder over the map's glass. The Christmas skin only applies 1 Dec - 6 Jan (checked by forcing `data-skin`).
 - **Not tested**: the real iPhone (not connected), Web Push, calls, Google sign-in, the camera.
 
 ### Container check and hardening (2026-11-12, Claude)
@@ -528,6 +528,20 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   not in the bent pixels (a 2 px CSS blur covers them). Waiting on the owner's iPhone check before the chips, search
   field and nav get it. Glisse 0.5/0.6 have no bend/dispersion props (checked 2026-11-16).
 - Dock: a re-rendered page's range picker adopts the mounted glass bar (glass/src/main.js), no rebuild animation.
+- **Solid glass** (2026-11-18, the owner's ask: where glass cannot blur, solid, not see-through). A clear tint only works
+  over a blur, so wherever the blur cannot be drawn every glass surface is opaque: a browser without backdrop-filter
+  (`@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))`) or
+  `prefers-reduced-transparency: reduce` (Chrome 118+, Firefox; Safari/iOS do not pass the iPhone's Reduce
+  Transparency to pages). Each app keeps both blocks identical, with plain colours (no color-mix in a fallback).
+  Thai Weather: base.css "Solid glass" (`--pane-tint`, `--picker-tint`, `--chip-on-tint`, `--color-bg-glass`), and
+  `useMapGlass` does not start the WebGL glass without backdrop-filter. CalorieFlow: `@custom-variant solid-glass`
+  (top of globals.css), the "Solid glass" section at its end, and `solid-glass:` utilities on what blurs inline (chat
+  heads, lock cover, message-menu backdrop, offline toast, call/camera/photo-viewer controls). Dock: style.css "Solid
+  glass" (`--glass-tint`, `--surface-glass`, `--bar-tint`). Drive Music: the `@supports not` twin of its block. Left
+  alone: dark dimming scrims (black 30-45 %) and Glisse's lens (clear at rest, over a now-solid bar while pressed).
+  Checked in Chromium with the media feature emulated and with the `@supports not` rules forced on and every blur
+  off. Every glass surface on the owner's devices blurs (no ancestor shape from Firefox bugs 1782876/1816561), so
+  they see no change unless Reduce Transparency is on in Chrome or Firefox.
 
 ### Dock Cyber page (2026-11-14, Claude)
 Owner asked for a 2D world map of where attacks on the VPS come from. Dock -> เพิ่มเติม -> แผนที่การโจมตี (also a card
