@@ -244,6 +244,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   purpose (linked identities).
 
 ### Ask the owner to confirm on the iPhone
+- CalorieFlow app: reinstall before the free-team profile ends (2026-11-20 08:12 Bangkok), which also brings the
+  2026-11-18 audit fixes; then look over a skin other than classic at night (colours were synced wrong before).
 - CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app); after 2026-10-25 evening: the PIN lock, skins (incl. Halloween), the Health page animations,
   photo estimates on real meals, and the Thai date format (Buddhist year) under Bun.
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
@@ -267,6 +269,31 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 29)
+
+### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
+
+- **How it was checked**: Playwright on every page (iPhone 15 WebKit and desktop 1440 Chromium, light and dark) with
+  axe, plus pictures; CalorieFlow on a throwaway local stack (Postgres, the API, `next dev`, Metro) with made-up
+  users, nothing sent to Dock chat or push; the native app in the iPhone 18 Pro simulator through deep links. The
+  eight CalorieFlow skins each had their own contrast pass (set `data-skin`, wait ~800 ms for transitions).
+- **Dock** (8e59226): sign-in form no longer redrawn by the old view's timer, start retry, the chat end follows the
+  composer, readable faint/warn/red text, whole sub lines, tables that fit a phone.
+- **Thai Weather** (150726f, cd8e29d): chart end labels no longer overlap and sit on a surface halo, no "-0.0°",
+  readable coarse-model text, the whole alert criteria table, scroll hints and keyboard access on tables, the copy
+  button clear of the code, targets of 24 px or more.
+- **CalorieFlow web** (2348107, 0f10f75, a21d727): chat rooms open at, and stay on, the newest message in Safari
+  (its scroll anchoring moved the page first); muted text and accent text tokens (`--red-fg` and the rest) at
+  4.5:1 on every skin; `--red-fill` under white text (badges, delete buttons); BMI chips with an ink per band; food
+  and Christmas put readable text on their accent; the fast card's tabs beside the ring when there is room; 24 px
+  targets; accessible names; the public pages (language button name, an h1 on the 404).
+- **CalorieFlow app** (126c414, d1e8337): `scripts/sync-web.mjs` now follows the cascade for a skin's dark colours
+  (seven skins had light values at night, the water gradient among them); the web's text shades are worked out in
+  `src/lib/color.ts`, and `Txt tone="red"`/`"orange"` use them; the stats title is no longer cut (Thai marks were
+  counted as width); no Reanimated, Worklets or DateTimePicker warnings. Metro misses edits on the SSD: restart it
+  with `--clear`.
+- **Left as designed**: the glass composer's transparency, faded future days in the calendars, the map search
+  placeholder over the map's glass. The Christmas skin only applies 1 Dec - 6 Jan (checked by forcing `data-skin`).
+- **Not tested**: the real iPhone (not connected), Web Push, calls, Google sign-in, the camera.
 
 ### Container check and hardening (2026-11-12, Claude)
 
