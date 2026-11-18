@@ -317,7 +317,7 @@ function Code({ text, lang }: { text: string; lang: Lang }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="dev-code">
-      <pre>
+      <pre tabIndex={0} aria-label={lang === 'th' ? 'โค้ดตัวอย่าง' : 'Code example'}>
         <code>{text}</code>
       </pre>
       <button
@@ -398,7 +398,7 @@ function EndpointCard({ e, lang }: { e: Endpoint; lang: Lang }) {
       </div>
       {state.body !== undefined && (
         <div className="dev-code">
-          <pre>
+          <pre tabIndex={0} aria-label={th ? 'ผลลัพธ์' : 'Response'}>
             <code>
               {state.status ? `HTTP ${state.status}\n\n` : ''}
               {state.body}

@@ -68,6 +68,11 @@ button {
 
 .muted { color: var(--color-fg-muted); }
 .subtle { color: var(--color-fg-subtle); }
+/* the coarse model's orange as text: mixed toward the text colour so it reads at 4.5:1 in both themes (5.6 light,
+   6.3 dark); the chart lines keep the plain token */
+.coarse-text { color: color-mix(in srgb, var(--color-chart-coarse) 80%, var(--color-fg-default)); }
+/* a link on its own line (not inside a sentence): a 24px+ tap target */
+.link-target { display: inline-block; padding-block: 4px; }
 .sr-only {
   position: absolute;
   width: 1px;
@@ -377,6 +382,7 @@ button {
   white-space: nowrap;
 }
 .site-footer a { color: var(--color-fg-muted); text-decoration: underline; text-decoration-color: var(--color-border-strong); }
+.site-footer nav a { display: inline-block; padding-block: 3px; } /* 25px tall targets */
 .site-footer a:hover { color: var(--color-fg-default); }
 @media (max-width: 640px) {
   .site-footer-inner { grid-template-columns: minmax(0, 1fr); }
@@ -1415,7 +1421,22 @@ button {
 .data-table th.num { text-align: right; }
 .data-table tbody tr:hover { background: var(--color-bg-subtle); }
 .data-table tbody tr { cursor: pointer; }
-.table-wrap { overflow: auto; max-height: 70vh; border-radius: var(--radius-lg); }
+/* A shadow on the side that has more columns behind it (a phone shows three of six): the surface-coloured covers
+   scroll with the table and hide each shadow once that edge is reached. */
+.table-wrap {
+  overflow: auto;
+  max-height: 70vh;
+  border-radius: var(--radius-lg);
+  --edge: color-mix(in srgb, var(--color-fg-default) 16%, transparent);
+  background:
+    linear-gradient(to right, var(--color-bg-surface) 40%, transparent) left center / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--color-bg-surface) 40%, transparent) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--edge), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--edge), transparent) right center / 12px 100% no-repeat scroll,
+    var(--color-bg-surface);
+}
+.table-wrap--full { max-height: none; }
+.table-wrap:focus-visible, .dev-code pre:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
 
 .toolbar {
   display: flex;
@@ -1699,7 +1720,11 @@ button {
   font-size: var(--font-size-xs);
   line-height: 1.55;
 }
-.dev-copy { position: absolute; top: 6px; right: 6px; min-height: 30px; font-size: var(--font-size-xs); }
+/* on the code's own background, so a long first line passes under the button (fading out) instead of through its label */
+.dev-copy {
+  position: absolute; top: 6px; right: 6px; min-height: 30px; font-size: var(--font-size-xs);
+  background: var(--color-bg-subtle); box-shadow: -14px 0 10px -4px var(--color-bg-subtle);
+}
 .dev-endpoint { display: grid; gap: var(--space-3); min-width: 0; }
 .dev-endpoint p { margin: 0; }
 .dev-endpoint-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
@@ -1799,14 +1824,14 @@ button {
 
 /* ---------------------------------------------------------------- PM2.5 stations on the map */
 .aq-marker {
-  min-width: 26px;
-  height: 22px;
+  min-width: 28px;
+  height: 24px; /* the 24px minimum tap target */
   padding: 0 5px;
-  border-radius: 11px;
+  border-radius: 12px;
   border: 1.5px solid var(--color-bg-surface);
   background: var(--aq);
   color: #1b1f24;
-  font: 600 11px/19px var(--font-family-sans);
+  font: 600 11px/21px var(--font-family-sans);
   font-variant-numeric: tabular-nums;
   text-align: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);

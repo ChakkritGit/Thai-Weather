@@ -123,7 +123,9 @@ export function VerificationPage({ report }: { report: VerificationReport }) {
             <table className="data-table verify-table">
               <thead>
                 <tr>
-                  <th />
+                  <th>
+                    <span className="sr-only">{th ? 'แหล่งพยากรณ์' : 'Forecast source'}</span>
+                  </th>
                   <th className="num">{th ? 'จับได้' : 'Hit rate'}</th>
                   <th className="num">{th ? 'เตือนเก้อ' : 'False alarms'}</th>
                   <th className="num">{th ? 'ความถี่' : 'Frequency'}</th>
@@ -164,7 +166,7 @@ export function VerificationPage({ report }: { report: VerificationReport }) {
           <h2>{th ? 'สิ่งที่ระบบเรียนรู้จากสถานี' : 'What the forecast learns from the stations'}</h2>
           <Learning l={report.learning} th={th} date={date} />
           <p className="verify-note">
-            <Link href={paths.verificationMlp}>{th ? 'ดูผลการเรียนรู้ MLP รายวัน: ฝนและอุณหภูมิ' : 'See the daily MLP results for rain and temperature'}</Link>
+            <Link className="link-target" href={paths.verificationMlp}>{th ? 'ดูผลการเรียนรู้ MLP รายวัน: ฝนและอุณหภูมิ' : 'See the daily MLP results for rain and temperature'}</Link>
           </p>
         </section>
 
@@ -175,7 +177,7 @@ export function VerificationPage({ report }: { report: VerificationReport }) {
               ? 'สถานีที่มีป้าย "ทดสอบ" ไม่ถูกนำไปใช้แก้หรือเรียนรู้ จึงเป็นตัววัดที่ตรงไปตรงมาที่สุด'
               : 'Stations marked "test" are never used to correct or train the forecast, so they are the honest score.'}
           </p>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={th ? 'รายสถานี' : 'By station'}>
             <table className="data-table verify-table">
               <thead>
                 <tr>

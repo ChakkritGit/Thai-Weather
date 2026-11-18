@@ -73,7 +73,7 @@ export function ProvincesView({ meta, run, provinces }: { meta: Meta; run: RunMe
           </p>
         )}
 
-        <div className="card table-wrap">
+        <div className="card table-wrap" tabIndex={0} role="region" aria-label={lang === 'th' ? 'พยากรณ์รายจังหวัด' : 'Forecast by province'}>
           <table className="data-table">
             <thead>
               <tr>

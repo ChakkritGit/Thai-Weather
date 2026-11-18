@@ -142,7 +142,8 @@ export function AlertsPage({
               ? 'สีเหลือง ส้ม แดง ใช้กับการแจ้งเตือนเท่านั้น ส่วนชื่อระดับของแต่ละปรากฏการณ์ (เช่น ดัชนีความร้อน “เตือนภัย” ของกรมอนามัย) เป็นศัพท์ตามต้นทาง ใช้เป็นข้อมูลประกอบและไม่ถือเป็นการแจ้งเตือนหากไม่มีสี'
               : 'Yellow, orange and red are used for alerts only. The level names of each phenomenon (e.g. the Dept. of Health heat-index level “เตือนภัย”) are the source’s own terms: information only, not an alert unless a tier colour is shown.'}
           </p>
-          <div className="table-wrap">
+          {/* the whole reference table: in a 70vh box its last rows were cut off mid-line on a phone */}
+          <div className="table-wrap table-wrap--full" tabIndex={0} role="region" aria-label={th ? 'ระดับการแจ้งเตือนและเกณฑ์ที่ใช้' : 'Alert tiers and thresholds'}>
             <table className="data-table criteria-table">
               <thead>
                 <tr>

@@ -185,6 +185,10 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   const peek = snap === 'peek';
   const peekRef = useRef(peek);
   peekRef.current = peek;
+  // a peek shows the top of the panel (the place's name), not the middle of a forecast scrolled to while open
+  useEffect(() => {
+    if (peek) sheetRef.current?.scrollTo({ top: 0 });
+  }, [peek]);
   const maps = useRef<{ fine: MLMap | null; coarse: MLMap | null }>({ fine: null, coarse: null });
   // the same maps as state: the WebGL glass under the map buttons (components/MapGlass.tsx) follows them
   const [fineMap, setFineMap] = useState<MLMap | null>(null);
@@ -579,6 +583,10 @@ export default function MapPage({ meta, run, initialPoint }: { meta: Meta; run: 
   return (
     <MapGlassProvider value={glassOn}>
       <div className="map-page" data-sheet={selected ? snap : undefined}>
+        {/* the page's heading for screen readers and search: the map itself has no visible title */}
+        <h1 className="sr-only">
+          {lang === 'th' ? 'แผนที่พยากรณ์อากาศ' : 'Weather forecast map'} – {t('fineModel', { km: fmtKm(run.fine_grid.resolution_km, lang) })}
+        </h1>
         <div className="map-stage" ref={stageRef}>
           <WeatherMap
             {...common}

@@ -127,6 +127,17 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
   const daySeps = times.map((t, i) => (i > 0 && thaiHour(t) === 0 ? i : -1)).filter((i) => i >= 0);
   const lineSeries = series.filter((s) => s.kind === 'line');
   const lastLabelled = lineSeries.length >= 2 && lineSeries.length <= 4;
+  // end labels: lines that end close together (both at 0 % rain, say) stack instead of printing over each other,
+  // and the top one stays inside the plot
+  const endLabels = lastLabelled
+    ? lineSeries
+        .filter((s) => Number.isFinite(s.values[n - 1]))
+        .map((s) => ({ s, y: y(s.values[n - 1]) - 6 }))
+        .sort((a, b) => a.y - b.y)
+    : [];
+  for (let k = endLabels.length - 2; k >= 0; k--) endLabels[k].y = Math.min(endLabels[k].y, endLabels[k + 1].y - 12);
+  const labelShift = endLabels.length ? Math.max(0, M.top + 9 - endLabels[0].y) : 0;
+  for (const l of endLabels) l.y += labelShift;
 
   return (
     <figure className="chart" style={{ margin: 0 }} ref={figRef}>
@@ -191,15 +202,11 @@ export function TimeSeriesChart({ title, times, series, unit, digits = 1, height
             points={s.values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}
           />
         ))}
-        {lastLabelled &&
-          lineSeries.map((s) => {
-            const v = s.values[n - 1];
-            return (
-              <text key={s.key} className="direct-label" x={x(n - 1) - 2} y={y(v) - 6} textAnchor="end">
-                {directLabel(s)}
-              </text>
-            );
-          })}
+        {endLabels.map(({ s, y: ly }) => (
+          <text key={s.key} className="direct-label" x={x(n - 1) - 2} y={ly} textAnchor="end">
+            {directLabel(s)}
+          </text>
+        ))}
         {nowIndex !== undefined && (
           <g aria-hidden="true">
             <line className="now-line" x1={x(nowIndex)} x2={x(nowIndex)} y1={M.top + 2} y2={M.top + ih} />

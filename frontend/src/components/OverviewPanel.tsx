@@ -71,7 +71,7 @@ export function OverviewPanel({ run, dayIndex }: { run: RunMeta; dayIndex: numbe
       <section className="panel-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <h3>{t('topAlerts')}</h3>
-          <Link href={paths.alerts} style={{ fontSize: 'var(--font-size-sm)' }}>
+          <Link className="link-target" href={paths.alerts} style={{ fontSize: 'var(--font-size-sm)' }}>
             {t('seeAll')}
           </Link>
         </div>

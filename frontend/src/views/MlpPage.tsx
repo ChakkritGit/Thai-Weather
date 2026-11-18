@@ -382,7 +382,7 @@ function MlpSection({
           <p className="muted">{th ? 'ยังไม่มีรอบ' : 'No runs yet'}</p>
         ) : (
           <>
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0} role="region" aria-label={`${th ? 'รอบล่าสุด' : 'Recent runs'} · ${kind === 'rain' ? (th ? 'โอกาสฝน' : 'chance of rain') : th ? 'อุณหภูมิ' : 'temperature'}`}>
               <table className="data-table verify-table mlp-table">
                 <thead>
                   <tr>

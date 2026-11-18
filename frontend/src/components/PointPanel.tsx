@@ -167,7 +167,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
           )}
           <div className="hero-meta">
             <span>
-              {labels.comparison}: <b className="num" style={{ color: 'var(--color-chart-coarse)' }}>{fmtNum(c.temp[i], 0)}°</b>
+              {labels.comparison}: <b className="num coarse-text">{fmtNum(c.temp[i], 0)}°</b>
             </span>
             {heatCat && (
               <span>
@@ -217,7 +217,8 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
                 />
               </span>
               <span className="wf-val">
-                {p.v >= 0 ? '+' : '−'}
+                {/* the sign of the rounded figure: -0.02 showed as "−0.0°" */}
+                {Math.abs(p.v) < 0.05 ? '' : p.v > 0 ? '+' : '−'}
                 {fmtNum(Math.abs(p.v), 1)}°
               </span>
             </div>
@@ -292,7 +293,7 @@ export function PointPanel({ point, step, nowIndex, fineKm, coarseKm, onClose }:
             />
           </>
         ) : (
-          <div className="table-wrap" style={{ maxHeight: 360 }}>
+          <div className="table-wrap" style={{ maxHeight: 360 }} tabIndex={0} role="region" aria-label={t('next48Comparison')}>
             <table className="data-table">
               <thead>
                 <tr>
