@@ -261,8 +261,8 @@ integration cases and is not a complete backend check. Test sockets need local s
 - The glass edges of 2026-11-19 on the iPhone (Safari draws no bend, so only the hairlines differ): CalorieFlow's tab
   bar over a white card and over a photo, the chat field, Thai Weather's map buttons over land and sea at night.
 - The bars that turn with the backdrop, on the iPhone: CalorieFlow's bar and add button scrolled over the coach card
-  (white icons in light mode, dark icons in dark mode), Drive Music's pill and player card over a dark cover. Ask
-  whether the switch should fade instead of snapping.
+  (white icons in light mode, dark icons in dark mode), Drive Music's pill and player card over a dark cover. The
+  switch now fades over ~0.3 s: ask whether it feels right (not slow, no flicker at a card's edge).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -347,8 +347,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   calendar day sits in the middle of its square; the paid/due/overdue marks hang under it out of the flow.
 - **Glass edges that follow the backdrop** (the owner's ask, after the portfolio's capsule): CalorieFlow 43aee1f,
   Drive Music ccfc44f, Thai Weather and Dock 0162297. Then **bars that turn with the backdrop** (white icons on dark
-  glass over a dark card or cover): CalorieFlow a2035de and 0f5e18a, Drive Music f65ac2e. How and where: "Glass
-  across the apps".
+  glass over a dark card or cover): CalorieFlow a2035de and 0f5e18a, Drive Music f65ac2e; the switch fades over
+  0.3 s (CalorieFlow d11f0ed, Drive Music 478674c). How and where: "Glass across the apps".
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 
@@ -645,8 +645,13 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   `data-flip="dark|light"` (back below 40%). CSS then swaps the part's tint (black 36% / white 56%) and ink, Glisse's
   `--lg-foreground`/`--lg-muted`/`--lg-selection`/`--lg-lens`; CalorieFlow also classic's chosen icon and pencil's
   outline, Drive Music turns Tailwind's zinc scale over inside the card. Never in solid mode. One reading ~0.5 ms, at
-  most every 100 ms while scrolling, plus resize/theme/1 s ticks. CalorieFlow: tab bar and add button (a2035de,
-  0f5e18a); Drive Music: nav pill and phone player card (f65ac2e). Checked locally: CalorieFlow's coach card
+  most every 100 ms while scrolling, plus resize/theme/1 s ticks. The switch fades (the owner's next ask): every
+  colour it changes is registered with `@property` and eases over 320 ms on the part's box (`data-tone-part`; in
+  CalorieFlow a box of its own inside the moving one, whose transition `lib/bars.ts` writes inline), and for 360 ms the
+  part also carries `data-tone-fading`, which turns off Glisse's 200 ms colour transition on `.lg-tab` so the labels
+  move with the glass instead of trailing it. A token added to the flip must be registered too, or it snaps. Checked
+  frame by frame (labels settle at ~300 ms, both themes, both ways) and as paused stills. CalorieFlow: tab bar and add
+  button (a2035de, 0f5e18a, fade d11f0ed); Drive Music: nav pill and phone player card (f65ac2e, fade 478674c). Checked locally: CalorieFlow's coach card
   (`bg-ink`, dark in light mode and light in dark mode) in classic and pencil, Drive Music with injected dark, light
   and data-URL cover blocks. Thai Weather (map canvas, same-tone cards) and Dock (same-tone cards) did not need it.
 - Thai Weather prototype: WebGL Liquid Glass under the round map buttons (`lib/mapGlass.ts`, `components/MapGlass.tsx`).
