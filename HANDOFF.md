@@ -403,7 +403,15 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   dock-metrics' 7-day history. Checked locally with the
   real models (`wrangler dev` of the Worker, made-up data, a one-tool MCP fake): 1-11 s a question, parallel calls,
   skills and the MCP tool used. The model repeats what it said earlier in the chat, so a wrong answer can come back
-  until the chat is cleared.
+  until the chat is cleared. Deployed 2026-11-20 (`abbbce5`): every service on the new image, and November's report
+  already has its CPU line from the backfilled digests.
+- **Scrolly is the site's blue square** (WebProfile `a04c444`, the owner: "the parchment scroll does not fit the
+  redesign"). `pixel-guide.tsx`: a brand-blue square with a face of white pixels in the bottom-right corner (52 px,
+  60 px from 640 px wide), acting the chat out with CSS keyed off `data-act` (scanning eyes and a scan line while it
+  waits, a level-meter mouth while it streams, smiling eyes with cards, a blink at rest), a mono "Ask Scrolly" label
+  on hover. The chat's `variant="console"` uses the site's tokens in both themes (full screen on phones, as before).
+  The `mr-worldwide` Worker's persona now says "a little blue square with a pixel face" (deployed). Checked locally
+  with a made-up index and a mocked stream; the globe (`SHOW_GLOBE`) still has the amber terminal.
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 
