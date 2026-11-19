@@ -285,6 +285,10 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   tool dock with a hand tool and tooltips; zoom bottom right from lg, mini map from xl. Touch: two-finger pinch
   moves and zooms, and a pinch that starts on a note just placed takes it back. Phones: the dock fits 360 px (spare
   tools and the shapes under "more"). Checked on `next dev` with no room server (nothing reached the live rooms).
+- **Whiteboard mini map** (9dea039, the owner's ask: draggable): drag the window frame to pan, press elsewhere on
+  the map to jump there; the map's frame is held during a drag (it fits the window too, so it would rescale under
+  the pointer) and the view's centre stays over the items' box. Check script idea: drive it on `next dev` and read
+  the camera from `.board-paper`'s background-position.
 - **Portfolio Worker** (536d2e6, deployed with wrangler 4.144.0): `/api/assistant/board` and the Whiteboard origin
   removed; Scrolly's `/api/assistant` unchanged (health 200, preflight 204; board 404, Whiteboard origin 403).
 - **Spent/Cost** (203078c, 593e964): the ledger look is replaced by a modern money app (grey page, rounded cards,
