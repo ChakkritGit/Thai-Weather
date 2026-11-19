@@ -10,8 +10,9 @@ routes = [{ pattern = "docker.chakkritton.com/ai/*", zone_name = "chakkritton.co
 [ai]
 binding = "AI"
 
-# one owner typing: 20 questions a minute is plenty (WebProfile's Worker has 1001, CalorieFlow's 1002)
+# one owner typing, each question up to 5 rounds with its tool calls: 60 a minute (WebProfile's Worker has 1001,
+# CalorieFlow's 1002)
 [[ratelimits]]
 name = "LIMITER"
 namespace_id = "1003"
-simple = { limit = 20, period = 60 }
+simple = { limit = 60, period = 60 }

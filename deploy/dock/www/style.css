@@ -479,6 +479,7 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .msg-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14.5px; line-height: 1.5; }
 .msg-time { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .msg.user .msg-time { color: color-mix(in srgb, var(--on-accent) 65%, transparent); }
+.msg-tools { display: block; margin-top: 6px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
 .msg.typing .msg-text { color: var(--muted); }
 .msg.pending { opacity: 0.7; }
 .msg.failed { outline: 2px solid var(--bad); outline-offset: 2px; }
@@ -487,10 +488,6 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
   position: fixed; left: 0; right: 0; bottom: calc(var(--nav-bottom) + 68px); z-index: 4; padding: 0 var(--gutter);
 }
 .chat-compose > * { max-width: 720px; margin-left: auto; margin-right: auto; }
-.chat-quick { display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
-.chat-quick::-webkit-scrollbar { display: none; }
-.chip { flex: none; min-height: 32px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; font-weight: 600; }
-.chat-quick .chip { background: var(--glass-tint); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
 /* jump to the newest message: above the field at the column's right edge, eased in once scrolled away from it */
 .chat-compose > .chat-latest {
   position: absolute; bottom: calc(100% + 10px); right: max(var(--gutter), calc((100% - 720px) / 2)); margin: 0;
@@ -539,8 +536,8 @@ pre.backup-steps { margin: 6px 0 0; max-height: none; white-space: pre-wrap; }
 .msg.system { animation-name: enter; }
 .toast { animation: toast-in 0.25s ease-out; }
 .meter-fill { transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s; }
-.segmented button, .tabs a, .btn, .chip, .icon-btn { transition: background-color 0.2s, color 0.2s, transform 0.15s; }
-.btn:active, .chip:active, .icon-btn:active, .tabs a:active { transform: scale(0.96); }
+.segmented button, .tabs a, .btn, .icon-btn { transition: background-color 0.2s, color 0.2s, transform 0.15s; }
+.btn:active, .icon-btn:active, .tabs a:active { transform: scale(0.96); }
 .dot { transition: background-color 0.3s; }
 .badge:not([hidden]) { animation: enter 0.3s ease-out; }
 /* numbers that update in place animate with transform (setNumber); keep them their own box */

@@ -1,7 +1,9 @@
 mod analytics;
 mod backup;
 mod chat;
+mod chat_mcp;
 mod chat_report;
+mod chat_tools;
 mod checks;
 mod client;
 mod database;

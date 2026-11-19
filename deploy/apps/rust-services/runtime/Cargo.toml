@@ -16,6 +16,8 @@ http-body-util = "=0.1.5"
 bytes = "=1.12.1"
 subtle = "=2.6.1"
 chrono = { version = "=0.4.42", default-features = false, features = ["std"] }
+# dock-metrics sends /metrics gzipped (the same flate2 as dock-metrics, ../Cargo.toml)
+flate2 = "=1.1.10"
 rusqlite = { version = "=0.37.0", features = ["bundled"] }
 sha2 = "=0.10.9"
 uuid = { version = "=1.18.1", features = ["v4"] }

@@ -133,7 +133,9 @@ Python numerical worker and separate Python verification container retained. See
 - Dock chat (`chat.env`): ALERT_SECRET, and since 2026-11-19 LLM_PROVIDER=openai, LLM_BASE_URL
   (`https://docker.chakkritton.com/ai/v1`), LLM_MODEL (one of the Worker's MODELS), LLM_API_KEY = Worker `dock-ai`'s
   AI_SECRET (the value is kept nowhere else; to rotate, generate one, pipe it into `wrangler secret put AI_SECRET`
-  and into chat.env, then `docker compose up -d --no-deps chat`).
+  and into chat.env, then `docker compose up -d --no-deps chat`). Optional since 2026-11-20: MCP_SERVERS
+  (`name=https://…` pairs, comma separated) and MCP_<NAME>_TOKEN (a bearer token for that server) for the chat
+  model's MCP tools; none are set yet.
 - CalorieFlow (since 2026-10-30 the Rust API holds the secrets): `calorieflow-api.env` (DATABASE_URL, DATA_KEY — see
   below, APP_ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — a Web OAuth client in project
   `calorieflow-bb756`, set 2026-10-25, TURN_SECRET, TURN_URLS, GIPHY_KEY, FEEDBACK_ADMINS — the owner's user id, who reads the problem reports); the web's `calorieflow.env` keeps only
@@ -269,9 +271,9 @@ integration cases and is not a complete backend check. Test sockets need local s
   portfolio's capsule header on the iPhone (frosted glass there by design: no page bending outside Chromium).
 - Drive Music's pill and player card over a dark cover on the iPhone (the same flip as CalorieFlow's bar; not asked
   separately).
-- Dock's chat answering a sign-in question from the security page (2026-11-19, after the chat change below): "who
-  signed in over SSH yesterday, from which IP". If the answers feel slow or thin, LLM_MODEL in chat.env can name the
-  other model (`@cf/qwen/qwen3-30b-a3b-fp8`, faster and terser).
+- Dock's chat with tools (2026-11-20): questions such as "how was the server over the last 24 hours", "check
+  security", "is site X down", "last month"; under each answer "ดูข้อมูลจาก …" lists what the model looked at. If the
+  answers feel slow or thin, LLM_MODEL in chat.env can name the other model (`@cf/qwen/qwen3-30b-a3b-fp8`).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -380,6 +382,28 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   signs in with one), failed sign-ins over 24 h with the top IPs, and up to 30 events of the last 14 days, newest
   first, in Bangkok time ("19 พ.ย. 2569 17:08"). When dock-metrics cannot be read the model is told so. Only the LLM
   path changed (the chat contract test runs without an LLM); a Rust unit test covers the text.
+- **Dock's chat: every message goes to the model, which can call tools, skills and MCP servers** (the owner's ask,
+  2026-11-20: "remove the command words; can it use skills, tools, MCP"). The ช่วย / สรุป / เดือนก่อน commands and
+  their chips are gone; without an LLM every message gets a note on how to set one up. `reply()` (runtime/src/chat.rs)
+  is an agent loop: up to 4 rounds of up to 4 tool calls, 50 s in all (the proxies wait 60 s), the last round with
+  `tool_choice: "none"`; results clipped to 6000 characters, and the prompt says they are data, not instructions.
+  Built-in tools (runtime/src/chat_tools.rs, read-only, Thai text): server_status (1h/24h/7d), containers (the
+  containers.tsv snapshot, which now has a short-id column, joined with dock-metrics' per-container CPU and memory),
+  services (status page), web_traffic (days, host), security (further back, one IP), attacks, backups, month_report.
+  Skills: Markdown files with `name`/`description` front matter in `deploy/apps/chat-skills/` (mounted at /skills, so
+  a pull updates them; listed in the prompt, read with `use_skill`): security-review, site-down, monthly-summary,
+  resource-check. MCP (runtime/src/chat_mcp.rs): streamable HTTP, JSON or event-stream answers, session ids, tools
+  offered as `mcp_<name>_<tool>` (24 at most, listed every 10 min) and named in the prompt too (without that Gemma
+  answered from memory). Answers carry `data.tools`; Dock shows them under the answer. `GET /chat/report?month=` gives
+  a month's report card (the contract test uses it). Worker dock-ai passes tools and tool messages through, sends no
+  tools for `tool_choice: "none"`, and allows 60 requests a minute; its helpers moved to `lib.ts` (workerd refused a
+  Worker module that exports values other than handlers). Fixed on the way: the chat could not read dock-metrics'
+  gzipped /metrics (its reqwest has no gzip), so the daily digests were never written after the Rust port and the
+  month-end report was skipped; flate2 unpacks it now, and the first run fills the 6 days before the deploy from
+  dock-metrics' 7-day history. Checked locally with the
+  real models (`wrangler dev` of the Worker, made-up data, a one-tool MCP fake): 1-11 s a question, parallel calls,
+  skills and the MCP tool used. The model repeats what it said earlier in the chat, so a wrong answer can come back
+  until the chat is cleared.
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 

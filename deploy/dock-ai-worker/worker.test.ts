@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import worker, { MODELS, STYLE, normalize, parse, plain, sameSecret, type Msg } from "./worker";
+import { MODELS, STYLE, normalize, parse, plain, sameSecret, toolCalls, type Msg, type Tool } from "./lib";
+import worker from "./worker";
 
 const [GEMMA, QWEN] = Object.keys(MODELS);
 const SECRET = "test-secret-not-real";
@@ -32,6 +33,7 @@ const ask = (body: unknown, auth = `Bearer ${SECRET}`, path = "/ai/v1/chat/compl
   });
 
 const chat = (messages: Msg[], extra: Record<string, unknown> = {}) => ({ model: GEMMA, max_tokens: 800, messages, ...extra });
+const TOOL: Tool = { type: "function", function: { name: "backups", description: "The backups", parameters: { type: "object", properties: {} } } };
 
 describe("sameSecret", () => {
   test("only the same value", () => {
@@ -73,6 +75,17 @@ describe("normalize", () => {
     expect(normalize([{ role: "user", content: "a" }, { role: "assistant", content: "b" }])).toBeNull();
     expect(normalize([{ role: "system", content: "s" }])).toBeNull();
   });
+  test("tool calls and results stay as they are and may end the turns", () => {
+    const call = { id: "c1", type: "function" as const, function: { name: "backups", arguments: "{}" } };
+    const out = normalize([
+      { role: "user", content: "a" },
+      { role: "assistant", content: "", tool_calls: [call] },
+      { role: "tool", tool_call_id: "c1", content: "r1" },
+      { role: "tool", tool_call_id: "c2", content: "r2" },
+    ])!;
+    expect(out.slice(1).map((m) => m.role)).toEqual(["user", "assistant", "tool", "tool"]);
+    expect(out[2].tool_calls).toEqual([call]);
+  });
 });
 
 describe("parse", () => {
@@ -91,9 +104,47 @@ describe("parse", () => {
     expect(parse("{")).toBe("คำขอไม่ใช่ JSON");
     expect(parse(JSON.stringify({ model: "@cf/x/y", messages: [{ role: "user", content: "hi" }] }))).toStartWith("ไม่รู้จักโมเดล @cf/x/y");
     expect(parse(JSON.stringify({ stream: true, messages: [{ role: "user", content: "hi" }] }))).toContain("stream");
-    expect(parse(JSON.stringify({ messages: [] }))).toContain("1-40");
-    expect(parse(JSON.stringify({ messages: [{ role: "tool", content: "x" }] }))).toContain("role");
-    expect(parse(JSON.stringify({ messages: [{ role: "user", content: "x".repeat(60_001) }] }))).toContain("60,000");
+    expect(parse(JSON.stringify({ messages: [] }))).toContain("1-80");
+    expect(parse(JSON.stringify({ messages: [{ role: "robot", content: "x" }] }))).toContain("role");
+    expect(parse(JSON.stringify({ messages: [{ role: "tool", content: "x" }] }))).toContain("tool_call_id");
+    expect(parse(JSON.stringify({ messages: [{ role: "user", content: "x".repeat(120_001) }] }))).toContain("120,000");
+    const hi = [{ role: "user", content: "hi" }];
+    expect(parse(JSON.stringify({ messages: hi, tool_choice: "required" }))).toContain("tool_choice");
+    expect(parse(JSON.stringify({ messages: hi, tools: [{ type: "function", function: { name: "bad name" } }] }))).toContain("tools");
+    expect(parse(JSON.stringify({ messages: hi, tools: [TOOL, TOOL] }))).toContain("ซ้ำ");
+  });
+  test("tools pass through; tool_choice none sends none; a model's calls and their results are read back", () => {
+    const calls = [{ id: "c1", type: "function", function: { name: "backups", arguments: "{}" } }];
+    const p = parse(
+      JSON.stringify({
+        tools: [TOOL],
+        messages: [
+          { role: "user", content: "แบ็กอัปล่าสุด" },
+          { role: "assistant", content: null, tool_calls: calls },
+          { role: "tool", tool_call_id: "c1", content: "แบ็กอัป 2 ชุด" },
+        ],
+      }),
+    );
+    if (typeof p === "string") throw new Error(p);
+    expect(p.tools).toEqual([TOOL]);
+    expect(p.messages.slice(1)).toEqual([
+      { role: "user", content: "แบ็กอัปล่าสุด" },
+      { role: "assistant", content: "", tool_calls: calls as never },
+      { role: "tool", tool_call_id: "c1", content: "แบ็กอัป 2 ชุด" },
+    ]);
+    const none = parse(JSON.stringify({ tools: [TOOL], tool_choice: "none", messages: [{ role: "user", content: "hi" }] }));
+    if (typeof none === "string") throw new Error(none);
+    expect(none.tools).toBeUndefined();
+  });
+  test("tool calls in either shape, with ids, only to the tools given", () => {
+    const given = [TOOL];
+    expect(toolCalls({ choices: [{ message: { tool_calls: [{ id: "x1", function: { name: "backups", arguments: { a: 1 } } }] } }] }, given)).toEqual([
+      { id: "x1", type: "function", function: { name: "backups", arguments: '{"a":1}' } },
+    ]);
+    const legacy = toolCalls({ tool_calls: [{ name: "backups", arguments: "{}" }, { name: "rm_rf", arguments: "{}" }] }, given);
+    expect(legacy.map((c) => c.function.name)).toEqual(["backups"]);
+    expect(legacy[0].id).toStartWith("call_0_");
+    expect(toolCalls({ tool_calls: [{ name: "backups" }] }, undefined)).toEqual([]);
   });
 });
 
@@ -139,6 +190,29 @@ describe("fetch", () => {
     expect(((await q.json()) as { error: { message: string } }).error.message).toContain("โควตา");
     const down = env({});
     expect((await worker.fetch(ask(question), down.env)).status).toBe(502);
+  });
+
+  test("tool calls come back in the OpenAI shape; the suffix stays on the question", async () => {
+    const calls = [{ id: "c9", type: "function", function: { name: "backups", arguments: "{}" } }];
+    const t = env({ [GEMMA]: () => ({ choices: [{ message: { content: null, tool_calls: calls } }] }) });
+    const res = await worker.fetch(ask(chat([{ role: "user", content: "แบ็กอัป" }], { tools: [TOOL] })), t.env);
+    const j = (await res.json()) as { choices: { message: Record<string, unknown>; finish_reason: string }[] };
+    expect(j.choices[0]).toEqual({ index: 0, message: { role: "assistant", content: null, tool_calls: calls }, finish_reason: "tool_calls" } as never);
+    expect(t.calls[0].input.tools).toEqual([TOOL]);
+    const q = env({ [QWEN]: () => ({ response: "<think></think>มี 2 ชุด" }) });
+    const after = chat(
+      [
+        { role: "user", content: "แบ็กอัป" },
+        { role: "assistant", content: "", tool_calls: calls as never },
+        { role: "tool", tool_call_id: "c9", content: "แบ็กอัป 2 ชุด" },
+      ],
+      { model: QWEN, tools: [TOOL], tool_choice: "none" },
+    );
+    const done = (await (await worker.fetch(ask(after), q.env)).json()) as { choices: { message: { content: string }; finish_reason: string }[] };
+    expect([done.choices[0].message.content, done.choices[0].finish_reason]).toEqual(["มี 2 ชุด", "stop"]);
+    const sent = q.calls[0].input.messages as Msg[];
+    expect([sent[1].content, sent.at(-1)!.content]).toEqual(["แบ็กอัป /no_think", "แบ็กอัป 2 ชุด"]);
+    expect(q.calls[0].input.tools).toBeUndefined();
   });
 
   test("no secret, a wrong path, the rate limit and a bad body", async () => {

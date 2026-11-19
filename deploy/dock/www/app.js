@@ -1780,8 +1780,16 @@ async function chatView(token) {
       d.tips.map((t) => h('div', { class: `tip tip-${t.level}` }, icon(TIP[t.level][0], 'msg-ic'), h('span', {}, t.text)))));
     return body;
   };
+  // what the model looked at before it answered: the chat service's tools, and mcp_<server>_<tool> from the owner's MCP servers
+  const TOOLS = { server_status: 'สถานะเครื่อง', containers: 'คอนเทนเนอร์', services: 'หน้าสถานะ', web_traffic: 'ผู้เข้าชมเว็บ', security: 'ความปลอดภัย', attacks: 'การโจมตี', backups: 'แบ็กอัป', month_report: 'รายงานเดือน', use_skill: 'ทักษะ' };
+  const toolName = (t) => {
+    const mcp = /^mcp_([a-z0-9]+)_(.+)$/.exec(t.name);
+    const name = mcp ? `MCP ${mcp[1]}: ${mcp[2]}` : Object.hasOwn(TOOLS, t.name) ? tx(TOOLS[t.name]) : t.name;
+    return t.detail ? `${name} (${t.detail})` : name;
+  };
   const bubble = (m) => {
     const kind = KINDS[m.kind];
+    const tools = Array.isArray(m.data?.tools) ? m.data.tools.filter((t) => typeof t?.name === 'string') : [];
     if (m.kind === 'report' && m.data) {
       return h('div', { class: `msg ${m.role} report-msg`, 'data-id': m.id },
         h('span', { class: 'msg-label' }, icon('chart', 'msg-ic'), m.role === 'system' ? tx('รายงานประจำเดือน') : tx('สรุป')),
@@ -1794,12 +1802,13 @@ async function chatView(token) {
       kind
         ? h('div', { class: 'msg-text' }, h('b', { class: 'msg-title' }, title), rest.length ? '\n' : null, ...linkify(rest.join('\n')))
         : h('div', { class: 'msg-text' }, ...linkify(m.text)),
+      tools.length ? h('span', { class: 'msg-tools' }, `${tx('ดูข้อมูลจาก')} ${tools.map(toolName).join(' · ')}`) : null,
       h('span', { class: 'msg-time' }, fmtTime.format(new Date(m.ts))));
   };
   const empty = () => h('div', { class: 'chat-empty' },
     h('span', { class: 'row-ic' }, icon('chat')),
     h('b', {}, tx('ยังไม่มีข้อความ')),
-    h('p', {}, tx('สรุปรายเดือนและแจ้งเตือนเว็บล่มจะมาที่นี่ หรือแตะ สรุป / เดือนก่อน / ช่วย ด้านล่างเพื่อถาม')));
+    h('p', {}, tx('สรุปรายเดือนและแจ้งเตือนเว็บล่มจะมาที่นี่ ถามเรื่องเซิร์ฟเวอร์ได้เลย เช่น เครื่องเป็นยังไงบ้าง หรือเมื่อวานมีใครล็อกอิน')));
   const add = (msgs) => {
     const follow = atBottom();
     log.querySelector('.chat-empty')?.remove();
@@ -1847,7 +1856,7 @@ async function chatView(token) {
     }
     add(res.messages);
     if (!log.querySelector('.msg')) log.replaceChildren(empty());
-    note.textContent = res.llm ? ' ' : tx('ยังไม่ได้เชื่อม LLM — ตอบได้เฉพาะคำสั่ง (สรุป, เดือนก่อน, ช่วย)');
+    note.textContent = res.llm ? ' ' : tx('ยังไม่ได้เชื่อม LLM ตั้งค่าได้ใน chat.env');
     if (res.messages.some((m) => !m.read)) { await api('/chat/read', { method: 'POST' }).catch(() => {}); refreshUnread(); }
   };
   const submit = async (text) => {
@@ -1893,8 +1902,6 @@ async function chatView(token) {
   });
   const form = h('form', { class: 'chat-compose', onsubmit: (e) => { e.preventDefault(); const t = input.value; input.value = ''; grow(); submit(t); } },
     latest,
-    h('div', { class: 'chat-quick' }, // the commands go to the server in Thai (it reads them); the chips show them in the chosen language
-    ['สรุป', 'เดือนก่อน', 'ช่วย'].map((c) => h('button', { type: 'button', class: 'chip', onclick: () => submit(c) }, tx(c)))),
     h('div', { class: 'chat-row' }, input, send), note);
   const clearBtn = h('button', { class: 'icon-btn', type: 'button', 'aria-label': tx('ล้างแชท'), title: tx('ล้างแชท') }, icon('trash'));
   let clearArmed = 0;

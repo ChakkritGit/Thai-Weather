@@ -64,7 +64,7 @@ fn avg(v: impl Iterator<Item = f64>) -> Value {
         json!(v.iter().sum::<f64>() / v.len() as f64)
     }
 }
-fn bytes(v: &Value) -> String {
+pub(crate) fn bytes(v: &Value) -> String {
     let Some(mut b) = v.as_f64().filter(|x| x.is_finite()) else {
         return "–".into();
     };
@@ -80,7 +80,7 @@ fn bytes(v: &Value) -> String {
         format!("{b:.1} {}", u[i])
     }
 }
-fn pct(v: &Value) -> String {
+pub(crate) fn pct(v: &Value) -> String {
     v.as_f64().map_or("–".into(), |p| {
         if p < 10. {
             format!("{p:.1}%")
@@ -89,7 +89,7 @@ fn pct(v: &Value) -> String {
         }
     })
 }
-fn num(n: f64) -> String {
+pub(crate) fn num(n: f64) -> String {
     let s = format!("{:.0}", n.round());
     let len = s.len();
     s.chars()
@@ -129,7 +129,7 @@ fn hosts(ds: &[Value], only_sites: bool) -> Vec<(String, [f64; 4])> {
     h.sort_by(|a, b| b.1[0].total_cmp(&a.1[0]));
     h
 }
-fn created(b: &Value) -> i64 {
+pub(crate) fn created(b: &Value) -> i64 {
     b["created"]
         .as_i64()
         .or_else(|| {

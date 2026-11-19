@@ -62,7 +62,10 @@ pre-rendered empty.
 
 **Chat (`chat.env`, optional):** `LLM_PROVIDER=cloudflare` + `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_AI_MODEL`, or
 `LLM_PROVIDER=openai` + `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` (any OpenAI-compatible server, e.g. Ollama).
-Without them it answers commands only (สรุป, เดือนก่อน, ช่วย). Its VAPID key lives in its own database.
+Without them every message gets a note on how to set one up. With an OpenAI-compatible model the chat can call
+read-only tools over the server's data, read the skills in `chat-skills/` (Markdown with `name`/`description` front
+matter) and call MCP servers: `MCP_SERVERS=name=https://…,…` plus an optional `MCP_<NAME>_TOKEN` bearer token.
+Its VAPID key lives in its own database.
 
 `next.Dockerfile` builds any of the apps without touching its repo (it wraps `next.config.ts` to add
 `output: 'standalone'`). The env file is mounted only during `next build`, because `NEXT_PUBLIC_*` values are

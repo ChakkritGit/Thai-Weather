@@ -431,10 +431,14 @@ services:
       PORT: "8795"
       CHAT_DB: /data/chat.db
       TZ: Asia/Bangkok
+    # The chat model's tools read the containers' snapshot (the same one health reads) and the owner's skills
+    # (Markdown in ./chat-skills, updated by a git pull).
     volumes:
       - chat-data:/data
+      - /run/apps-health:/host:ro
+      - ./chat-skills:/skills:ro
     # Not on `proxy` either (see backup): Dock over dock-internal; `ops` for analytics, the alert relay
-    # from health and the internet (web push, the status page, the LLM).
+    # from health and the internet (web push, the status page, the LLM and MCP servers).
     networks: [dock, ops]
     healthcheck:
       test: ["CMD", "/apps-runtime", "chat", "--healthcheck"]
