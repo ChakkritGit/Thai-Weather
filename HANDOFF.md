@@ -264,7 +264,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   bar over a white card and over a photo, the chat field, Thai Weather's map buttons over land and sea at night.
 - The bars that turn with the backdrop, on the iPhone: CalorieFlow's bar and add button scrolled over the coach card
   (white icons in light mode, dark icons in dark mode), Drive Music's pill and player card over a dark cover. The
-  switch now fades over ~0.3 s: ask whether it feels right (not slow, no flicker at a card's edge).
+  switch now fades over ~0.3 s: ask whether it feels right (not slow, no flicker at a card's edge). On a tab change
+  only the tapped tab should be green, and the bar should not fade over the new page (9c20308).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -350,7 +351,9 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 - **Glass edges that follow the backdrop** (the owner's ask, after the portfolio's capsule): CalorieFlow 43aee1f,
   Drive Music ccfc44f, Thai Weather and Dock 0162297. Then **bars that turn with the backdrop** (white icons on dark
   glass over a dark card or cover): CalorieFlow a2035de and 0f5e18a, Drive Music f65ac2e; the switch fades over
-  0.3 s (CalorieFlow d11f0ed, Drive Music 478674c). How and where: "Glass across the apps".
+  0.3 s (CalorieFlow d11f0ed, Drive Music 478674c), except on a new page, where it switches at once, and CalorieFlow's
+  tapped tab is the chosen one at once (CalorieFlow 9c20308, Drive Music 019337a). How and where: "Glass across the
+  apps".
 - **CalorieFlow app: the water card's amount field empties after adding** (the owner's iPhone kept the number):
   native 1cd5995 gives the field a new `key` after each typed amount; why, in the native repo's HANDOFF.
 
@@ -654,8 +657,14 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   CalorieFlow a box of its own inside the moving one, whose transition `lib/bars.ts` writes inline), and for 360 ms the
   part also carries `data-tone-fading`, which turns off Glisse's 200 ms colour transition on `.lg-tab` so the labels
   move with the glass instead of trailing it. A token added to the flip must be registered too, or it snaps. Checked
-  frame by frame (labels settle at ~300 ms, both themes, both ways) and as paused stills. CalorieFlow: tab bar and add
-  button (a2035de, 0f5e18a, fade d11f0ed); Drive Music: nav pill and phone player card (f65ac2e, fade 478674c). Checked locally: CalorieFlow's coach card
+  frame by frame (labels settle at ~300 ms, both themes, both ways) and as paused stills. A new page does not fade
+  (the owner's recording, "the icon colour sticks when changing pages"): `check(true)` on a path change reads the new
+  page at the next frame and switches at once (`data-tone-instant` on the part for one frame turns the transitions
+  off), as the first reading does. CalorieFlow's tab bar also takes the tapped tab as its value until the path moves:
+  the path changes only when the new page is in (~0.4 s on the phone), and until then the tab left behind kept its
+  chosen look beside the lens. CalorieFlow: tab bar and add button (a2035de, 0f5e18a, fade d11f0ed, page change
+  9c20308); Drive Music: nav pill and phone player card (f65ac2e, fade 478674c, page change 019337a; its chosen look
+  is Glisse's tint under the lens, so it never showed two tabs). Checked locally: CalorieFlow's coach card
   (`bg-ink`, dark in light mode and light in dark mode) in classic and pencil, Drive Music with injected dark, light
   and data-URL cover blocks. Thai Weather (map canvas, same-tone cards) and Dock (same-tone cards) did not need it.
 - Thai Weather prototype: WebGL Liquid Glass under the round map buttons (`lib/mapGlass.ts`, `components/MapGlass.tsx`).
