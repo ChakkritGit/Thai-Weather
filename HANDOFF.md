@@ -254,6 +254,10 @@ integration cases and is not a complete backend check. Test sockets need local s
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
 - The 2026-11-19 redesigns signed in: Spent/Cost with real data (and re-adding it for the new icon), the
   Whiteboard on the iPhone (two-finger pinch, the "more" menu, Share).
+- Spent/Cost's new settings list signed in (the notifications row should read this device's state), and the
+  portfolio's capsule header on the iPhone (frosted glass there by design: no page bending outside Chromium).
+- The portfolio studio's Home backdrop card signed in (54a2fe4): upload a picture from the phone, pick it, tint on
+  and off, delete it; the home page should follow within a minute.
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -290,6 +294,48 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   The installed app keeps its old home-screen icon until it is added again.
 - **Portfolio**: Loy Krathong ornament is the owner's pick "D", folds fanned like a lotus (ad203d7); the chat's paper
   rolls are cylinders with a spiral end, shading, grain and a cast shadow (a1d95b4).
+- **Portfolio header** (fa89b72, the owner's asks: Thai Weather's glass on the navbar only, visible bending, more room
+  above it, full width at the top): at the top of the page the old header (paper 90% over a blur, hairline); once
+  scrolled past 8 px it shrinks (350 ms) into a capsule 12 px below the edge, `min(100% - 24px, 76rem)` x 52 px, and
+  Glisse 0.4.3 takes over only after the shrink (`data-floating`, then `data-settled`, site-header.tsx). Glisse keeps a
+  lens per size it fits and never frees one, so it must not fit mid-animation; the shrink runs on the bar's own CSS
+  glass (`::before`). The 12 px is `top` on the relative bar, not a margin (a margin collapses through the sticky
+  header and the capsule sat on the edge). Over the hero picture the capsule goes dark (35% black) with white labels
+  (HeroArt sets `html[data-art-under]`); links measured 5:1+ over the art. Checked in Chromium: both states, phone
+  and desktop, both themes, one lens after repeated toggles, 60 fps while scrolling.
+  Follow-ups the same day (the owner: "no bending at the edge", "no edge in light mode", "frosted is fine where it
+  cannot bend"): 02eb0eb - Glisse's blur 12 -> 3 px as Thai Weather's tab bar (at 12 px the page under the rim was a
+  smear and the bend could not be seen), lens bezel 20 / thickness 34 / refraction 1.5, light tint 18 -> 24%; every
+  engine but Chromium (`data-no-bend`, set from the user agent as Glisse itself decides) gets frosted glass instead
+  (20 px blur, paper 55%, `--header-frost`); solid where blur is missing or reduced transparency is asked for.
+  93fb007 - the capsule's edge (`--bar-edge`) is a ring in `--line` (#d6d7e4, the site's 1px rule) plus a soft
+  shadow; a faint white ring over the picture, a 12% white ring in dark mode. Live check: the ring is there.
+- **Portfolio phone menu** (38758cd, the owner's iPhone): the language list floated under its button and the menu's
+  rounded clip cut it off. In the menu it now opens in the flow (the menu grows), and the menu is capped at the
+  screen and scrolls inside itself. Live check: all three languages tappable, switching to Thai works. (`next dev`
+  loops on `/` locally; the live root answers 200.)
+- **Portfolio home backdrop** (54a2fe4, the owner's ask): studio Home tab, Backdrop card - the Artwork tile (the
+  collection as before) or one of the owner's uploaded pictures (one tap, live at once), Upload (through
+  /api/upload, adds without changing the page), delete on a second tap (the picture in use puts the artwork back;
+  the file goes once nothing references it), a switch to tint the picture blue or keep its colours. One Setting row
+  `home.backdrop` (lib/hero-backdrop.ts with tests; writes read the row strictly so a failed read never wipes the
+  list; up to 24 pictures, our own uploads only). The page renders the chosen picture on the server (optimiser at
+  screen width, fetched first), no timelapse or caption; Hide backdrop unchanged. `pruneOrphanedMedia` counts every
+  Setting row as a reference now. Checked locally with a stand-in for the session and the row (a scratchpad patch,
+  never committed); no picture is set on the live site yet, so it still shows the artwork.
+- **Portfolio logo ornaments** (e06a009, the owner's ask after krathong D): Christmas hat, Valentine heart, Songkran
+  blossom with a water drop, New Year gem-cut sparkle, Halloween bat across a full moon - each with the krathong's
+  dark outline in both themes, shading, highlights and a soft glow; gradient ids from useId. Preview any of them
+  with `?festival=<id>`.
+- **Portfolio hero art** (fa89b72, the owner's ask): the picture and the black hole drift up to 2.5% toward the mouse
+  with a lag (scale 1.06 hides the edges); mouse and trackpad only, still for reduced motion, idle off screen.
+- **Portfolio Programs icons** (dc5af1e): `/apps/*` is cached for a month under its name and the paths live in the
+  Program table, so local icons load as `?v=ICONS_REV` (lib/programs.ts); bump it when an icon file changes. The
+  Spent/Cost icon was replaced with the redesigned one.
+- **Spent/Cost settings and calendar** (6d6c658, the owner's asks): settings is a list as in CalorieFlow (account
+  card, Security / Notifications / Install as app rows that open their own pages with a back link, the status page as
+  a link out, sign-out at the foot; each row shows its current state, the notifications row for this device). The
+  calendar day sits in the middle of its square; the paid/due/overdue marks hang under it out of the flow.
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 
@@ -570,6 +616,9 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
   not in the bent pixels (a 2 px CSS blur covers them). Waiting on the owner's iPhone check before the chips, search
   field and nav get it. Glisse 0.5/0.6 have no bend/dispersion props (checked 2026-11-16).
 - Dock: a re-rendered page's range picker adopts the mounted glass bar (glass/src/main.js), no rebuild animation.
+- Portfolio: Glisse on the navbar only (2026-11-19, the owner's ask; other glass work stays paused): a 3 px blur so
+  the bend shows in Chromium, frosted glass elsewhere (`data-no-bend`), solid where blur is missing; see the
+  2026-11-19 section under Recent changes.
 - **Solid glass** (2026-11-18, the owner's ask: where glass cannot blur, solid, not see-through). A clear tint only works
   over a blur, so wherever the blur cannot be drawn every glass surface is opaque: a browser without backdrop-filter
   (`@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))`) or
