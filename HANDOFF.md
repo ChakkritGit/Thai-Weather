@@ -262,20 +262,15 @@ integration cases and is not a complete backend check. Test sockets need local s
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
-- The 2026-11-19 redesigns signed in: Spent/Cost with real data (and re-adding it for the new icon), the
-  Whiteboard on the iPhone (two-finger pinch, the "more" menu, Share).
+- Confirmed by the owner on the iPhone on 2026-11-19 ("everything passes"): the redesigns with real data
+  (Spent/Cost, the Whiteboard's pinch, "more" menu and Share), the studio's Home backdrop card, the glass edges,
+  CalorieFlow's bar that turns with the backdrop (its fade, and the tab change of 9c20308), Dock's chat with the LLM.
 - Spent/Cost's new settings list signed in (the notifications row should read this device's state), and the
   portfolio's capsule header on the iPhone (frosted glass there by design: no page bending outside Chromium).
-- The portfolio studio's Home backdrop card signed in (54a2fe4): upload a picture from the phone, pick it, tint on
-  and off, delete it; the home page should follow within a minute.
-- The glass edges of 2026-11-19 on the iPhone (Safari draws no bend, so only the hairlines differ): CalorieFlow's tab
-  bar over a white card and over a photo, the chat field, Thai Weather's map buttons over land and sea at night.
-- The bars that turn with the backdrop, on the iPhone: CalorieFlow's bar and add button scrolled over the coach card
-  (white icons in light mode, dark icons in dark mode), Drive Music's pill and player card over a dark cover. The
-  switch now fades over ~0.3 s: ask whether it feels right (not slow, no flicker at a card's edge). On a tab change
-  only the tapped tab should be green, and the bar should not fade over the new page (9c20308).
-- Dock's chat with the LLM (2026-11-19): the owner asks it something; the "no LLM" note under the field is gone and a
-  plain-text answer comes in a few seconds. If the answers feel slow or thin, LLM_MODEL in chat.env can name the
+- Drive Music's pill and player card over a dark cover on the iPhone (the same flip as CalorieFlow's bar; not asked
+  separately).
+- Dock's chat answering a sign-in question from the security page (2026-11-19, after the chat change below): "who
+  signed in over SSH yesterday, from which IP". If the answers feel slow or thin, LLM_MODEL in chat.env can name the
   other model (`@cf/qwen/qwen3-30b-a3b-fp8`, faster and terser).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
@@ -378,6 +373,13 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   Gemma 2-6 s, ~12 neurons a question; Qwen 1-2 s, terser; both said when the data was not enough. Tests must not
   post to the chat: call the Worker directly, or check chat.env's values from the VPS with an empty `messages`
   (400 "messages ต้องมี…" = URL, key and model are right, no model runs).
+- **Dock's chat model sees the security page item by item** (the owner's next ask: "IP and time"). `reply()` in
+  `runtime/src/chat.rs` adds, under the month's report, the time now and `security_context()` of dock-metrics'
+  `/security` (internal, no auth): the latest 15 SSH and 15 panel sign-ins with time, IP, network and key or browser
+  (new networks marked; panel user names left out, and any word with an e-mail address becomes "(อีเมล)", since NPM
+  signs in with one), failed sign-ins over 24 h with the top IPs, and up to 30 events of the last 14 days, newest
+  first, in Bangkok time ("19 พ.ย. 2569 17:08"). When dock-metrics cannot be read the model is told so. Only the LLM
+  path changed (the chat contract test runs without an LLM); a Rust unit test covers the text.
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 

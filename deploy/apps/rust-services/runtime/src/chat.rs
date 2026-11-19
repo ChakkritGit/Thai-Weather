@@ -13,6 +13,7 @@ use axum::{
     http::{HeaderMap, Method, Uri},
     response::Response,
 };
+use chrono::{Datelike, Timelike};
 use futures_util::{StreamExt, stream};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
@@ -369,8 +370,19 @@ impl App {
             ));
         }
         let context = self.report(&month, now).await?.0;
+        // sign-ins and security events one by one (the owner's ask, 2026-11-19: "which IP, and when"), and the time
+        // now, so "yesterday" can be worked out
+        let security = security_context(
+            &self
+                .get(format!(
+                    "{}/security",
+                    util::env("METRICS_URL", "http://dock-metrics:9100")
+                ))
+                .await,
+            now,
+        );
         let mut messages = vec![
-            json!({"role":"system","content":format!("คุณคือผู้ช่วยดูแลเซิร์ฟเวอร์ VPS ของเจ้าของระบบ ตอบเป็นภาษาไทย สั้น ตรงประเด็น ไม่เดา ถ้าข้อมูลไม่พอให้บอกตรง ๆ\nข้อมูลล่าสุดของระบบ:\n{context}")}),
+            json!({"role":"system","content":format!("คุณคือผู้ช่วยดูแลเซิร์ฟเวอร์ VPS ของเจ้าของระบบ ตอบเป็นภาษาไทย สั้น ตรงประเด็น ไม่เดา ถ้าข้อมูลไม่พอให้บอกตรง ๆ\nตอนนี้ {} (เวลาไทย)\nข้อมูลล่าสุดของระบบ:\n{context}\n\n{security}", when(now))}),
         ];
         let mut history = {
             let db = self.db.locked();
@@ -455,6 +467,167 @@ fn llm() -> bool {
         }
         _ => false,
     }
+}
+/// Bangkok time as Dock's pages show it, for the model: "19 พ.ย. 2569 17:08"
+fn when(ms: i64) -> String {
+    const MONTHS: [&str; 12] = [
+        "ม.ค.",
+        "ก.พ.",
+        "มี.ค.",
+        "เม.ย.",
+        "พ.ค.",
+        "มิ.ย.",
+        "ก.ค.",
+        "ส.ค.",
+        "ก.ย.",
+        "ต.ค.",
+        "พ.ย.",
+        "ธ.ค.",
+    ];
+    chrono::DateTime::from_timestamp_millis(ms + 25_200_000).map_or_else(
+        || "-".into(),
+        |t| {
+            format!(
+                "{} {} {} {:02}:{:02}",
+                t.day(),
+                MONTHS[t.month0() as usize],
+                t.year() + 543,
+                t.hour(),
+                t.minute()
+            )
+        },
+    )
+}
+/// A word holding an e-mail address becomes "(อีเมล)": what goes to the model leaves addresses out (Nginx Proxy
+/// Manager's sign-ins carry one).
+fn no_email(s: &str) -> String {
+    s.split(' ')
+        .map(|w| match w.split_once('@') {
+            Some((name, host)) if !name.is_empty() && host.contains('.') => "(อีเมล)",
+            _ => w,
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+/// Dock's security page (dock-metrics /security) as lines the model can quote, newest first, in Bangkok time: the
+/// latest SSH and panel sign-ins with their IP, network and key or browser (panel user names left out), failed
+/// sign-ins over 24 hours, and the events of the last 14 days. An unreadable page is said, so the model does not guess.
+fn security_context(v: &Value, now: i64) -> String {
+    if v.is_null() {
+        return "ความปลอดภัย: อ่านหน้าความปลอดภัยของ Dock ไม่ได้ตอนนี้".into();
+    }
+    let ms = |e: &Value| (r::n(&e["ts"]) * 1000.) as i64;
+    let s = |x: &Value| no_email(x.as_str().unwrap_or(""));
+    let fresh = |l: &Value| {
+        if l["new"].as_bool() == Some(true) {
+            " (เครือข่ายใหม่)"
+        } else {
+            ""
+        }
+    };
+    let none = |list: &[Value]| {
+        if list.is_empty() {
+            " ไม่มี"
+        } else {
+            ""
+        }
+    };
+    let cats = &v["cats"];
+    let mut out = vec!["ความปลอดภัย จากหน้าความปลอดภัยของ Dock (ใหม่ไปเก่า เวลาไทย)".to_string()];
+    let ssh = r::arr(&cats["ssh"]["logins"]);
+    out.push(format!("ล็อกอิน SSH ล่าสุด:{}", none(ssh)));
+    for l in ssh.iter().take(15) {
+        let how = s(&l["how"]);
+        out.push(format!(
+            "• {} {} จาก {} ({}){}{}",
+            when(ms(l)),
+            s(&l["user"]),
+            s(&l["ip"]),
+            s(&l["net"]),
+            if how.is_empty() {
+                String::new()
+            } else {
+                format!(" ด้วย {how}")
+            },
+            fresh(l)
+        ));
+    }
+    let panel = r::arr(&cats["panel"]["logins"]);
+    out.push(format!(
+        "ล็อกอินหน้าแอดมินล่าสุด (Dock, Portainer, Nginx Proxy Manager):{}",
+        none(panel)
+    ));
+    for l in panel.iter().take(15) {
+        let name = match l["via"].as_str().unwrap_or("") {
+            "dock" => "Dock",
+            "portainer" => "Portainer",
+            "npm" => "Nginx Proxy Manager",
+            other => other,
+        };
+        let how = s(&l["how"]);
+        out.push(format!(
+            "• {} {name} จาก {} ({}){}{}",
+            when(ms(l)),
+            s(&l["ip"]),
+            s(&l["net"]),
+            if how.is_empty() {
+                String::new()
+            } else {
+                format!(" · {how}")
+            },
+            fresh(l)
+        ));
+    }
+    let top = r::arr(&cats["ssh"]["topIps"])
+        .iter()
+        .take(5)
+        .map(|t| format!("{} {} ครั้ง", s(&t["ip"]), r::n(&t["count"])))
+        .collect::<Vec<_>>();
+    out.push(format!(
+        "SSH ล็อกอินไม่ผ่านใน 24 ชั่วโมง: {} ครั้ง{}",
+        r::n(&cats["ssh"]["failed24"]),
+        if top.is_empty() {
+            String::new()
+        } else {
+            format!(" (ลองมากสุด: {})", top.join(", "))
+        }
+    ));
+    out.push(format!(
+        "รหัสผ่านหน้าแอดมินผิดใน 24 ชั่วโมง: {} ครั้ง",
+        r::n(&cats["panel"]["failed24"])
+    ));
+    let events = r::arr(&v["events"])
+        .iter()
+        .filter(|e| ms(e) >= now - 14 * r::DAY)
+        .take(30)
+        .collect::<Vec<_>>();
+    out.push(format!(
+        "เหตุการณ์ 14 วันล่าสุด:{}",
+        if events.is_empty() {
+            " ไม่มี"
+        } else {
+            ""
+        }
+    ));
+    for e in events {
+        let level = match e["level"].as_str() {
+            Some("bad") => "ร้ายแรง",
+            Some("warn") => "เตือน",
+            _ => "ทั่วไป",
+        };
+        let detail = s(&e["detail"]);
+        out.push(format!(
+            "• {} [{level}] {}{}",
+            when(ms(e)),
+            s(&e["title"]),
+            if detail.is_empty() {
+                String::new()
+            } else {
+                format!(": {detail}")
+            }
+        ));
+    }
+    out.join("\n")
 }
 fn query(uri: &Uri) -> std::collections::HashMap<String, String> {
     url::form_urlencoded::parse(uri.query().unwrap_or("").as_bytes())
@@ -733,6 +906,65 @@ mod tests {
         assert_eq!(due(at("2026-10-31T23:55:00+07:00")), Some("2026-10".into()));
         assert_eq!(due(at("2026-11-03T23:59:00+07:00")), Some("2026-10".into()));
         assert_eq!(due(at("2026-11-04T00:00:00+07:00")), None);
+    }
+
+    #[test]
+    fn security_context_lists_sign_ins_and_recent_events_without_addresses() {
+        let ms = |s: &str| {
+            chrono::DateTime::parse_from_rfc3339(s)
+                .unwrap()
+                .timestamp_millis()
+        };
+        let secs = |s: &str| ms(s) as f64 / 1000.;
+        let now = ms("2026-11-19T22:00:00+07:00");
+        assert_eq!(when(now), "19 พ.ย. 2569 22:00");
+        let v = json!({
+            "cats": {
+                "ssh": {
+                    "logins": [{"ts": secs("2026-11-17T21:02:00+07:00"), "via": "ssh", "user": "root", "ip": "192.0.2.7",
+                        "net": "192.0.2.0/24", "how": "SHA256:abc", "new": true}],
+                    "failed24": 12,
+                    "topIps": [{"ip": "198.51.100.9", "count": 9}]
+                },
+                "panel": {
+                    "logins": [{"ts": secs("2026-11-19T17:08:00+07:00"), "via": "npm", "user": "owner@example.com",
+                        "ip": "2001:db8::1", "net": "2001:db8::/64", "how": "iPhone · Safari", "new": false}],
+                    "failed24": 0
+                }
+            },
+            "events": [
+                {"ts": secs("2026-11-19T17:08:00+07:00"), "level": "warn", "title": "Dock: ล็อกอินจากเครือข่ายใหม่",
+                    "detail": "2001:db8::1 (2001:db8::/64) · iPhone · Safari", "alert": true},
+                {"ts": secs("2026-11-01T09:00:00+07:00"), "level": "bad", "title": "เก่ากว่า 14 วัน", "detail": "", "alert": true}
+            ]
+        });
+        let text = security_context(&v, now);
+        for line in [
+            "• 17 พ.ย. 2569 21:02 root จาก 192.0.2.7 (192.0.2.0/24) ด้วย SHA256:abc (เครือข่ายใหม่)\n",
+            "• 19 พ.ย. 2569 17:08 Nginx Proxy Manager จาก 2001:db8::1 (2001:db8::/64) · iPhone · Safari\n",
+            "SSH ล็อกอินไม่ผ่านใน 24 ชั่วโมง: 12 ครั้ง (ลองมากสุด: 198.51.100.9 9 ครั้ง)\n",
+            "รหัสผ่านหน้าแอดมินผิดใน 24 ชั่วโมง: 0 ครั้ง\n",
+            "• 19 พ.ย. 2569 17:08 [เตือน] Dock: ล็อกอินจากเครือข่ายใหม่: 2001:db8::1 (2001:db8::/64) · iPhone · Safari",
+        ] {
+            assert!(text.contains(line), "missing {line:?} in\n{text}");
+        }
+        assert!(
+            !text.contains("เก่ากว่า 14 วัน") && !text.contains('@'),
+            "{text}"
+        );
+        assert_eq!(
+            no_email("ล่าสุดจาก owner@example.com (x) a@b"),
+            "ล่าสุดจาก (อีเมล) (x) a@b"
+        );
+        let empty = security_context(&json!({"cats": {}, "events": []}), now);
+        assert!(
+            empty.contains("ล็อกอิน SSH ล่าสุด: ไม่มี") && empty.ends_with("เหตุการณ์ 14 วันล่าสุด: ไม่มี"),
+            "{empty}"
+        );
+        assert_eq!(
+            security_context(&Value::Null, now),
+            "ความปลอดภัย: อ่านหน้าความปลอดภัยของ Dock ไม่ได้ตอนนี้"
+        );
     }
 
     #[tokio::test]
