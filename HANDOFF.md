@@ -252,6 +252,8 @@ integration cases and is not a complete backend check. Test sockets need local s
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
 - Collapsed bottom sheet no longer covers the map controls (safe-area fix).
 - Bottom-nav tab scrolls to top in Spent/Cost and Drive Music (behind a login, not tested by us).
+- The 2026-11-19 redesigns signed in: Spent/Cost with real data (and re-adding it for the new icon), the
+  Whiteboard on the iPhone (two-finger pinch, the "more" menu, Share).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -270,6 +272,24 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 29)
+
+### Whiteboard without AI, Whiteboard and Spent/Cost redesigns, krathong and paper rolls (2026-11-19, Claude)
+
+- **Whiteboard** (3aafa04): Mr. Worldwide is gone (guide, panel, strings, tidy and flowchart layout, checks,
+  llms.txt). New chrome in the common whiteboard layout: logo menu (files, save a copy, zoom, theme, language,
+  layers, home), title with undo/redo and a layer count top left; who is here and a Share card top right; grouped
+  tool dock with a hand tool and tooltips; zoom bottom right from lg, mini map from xl. Touch: two-finger pinch
+  moves and zooms, and a pinch that starts on a note just placed takes it back. Phones: the dock fits 360 px (spare
+  tools and the shapes under "more"). Checked on `next dev` with no room server (nothing reached the live rooms).
+- **Portfolio Worker** (536d2e6, deployed with wrangler 4.144.0): `/api/assistant/board` and the Whiteboard origin
+  removed; Scrolly's `/api/assistant` unchanged (health 200, preflight 204; board 404, Whiteboard origin 403).
+- **Spent/Cost** (203078c, 593e964): the ledger look is replaced by a modern money app (grey page, rounded cards,
+  gradient debt card, rounded charts, iOS-style switches and sheets, round PIN keys); one typeface, JetBrains Mono
+  dropped. New icon (gradient with a white baht sign) and launch screens, rendered by a Playwright script. It had
+  no AI. Checked on made-up data with the data layer stubbed locally (never committed): all pages, both themes.
+  The installed app keeps its old home-screen icon until it is added again.
+- **Portfolio**: Loy Krathong ornament is the owner's pick "D", folds fanned like a lotus (ad203d7); the chat's paper
+  rolls are cylinders with a spiral end, shading, grain and a cast shadow (a1d95b4).
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 
