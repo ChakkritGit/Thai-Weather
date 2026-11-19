@@ -1,0 +1,17 @@
+# Dock's chat model on Workers AI (worker.ts): an OpenAI-compatible endpoint that only the chat service calls.
+# Deploy: npx -y wrangler@4.144.0 deploy   (from this directory)
+# Secret (wrangler secret put): AI_SECRET (= LLM_API_KEY in /opt/apps/env/chat.env). Tests: bun test (here).
+name = "dock-ai"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+routes = [{ pattern = "docker.chakkritton.com/ai/*", zone_name = "chakkritton.com" }]
+
+[ai]
+binding = "AI"
+
+# one owner typing: 20 questions a minute is plenty (WebProfile's Worker has 1001, CalorieFlow's 1002)
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1003"
+simple = { limit = 20, period = 60 }

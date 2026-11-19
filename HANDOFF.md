@@ -46,7 +46,8 @@ Updated 2026-10-29 (Bangkok) by Codex, for the next agent. Read this file and
 | health.chakkritton.com | What the status Worker cannot see from outside (container health + internal services); needs `x-probe-secret` | `deploy/apps/rust-services/runtime` | VPS |
 | nginx. / portainer.chakkritton.com | Nginx Proxy Manager / Portainer admin | images | VPS |
 
-Also on Cloudflare: Worker `mr-worldwide` (Scrolly AI, Workers AI), DNS (all proxied, SSL Full strict,
+Also on Cloudflare: Worker `mr-worldwide` (Scrolly AI, Workers AI), Worker `dock-ai` (Dock chat's model, Workers AI,
+route `docker.chakkritton.com/ai/*`, code `deploy/dock-ai-worker/`), DNS (all proxied, SSL Full strict,
 Origin CA cert in NPM), **Email Routing** on chakkritton.com (only used by the status Worker to e-mail the
 owner when the VPS is unreachable). **Bot Fight Mode and JS detections are OFF** (owner's decision,
 2026-10-16): their injected `/cdn-cgi/challenge-platform` script used a deprecated API and cost ~0.5 s of
@@ -110,6 +111,9 @@ Python numerical worker and separate Python verification container retained. See
     **file** → `docker restart dock` after changing it (validate with a throwaway nginx first).
   - Status Worker: `cd deploy/status-worker && npx -y wrangler@4.144.0 deploy` (wrangler is logged in on the
     owner's Mac). New cron triggers take ~15 min to start firing.
+  - Dock chat's model: `cd deploy/dock-ai-worker && bun test && npx -y wrangler@4.144.0 deploy`. A new route or
+    secret takes about a minute to reach every edge (meanwhile some requests still reach Dock's nginx, 405, or
+    get 401).
 - **Use `umask 022` for the locked `git pull`.** Dock serves a bind-mounted
   public directory: tracked static files must be 0644 and directories 0755.
   A pull under `umask 077` creates 0600 replacements and nginx returns 403.
@@ -126,6 +130,10 @@ Python numerical worker and separate Python verification container retained. See
   for nginx.chakkritton.com, portainer.chakkritton.com, docker.chakkritton.com (user `admin` for the last
   two), and the VPS root password (host = the VPS IP, console only). Supabase CLI token: Keychain "Supabase CLI".
 - Status Worker secrets: PROBE_SECRET (= `health.env`), HEALTH_TOKEN, CALORIEFLOW_HEALTH_TOKEN, ALERT_TO.
+- Dock chat (`chat.env`): ALERT_SECRET, and since 2026-11-19 LLM_PROVIDER=openai, LLM_BASE_URL
+  (`https://docker.chakkritton.com/ai/v1`), LLM_MODEL (one of the Worker's MODELS), LLM_API_KEY = Worker `dock-ai`'s
+  AI_SECRET (the value is kept nowhere else; to rotate, generate one, pipe it into `wrangler secret put AI_SECRET`
+  and into chat.env, then `docker compose up -d --no-deps chat`).
 - CalorieFlow (since 2026-10-30 the Rust API holds the secrets): `calorieflow-api.env` (DATABASE_URL, DATA_KEY — see
   below, APP_ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — a Web OAuth client in project
   `calorieflow-bb756`, set 2026-10-25, TURN_SECRET, TURN_URLS, GIPHY_KEY, FEEDBACK_ADMINS — the owner's user id, who reads the problem reports); the web's `calorieflow.env` keeps only
@@ -266,6 +274,9 @@ integration cases and is not a complete backend check. Test sockets need local s
   (white icons in light mode, dark icons in dark mode), Drive Music's pill and player card over a dark cover. The
   switch now fades over ~0.3 s: ask whether it feels right (not slow, no flicker at a card's edge). On a tab change
   only the tapped tab should be green, and the bar should not fade over the new page (9c20308).
+- Dock's chat with the LLM (2026-11-19): the owner asks it something; the "no LLM" note under the field is gone and a
+  plain-text answer comes in a few seconds. If the answers feel slow or thin, LLM_MODEL in chat.env can name the
+  other model (`@cf/qwen/qwen3-30b-a3b-fp8`, faster and terser).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -356,6 +367,17 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   apps".
 - **CalorieFlow app: the water card's amount field empties after adding** (the owner's iPhone kept the number):
   native 1cd5995 gives the field a new `key` after each typed amount; why, in the native repo's HANDOFF.
+- **Dock's chat answers with an LLM** (the owner's ask: "connect it to the Cloudflare Worker's LLM"). The chat
+  service already spoke to any OpenAI-compatible server, so no Rust change: Worker `dock-ai`
+  (`deploy/dock-ai-worker/`, its own secret and rate limit, 20/min, namespace 1003) answers POST
+  `/ai/v1/chat/completions` with Workers AI. Gemma 4 26B by default, Qwen 3 30B when it fails or takes over 25 s;
+  thinking off. It folds the system messages into one and drops leading answers (Gemma's template wants turns that
+  alternate, and the chat sends its last 12 messages as they are), leaves out the chat's own "no LLM" and "cannot
+  answer" replies with their questions, asks for plain text and strips Markdown marks and emoji (Dock shows text
+  as is), and returns Thai errors (the chat shows "ตอบไม่ได้ตอนนี้: …"). Tried with made-up data on 2026-11-19:
+  Gemma 2-6 s, ~12 neurons a question; Qwen 1-2 s, terser; both said when the data was not enough. Tests must not
+  post to the chat: call the Worker directly, or check chat.env's values from the VPS with an empty `messages`
+  (400 "messages ต้องมี…" = URL, key and model are right, no model runs).
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 

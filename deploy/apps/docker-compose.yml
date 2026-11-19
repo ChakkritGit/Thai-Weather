@@ -416,7 +416,8 @@ services:
       retries: 3
 
   # Dock's chat: a summary of each month on its last evening, answers to what is typed (an LLM can be
-  # plugged in through chat.env: Cloudflare Workers AI or any OpenAI-compatible server). Reads
+  # plugged in through chat.env: Cloudflare Workers AI or any OpenAI-compatible server; since 2026-11-19
+  # the dock-ai Worker, deploy/dock-ai-worker). Reads
   # dock-metrics on Dock's internal network, the other services on proxy.
   chat:
     <<: *rust
