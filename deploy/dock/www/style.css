@@ -180,6 +180,11 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
   --lg-foreground: var(--text); --lg-muted: var(--muted); --lg-on: var(--accent);
   /* no hairline outline on any glass (the owner's ask): the tint and Glisse's rim light carry the edge */
   --lg-edge: transparent;
+  /* the floating glass's edge, which follows what is behind it (the owner's ask, after the portfolio's capsule): a dark
+     hairline just outside shows where the page is light, a light one just inside where it is dark, spot by spot, so
+     the nav pill and the chat field never melt into a card or a dark page. Both themes. */
+  --edge-dark: rgb(0 0 0 / 0.12);
+  --edge-lit: rgb(255 255 255 / 0.2);
   --surface-glass: color-mix(in srgb, var(--surface) 16%, transparent);
   --lg-glass: var(--surface-glass);
   /* clear, as iOS 26's "Clear" Liquid Glass (the owner's ask): the rim and a light blur carry the shape */
@@ -209,8 +214,10 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   background: var(--glass-tint);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5); backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-  box-shadow: inset 0 0 0 0.5px var(--lg-edge), 0 6px 20px rgb(0 0 0 / 0.14);
+  box-shadow: 0 0 0 1px var(--edge-dark), 0 6px 20px rgb(0 0 0 / 0.14);
 }
+/* the edge's light hairline on Glisse's pane, which lies over this blur and bends it at the rim (one drawn here would bend) */
+.dock-nav .lg-tab-bar > .lg-tab-bar-glass { box-shadow: inset 0 0 0 1px var(--edge-lit); }
 
 /* chat field: a floating pill. Blur and tint come from its ::before, so they hold even if Glisse's lens filter is dropped
    (and the pill drops its own backdrop-filter, which would cut the pane off from the page behind); the pane adds the rim
@@ -218,19 +225,22 @@ html[lang='ja'] .tab-label { font-size: 10.5px; letter-spacing: -0.03em; }
 .chat-row {
   position: relative; isolation: isolate; align-items: center;
   padding: 5px 5px 5px 4px; border-radius: 27px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
+  box-shadow: 0 0 0 1px var(--edge-dark), 0 6px 20px rgb(0 0 0 / 0.14);
 }
+/* the edge's light hairline sits on the top glass layer, over its blur: here until the pane mounts, then on the pane
+   (it lies over this blur and bends it at the rim, so a hairline left here would show a bent copy) */
 .chat-row::before {
   content: ''; position: absolute; inset: 0; z-index: -2; border-radius: inherit;
   background: var(--glass-tint);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5); backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  box-shadow: inset 0 0 0 1px var(--edge-lit);
 }
-.chat-row:has(> .glass-mount > .lg-glass) { box-shadow: 0 6px 20px rgb(0 0 0 / 0.14); }
+.chat-row:has(> .glass-mount > .lg-glass)::before { box-shadow: none; }
 .chat-row .chat-input, .chat-row .chat-input:focus { border: 0; background: transparent; border-radius: 22px; }
 /* the pane's radius is `inherit`, and its parent is the box-less mount */
 .chat-row > .glass-mount { border-radius: inherit; }
 .chat-row .icon-btn.send { border-radius: 50%; }
-.glass-mount > .lg-glass { --lg-glass: transparent; --lg-blur: 0px; box-shadow: none; }
+.glass-mount > .lg-glass { --lg-glass: transparent; --lg-blur: 0px; box-shadow: inset 0 0 0 1px var(--edge-lit); }
 /* a lens across a wide pill bends nothing you can see */
 @media (min-width: 900px) { .glass-mount > .lg-glass { background-image: none; -webkit-backdrop-filter: none; backdrop-filter: none; } }
 /* Solid glass: a glass tint is only clear because a backdrop blur sits under it. Where the blur cannot be drawn (a
