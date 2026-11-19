@@ -247,6 +247,8 @@ integration cases and is not a complete backend check. Test sockets need local s
 ### Ask the owner to confirm on the iPhone
 - CalorieFlow app: reinstall before the free-team profile ends (2026-11-20 08:12 Bangkok), which also brings the
   2026-11-18 audit fixes; then look over a skin other than classic at night (colours were synced wrong before).
+  The Release of 2026-11-19 20:42 (native 1cd5995) is built and waits for the cable: it also brings the water
+  card's amount field that empties after adding (type an amount, press +: the box empties and the keyboard goes).
 - CalorieFlow: passkey sign-up with Face ID, Web Push (needs the Home Screen app); after 2026-10-25 evening: the PIN lock, skins (incl. Halloween), the Health page animations,
   photo estimates on real meals, and the Thai date format (Buddhist year) under Bun.
 - New Drive Music skeletons with the real Google session (browser checks used mocked auth/data).
@@ -349,6 +351,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   Drive Music ccfc44f, Thai Weather and Dock 0162297. Then **bars that turn with the backdrop** (white icons on dark
   glass over a dark card or cover): CalorieFlow a2035de and 0f5e18a, Drive Music f65ac2e; the switch fades over
   0.3 s (CalorieFlow d11f0ed, Drive Music 478674c). How and where: "Glass across the apps".
+- **CalorieFlow app: the water card's amount field empties after adding** (the owner's iPhone kept the number):
+  native 1cd5995 gives the field a new `key` after each typed amount; why, in the native repo's HANDOFF.
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 
