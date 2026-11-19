@@ -258,6 +258,8 @@ integration cases and is not a complete backend check. Test sockets need local s
   portfolio's capsule header on the iPhone (frosted glass there by design: no page bending outside Chromium).
 - The portfolio studio's Home backdrop card signed in (54a2fe4): upload a picture from the phone, pick it, tint on
   and off, delete it; the home page should follow within a minute.
+- The glass edges of 2026-11-19 on the iPhone (Safari draws no bend, so only the hairlines differ): CalorieFlow's tab
+  bar over a white card and over a photo, the chat field, Thai Weather's map buttons over land and sea at night.
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -340,6 +342,8 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   card, Security / Notifications / Install as app rows that open their own pages with a back link, the status page as
   a link out, sign-out at the foot; each row shows its current state, the notifications row for this device). The
   calendar day sits in the middle of its square; the paid/due/overdue marks hang under it out of the flow.
+- **Glass edges that follow the backdrop** (the owner's ask, after the portfolio's capsule): CalorieFlow 43aee1f,
+  Drive Music ccfc44f, Thai Weather and Dock 0162297. How and where: "Glass across the apps".
 
 ### UI audit: Dock, Thai Weather, CalorieFlow web and app (2026-11-18, Claude)
 
@@ -610,9 +614,22 @@ Owner: update Next to 16.4.1 and fix everything the scan found. These are owner-
 
 ### Glass across the apps (2026-11-15/16, Claude)
 
-- Clear glass everywhere (tint 14-26% of the surface, 3-4 px blur; Thai Weather's text panes 12 px); no hairline
-  outlines (`--lg-edge: transparent`, hosts' 1px borders transparent); one tab bar size in all four apps (50 px tabs,
-  `min(88px, (100vw - 48px) / 5)` wide, Glisse's default lens growth).
+- Clear glass everywhere (tint 14-26% of the surface, 3-4 px blur; Thai Weather's text panes 12 px); Glisse's own
+  hairline off (`--lg-edge: transparent`), and since 2026-11-19 an edge that follows the backdrop instead (below); one
+  tab bar size in all four apps (50 px tabs, `min(88px, (100vw - 48px) / 5)` wide, Glisse's default lens growth).
+- **Edge that follows the backdrop** (2026-11-19, the owner's ask after the portfolio's capsule: the bottom nav and
+  anything that can melt into what is behind it). Two hairlines in both themes: `--edge-dark` (black 12%) just
+  outside and `--edge-lit` (white 20%) just inside. Each shows only where the other cannot, spot by spot (the dark
+  one over a light card, map or photo, the light one over a dark page), with no script, so it works in every engine
+  and in solid mode. The light one must be on the top glass layer (Glisse's pane, never the tab lens): a pane blurs
+  and, in Chromium, bends what lies under it at the rim, so an inset shadow on a host under a pane shows as a bent
+  smear. The dark one is the host's 1px border (the widths were kept) or a ring outside the box. CalorieFlow web: tab
+  bar, add button, chat and coach fields (43aee1f). Drive Music: nav pill, phone player card (ccfc44f). Thai
+  Weather: nav, panes, layer chips, round map buttons, on Glisse and on the WebGL glass; Dock: nav pill, chat field
+  (0162297). Not changed: Spent/Cost (solid nav with a rule), Whiteboard (solid panels with their own edge), the
+  CalorieFlow app (system tabs), Drive Music's dark chip. Checked locally at iPhone 15 size in Chromium, both
+  themes, before/after crops: CalorieFlow on the local stack with made-up users, Dock on the mock, Drive Music with a
+  stand-in session, Thai Weather on `next dev` reading the live API (GETs only).
 - Thai Weather prototype: WebGL Liquid Glass under the round map buttons (`lib/mapGlass.ts`, `components/MapGlass.tsx`).
   A MapLibre custom layer copies the crop under the buttons from the map's frame buffer and bends it (Glisse's optics
   in GLSL, `DEFAULT_LOOK` bend 0.75, dispersion 1.05), so Safari/iPhone shows refraction; Glisse's pane is the
