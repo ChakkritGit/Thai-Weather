@@ -135,7 +135,9 @@ Python numerical worker and separate Python verification container retained. See
   AI_SECRET (the value is kept nowhere else; to rotate, generate one, pipe it into `wrangler secret put AI_SECRET`
   and into chat.env, then `docker compose up -d --no-deps chat`). Optional since 2026-11-20: MCP_SERVERS
   (`name=https://…` pairs, comma separated) and MCP_<NAME>_TOKEN (a bearer token for that server) for the chat
-  model's MCP tools; none are set yet.
+  model's MCP tools. Set by the owner on 2026-11-20: `cfdocs=https://docs.mcp.cloudflare.com/mcp` (Cloudflare's
+  public docs server, no token, two tools; checked from the Mac and the VPS). To drop it: `sed -i
+  "/^MCP_SERVERS=/d"` on chat.env, then recreate chat.
 - CalorieFlow (since 2026-10-30 the Rust API holds the secrets): `calorieflow-api.env` (DATABASE_URL, DATA_KEY — see
   below, APP_ORIGIN, AI_URL, AI_SECRET, VAPID_*, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — a Web OAuth client in project
   `calorieflow-bb756`, set 2026-10-25, TURN_SECRET, TURN_URLS, GIPHY_KEY, FEEDBACK_ADMINS — the owner's user id, who reads the problem reports); the web's `calorieflow.env` keeps only
