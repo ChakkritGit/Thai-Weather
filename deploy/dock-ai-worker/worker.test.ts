@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { MODELS, STYLE, normalize, parse, plain, sameSecret, toolCalls, type Msg, type Tool } from "./lib";
 import worker from "./worker";
 
-const [GEMMA, QWEN] = Object.keys(MODELS);
+const [GEMMA, DEEPSEEK] = Object.keys(MODELS);
 const SECRET = "test-secret-not-real";
 
 /** A stand-in for the Worker's bindings: each model's answer (a function, so one can throw), and the rate limit. */
@@ -96,9 +96,10 @@ describe("parse", () => {
     expect(p.model).toBe(GEMMA);
     expect(p.max_tokens).toBe(800);
     expect(p.temperature).toBe(0.3);
-    const q = parse(JSON.stringify({ model: QWEN, max_tokens: 5000, temperature: 3, messages: [{ role: "user", content: "hi" }] }));
+    const q = parse(JSON.stringify({ model: DEEPSEEK, max_tokens: 5000, temperature: 3, messages: [{ role: "user", content: "hi" }] }));
     if (typeof q === "string") throw new Error(q);
-    expect([q.model, q.max_tokens, q.temperature]).toEqual([QWEN, 1024, 1]);
+    expect([q.model, q.max_tokens, q.temperature]).toEqual([DEEPSEEK, 1024, 1]);
+    expect(parse(JSON.stringify({ model: "@cf/qwen/qwen3-30b-a3b-fp8", messages: [{ role: "user", content: "hi" }] }))).toStartWith("ไม่รู้จักโมเดล");
   });
   test("refusals say why, in Thai", () => {
     expect(parse("{")).toBe("คำขอไม่ใช่ JSON");
@@ -176,15 +177,16 @@ describe("fetch", () => {
   });
 
   test("the next model when one fails, with its own way to skip thinking", async () => {
-    const t = env({ [GEMMA]: () => { throw new Error("5xx"); }, [QWEN]: () => ({ response: "ตอบจาก qwen" }) });
+    const t = env({ [GEMMA]: () => { throw new Error("5xx"); }, [DEEPSEEK]: () => ({ response: "ตอบจาก deepseek" }) });
     const res = await worker.fetch(ask(question), t.env);
     const j = (await res.json()) as { model: string; choices: { message: { content: string } }[] };
-    expect([res.status, j.model, j.choices[0].message.content]).toEqual([200, QWEN, "ตอบจาก qwen"]);
-    expect((t.calls[1].input.messages as Msg[]).at(-1)!.content).toEndWith(" /no_think");
+    expect([res.status, j.model, j.choices[0].message.content]).toEqual([200, DEEPSEEK, "ตอบจาก deepseek"]);
+    expect(t.calls[1].input.reasoning_effort).toBe("none");
+    expect((t.calls[1].input.messages as Msg[]).at(-1)!.content).toBe("CPU เป็นยังไง");
   });
 
   test("an empty quota stops at once; every model failing is a 502", async () => {
-    const quota = env({ [GEMMA]: () => { throw new Error("4006: daily free allocation of neurons used up"); }, [QWEN]: ok("x") });
+    const quota = env({ [GEMMA]: () => { throw new Error("4006: daily free allocation of neurons used up"); }, [DEEPSEEK]: ok("x") });
     const q = await worker.fetch(ask(question), quota.env);
     expect([q.status, quota.calls.length]).toEqual([503, 1]);
     expect(((await q.json()) as { error: { message: string } }).error.message).toContain("โควตา");
@@ -192,26 +194,26 @@ describe("fetch", () => {
     expect((await worker.fetch(ask(question), down.env)).status).toBe(502);
   });
 
-  test("tool calls come back in the OpenAI shape; the suffix stays on the question", async () => {
+  test("tool calls come back in the OpenAI shape; the messages go on as sent", async () => {
     const calls = [{ id: "c9", type: "function", function: { name: "backups", arguments: "{}" } }];
     const t = env({ [GEMMA]: () => ({ choices: [{ message: { content: null, tool_calls: calls } }] }) });
     const res = await worker.fetch(ask(chat([{ role: "user", content: "แบ็กอัป" }], { tools: [TOOL] })), t.env);
     const j = (await res.json()) as { choices: { message: Record<string, unknown>; finish_reason: string }[] };
     expect(j.choices[0]).toEqual({ index: 0, message: { role: "assistant", content: null, tool_calls: calls }, finish_reason: "tool_calls" } as never);
     expect(t.calls[0].input.tools).toEqual([TOOL]);
-    const q = env({ [QWEN]: () => ({ response: "<think></think>มี 2 ชุด" }) });
+    const q = env({ [DEEPSEEK]: () => ({ response: "<think></think>มี 2 ชุด" }) });
     const after = chat(
       [
         { role: "user", content: "แบ็กอัป" },
         { role: "assistant", content: "", tool_calls: calls as never },
         { role: "tool", tool_call_id: "c9", content: "แบ็กอัป 2 ชุด" },
       ],
-      { model: QWEN, tools: [TOOL], tool_choice: "none" },
+      { model: DEEPSEEK, tools: [TOOL], tool_choice: "none" },
     );
     const done = (await (await worker.fetch(ask(after), q.env)).json()) as { choices: { message: { content: string }; finish_reason: string }[] };
     expect([done.choices[0].message.content, done.choices[0].finish_reason]).toEqual(["มี 2 ชุด", "stop"]);
     const sent = q.calls[0].input.messages as Msg[];
-    expect([sent[1].content, sent.at(-1)!.content]).toEqual(["แบ็กอัป /no_think", "แบ็กอัป 2 ชุด"]);
+    expect([sent[1].content, sent.at(-1)!.content]).toEqual(["แบ็กอัป", "แบ็กอัป 2 ชุด"]);
     expect(q.calls[0].input.tools).toBeUndefined();
   });
 

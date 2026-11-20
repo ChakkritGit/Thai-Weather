@@ -275,7 +275,7 @@ integration cases and is not a complete backend check. Test sockets need local s
   separately).
 - Dock's chat with tools (2026-11-20): questions such as "how was the server over the last 24 hours", "check
   security", "is site X down", "last month"; under each answer "ดูข้อมูลจาก …" lists what the model looked at. If the
-  answers feel slow or thin, LLM_MODEL in chat.env can name the other model (`@cf/qwen/qwen3-30b-a3b-fp8`).
+  answers feel slow or thin, LLM_MODEL in chat.env can name the other model (`@cf/deepseek-ai/deepseek-v4.1-flash-1017`).
 - The status alert e-mail (sent once as a test on 2026-10-16) renders well in Gmail and is not in spam.
 - The PM2.5 view (button PM2.5 on the map): forecast shading + station dots, no other layer at the same time.
 
@@ -294,6 +294,20 @@ Performance moves ±10 between runs. The map page renders on the server now; onl
 browser-only reads (localStorage, navigator) in effects so the two renders match.
 
 ## 9. Recent changes (2026-10-14 → 29)
+
+### Workers AI retired Qwen 3 30B (2026-11-20, Claude)
+- Cloudflare decommissioned a list of models on 2026-11-20 (e-mail "Model Decommissioning", changelog
+  `2026-11-05-planned-model-deprecations`); `@cf/qwen/qwen3-30b-a3b-fp8` answers 404 since then. From 08:00 the status
+  page showed "Scrolly AI" and "โค้ช AI ของ CalorieFlow" down: Scrolly's answers and CalorieFlow's coach chat used it,
+  and Dock's chat had it as the fallback.
+- Fixed and deployed 10:51: Scrolly (WebProfile worker, mr-worldwide) and CalorieFlow's coach (calorieflow-ai) run
+  Gemma 4 26B A4B with thinking off (`reasoning_effort: none`, `enable_thinking: false`); Scrolly's stream reader takes
+  OpenAI-style deltas as well as `response` (Gemma streams deltas); Dock's fallback (dock-ai) is DeepSeek V4.1 Flash
+  (tools, `reasoning_effort: none`). A live Scrolly question streamed in 2 s.
+- Model IDs live in WebProfile `worker/src/health.ts`, CalorieFlowWeb `worker/src/index.ts` and `api/src/ai.rs`
+  (ESTIMATE_MODEL), and here `deploy/dock-ai-worker/lib.ts`. When Cloudflare announces retirements, grep every repo for
+  the listed IDs. CalorieFlow's API still appends Qwen's `/no_think` to a few prompts: harmless for Gemma (menu
+  estimates have sent it since 2026-11-05); drop it at the next API deploy.
 
 ### Whiteboard without AI, Whiteboard and Spent/Cost redesigns, krathong and paper rolls (2026-11-19, Claude)
 

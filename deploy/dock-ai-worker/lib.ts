@@ -20,11 +20,12 @@ export type AiOut = {
 /**
  * The models LLM_MODEL may name, the first by default, each with what makes it answer without thinking first (Dock
  * waits for the whole answer, and a thinking model can spend its tokens reasoning; the same options as CalorieFlow's
- * AI Worker). When one fails or is slow the next is tried, the same messages.
+ * AI Worker). When one fails or is slow the next is tried, the same messages. DeepSeek V4.1 Flash (tools, reasoning
+ * "none") since 2026-11-20, when Workers AI retired Qwen 3 30B, the second until then.
  */
-export const MODELS: Record<string, { options: Record<string, unknown>; suffix?: string }> = {
+export const MODELS: Record<string, { options: Record<string, unknown> }> = {
   "@cf/google/gemma-4-26b-a4b-it": { options: { reasoning_effort: "none", chat_template_kwargs: { enable_thinking: false } } },
-  "@cf/qwen/qwen3-30b-a3b-fp8": { options: {}, suffix: " /no_think" },
+  "@cf/deepseek-ai/deepseek-v4.1-flash-1017": { options: { reasoning_effort: "none" } },
 };
 const DEFAULT_MODEL = Object.keys(MODELS)[0];
 /** each model's turn: two stay well inside the 60 s that the proxies in front of Dock wait for a reply */

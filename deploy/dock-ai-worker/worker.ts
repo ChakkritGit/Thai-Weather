@@ -28,12 +28,9 @@ export default {
     if (typeof body === "string") return fail(400, body, "invalid_request_error");
     const order = [body.model, ...Object.keys(MODELS).filter((m) => m !== body.model)];
     for (const model of order) {
-      const { options, suffix } = MODELS[model];
-      // the suffix goes on the question: after tool results the last message is not the user's
-      const asked = body.messages.findLastIndex((m) => m.role === "user");
-      const messages = suffix ? body.messages.map((m, i) => (i === asked ? { ...m, content: m.content + suffix } : m)) : body.messages;
+      const { options } = MODELS[model];
       try {
-        const input = { messages, max_tokens: body.max_tokens, temperature: body.temperature, ...(body.tools ? { tools: body.tools } : {}), ...options };
+        const input = { messages: body.messages, max_tokens: body.max_tokens, temperature: body.temperature, ...(body.tools ? { tools: body.tools } : {}), ...options };
         const out = await within(env.AI.run(model, input) as Promise<AiOut>, WAIT_MS);
         const usage = out.usage && typeof out.usage === "object" ? { usage: out.usage } : {};
         const answer = (message: Record<string, unknown>, finish_reason: string) =>
