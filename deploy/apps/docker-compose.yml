@@ -13,6 +13,7 @@
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
 #   symos-updates nginx    updates.chakkritton.com/symos/  (SymOS's signed update feed, static files)
+#   symos-accounts rust    accounts.chakkritton.com  (SymOS online accounts, recovery-key escrow; own Postgres)
 #   web, api, verify, weather-web-api        thai-weather.chakkritton.com (this repo; ../weather.yml)
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
@@ -398,6 +399,45 @@ services:
       timeout: 5s
       retries: 3
 
+  # SymOS's online accounts (symos-accounts/src/main.rs): sign-up, sign-in and each device's wrapped recovery key.
+  # Its own Postgres in its own container, volume and internal network (the owner, 2026-11-25). build.sh symos-accounts
+  symos-accounts:
+    image: symos-accounts:local
+    pull_policy: never
+    restart: unless-stopped
+    env_file: ${ENVS:-/opt/apps/env}/symos-accounts.env
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 256m
+    depends_on: [symos-accounts-db]
+    networks:
+      proxy:
+        aliases: [symos-accounts]
+      symos-accounts:
+
+  # The same pinned Postgres 17.12 image as apps-db (db/Dockerfile, build.sh db)
+  symos-accounts-db:
+    image: apps-db:local
+    pull_policy: never
+    container_name: symos-accounts-db
+    restart: unless-stopped
+    env_file: ${ENVS:-/opt/apps/env}/symos-accounts-db.env
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=20"]
+    shm_size: 32m
+    pids_limit: 128
+    mem_limit: 256m
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - symos-accounts-db:/var/lib/postgresql/data
+    networks: [symos-accounts]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "accounts"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # SymOS's update feed (repo SymOS, scripts/publish-update.sh): signed manifests and images as static files from
   # /opt/symos-updates. The same pinned nginx as Dock, as its own user on 8080, read-only, nothing to write.
   symos-updates:
@@ -476,6 +516,10 @@ services:
 networks:
   proxy:
     external: true
+  # SymOS accounts and their database only, with no way out
+  symos-accounts:
+    name: symos-accounts
+    internal: true
   apps:
     name: apps-internal
   # chat, analytics and health only: a small egress network that the sites' containers are not on
@@ -492,6 +536,7 @@ networks:
     name: database-postgres
 
 volumes:
+  symos-accounts-db:
   portfolio-cache:
   expenses-cache:
   whiteboard-cache:

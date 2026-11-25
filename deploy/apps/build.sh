@@ -19,6 +19,8 @@ case "$name" in
     docker buildx build --load -t apps-calorieflow-api:local "$REPOS/calorieflow/api" ;;
   db)
     docker buildx build --load -t apps-db:local db ;;
+  symos-accounts)
+    docker buildx build --load -t symos-accounts:local symos-accounts ;;
   turn)
     docker buildx build --load -t apps-turn:local turn ;;
   portfolio|expenses|whiteboard|drive-music|calorieflow)

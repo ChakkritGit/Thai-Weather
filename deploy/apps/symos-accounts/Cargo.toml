@@ -1,0 +1,24 @@
+[package]
+name = "symos-accounts"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+# The same pins as rust-services/runtime where they overlap; argon2 0.5.3 (2024) for the password hashes
+[dependencies]
+axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio", "json"] }
+tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time", "io-util"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+tokio-postgres = "=0.7.18"
+argon2 = { version = "=0.5.3", features = ["std"] }
+rand = "=0.8.6"
+sha2 = "=0.10.9"
+base64 = "=0.22.1"
+subtle = "=2.6.1"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

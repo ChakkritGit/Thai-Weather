@@ -90,6 +90,7 @@ HOSTS = [
     (["calorieflow.chakkritton.com"], "apps-calorieflow", 3000, "client_max_body_size 70m;\n" + CALORIEFLOW_API),
     (["health.chakkritton.com"], "apps-health", 8789, ""),  # the status Worker's view inside the VPS
     (["updates.chakkritton.com"], "symos-updates", 8080, ""),  # SymOS's signed update feed (static)
+    (["accounts.chakkritton.com"], "symos-accounts", 8080, "client_max_body_size 64k;\n"),  # SymOS accounts
 ]
 
 HTTP_TOP_EXTRA = "limit_req_zone $binary_remote_addr zone=beacon:10m rate=60r/m;\n"
