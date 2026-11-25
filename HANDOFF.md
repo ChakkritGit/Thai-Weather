@@ -308,7 +308,7 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
   `PUT|GET|DELETE /v1/devices/{id}` (a device's recovery key, wrapped on the device with a key from the account
   password: the server never sees the key). Tokens: 32 random bytes, SHA-256 stored, 180 days. Limits in memory:
   sign-up 5/h per visitor, sign-in 30/15 min per visitor and 10/15 min per address. No e-mail is ever sent.
-- NPM host `accounts.chakkritton.com` exists (npm-hosts.py). The proxied DNS A record still has to be created.
+- `accounts.chakkritton.com`: proxied A record (created by the owner 2026-11-25) → NPM host (npm-hosts.py).
 
 ### SymOS update feed (2026-11-25, Claude)
 
