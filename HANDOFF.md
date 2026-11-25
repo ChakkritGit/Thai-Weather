@@ -295,6 +295,21 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 29)
 
+### SymOS accounts (2026-11-25, Claude)
+
+- The owner asked for SymOS online accounts on the VPS in Rust with the database in a new container (this overrides
+  the Bun + Elysia default). Code: `deploy/apps/symos-accounts/` (axum, tokio-postgres, Argon2id). Containers in the
+  apps stack: `symos-accounts` (scratch image, read-only, user 1000, `build.sh symos-accounts`) and
+  `symos-accounts-db` (the pinned `apps-db:local` Postgres 17.12, volume `symos-accounts-db`), alone on the internal
+  network `symos-accounts`; the service is also on `proxy`. Secrets: `/opt/apps/env/symos-accounts{,-db}.env`
+  (generated on the VPS, never printed). Nightly dump: `db/backup.sh` (`symos-accounts-DATE.dump`).
+- API (JSON): `POST /v1/accounts` sign-up, `POST|DELETE /v1/sessions` sign-in/out, `GET|DELETE /v1/account`,
+  `PUT /v1/account/password` (old password + every device's escrow wrapped again; other sessions end),
+  `PUT|GET|DELETE /v1/devices/{id}` (a device's recovery key, wrapped on the device with a key from the account
+  password: the server never sees the key). Tokens: 32 random bytes, SHA-256 stored, 180 days. Limits in memory:
+  sign-up 5/h per visitor, sign-in 30/15 min per visitor and 10/15 min per address. No e-mail is ever sent.
+- NPM host `accounts.chakkritton.com` exists (npm-hosts.py). The proxied DNS A record still has to be created.
+
 ### SymOS update feed (2026-11-25, Claude)
 
 - The owner approved a SymOS update server on the VPS (2026-11-25): `updates.chakkritton.com` (one proxied A
