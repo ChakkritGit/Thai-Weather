@@ -12,6 +12,7 @@
 #   turn         coturn    <VPS IP>:3478                     (STUN/TURN for CalorieFlow calls; turn/setup.sh)
 #   health       Rust       health.chakkritton.com            (containers + internal checks for the status Worker)
 #   analytics    Rust       <every site>/_a → Dock "สถิติเว็บ" (was Vercel Analytics + Speed Insights)
+#   symos-updates nginx    updates.chakkritton.com/symos/  (SymOS's signed update feed, static files)
 #   web, api, verify, weather-web-api        thai-weather.chakkritton.com (this repo; ../weather.yml)
 #
 # Repos are cloned to $REPOS (default /opt/apps/repos) and secrets live in $ENVS (default /opt/apps/env,
@@ -396,6 +397,32 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # SymOS's update feed (repo SymOS, scripts/publish-update.sh): signed manifests and images as static files from
+  # /opt/symos-updates. The same pinned nginx as Dock, as its own user on 8080, read-only, nothing to write.
+  symos-updates:
+    image: nginx:1.30.7-alpine3.24-slim@sha256:e00f38ab6677f5a8d861a9d9430f97c491a44f98072aa349915e4abb7e7f432b
+    restart: unless-stopped
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 32
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./symos-updates/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /opt/symos-updates:/srv:ro
+    networks:
+      proxy:
+        aliases: [symos-updates]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+      start_interval: 2s
 
   # Page views + Web Vitals: each site posts to /_a (NPM forwards it here); Dock reads /stats.
   analytics:

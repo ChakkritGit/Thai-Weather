@@ -295,6 +295,16 @@ browser-only reads (localStorage, navigator) in effects so the two renders match
 
 ## 9. Recent changes (2026-10-14 → 29)
 
+### SymOS update feed (2026-11-25, Claude)
+
+- The owner approved a SymOS update server on the VPS (2026-11-25): `updates.chakkritton.com` (one proxied A
+  record, like the other app hosts) → NPM (`npm-hosts.py`, the Origin CA cert) → `symos-updates` in the apps
+  stack: the pinned Dock nginx as user 101, read-only, GET/HEAD only, serving `/opt/symos-updates/symos/` on
+  the host (`latest.json`, `latest.json.sig`, `symos-VERSION.img`; everything else is 404).
+- Nothing secret is on the VPS: each manifest is signed on the owner's Mac with a key kept only in its
+  Keychain ("SymOS update signing key"); SymOS verifies the signature and the image's SHA-256 before using
+  anything. Publishing is `scripts/publish-update.sh` in the (private) SymOS repo.
+
 ### Workers AI retired Qwen 3 30B (2026-11-20, Claude)
 - Cloudflare decommissioned a list of models on 2026-11-20 (e-mail "Model Decommissioning", changelog
   `2026-11-05-planned-model-deprecations`); `@cf/qwen/qwen3-30b-a3b-fp8` answers 404 since then. From 08:00 the status

@@ -89,6 +89,7 @@ HOSTS = [
     # chat videos are up to 60 MB (the app checks; Cloudflare allows 100 MB); /ai/* never gets here (a Worker route)
     (["calorieflow.chakkritton.com"], "apps-calorieflow", 3000, "client_max_body_size 70m;\n" + CALORIEFLOW_API),
     (["health.chakkritton.com"], "apps-health", 8789, ""),  # the status Worker's view inside the VPS
+    (["updates.chakkritton.com"], "symos-updates", 8080, ""),  # SymOS's signed update feed (static)
 ]
 
 HTTP_TOP_EXTRA = "limit_req_zone $binary_remote_addr zone=beacon:10m rate=60r/m;\n"
